@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/nrdump.c,v 1.1 2001/04/10 01:58:54 csmall Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/nrdump.c,v 1.2 2001/09/12 13:18:44 terry Exp $ */
 
 /* NET/ROM header tracing routines
  * Copyright 1991 Phil Karn, KA9Q
@@ -41,23 +41,26 @@ void netrom_dump(unsigned char *data, int length, int hexdump)
 		memcpy(tmp, data + 1, ALEN);
 		tmp[ALEN] = '\0';
 		lprintf(T_AXHDR, "NET/ROM Routing: %s\n", tmp);
-		
-		data   += (ALEN + 1);
+
+		data += (ALEN + 1);
 		length -= (ALEN + 1);
 
-		for(i = 0;i < NRDESTPERPACK;i++) {
-			if (length < AXLEN) break;
-			
-			lprintf(T_DATA,"        %12s", pax25(tmp, data));
+		for (i = 0; i < NRDESTPERPACK; i++) {
+			if (length < AXLEN)
+				break;
+
+			lprintf(T_DATA, "        %12s", pax25(tmp, data));
 
 			memcpy(tmp, data + AXLEN, ALEN);
 			tmp[ALEN] = '\0';
 			lprintf(T_DATA, "%8s", tmp);
 
-			lprintf(T_DATA, "    %12s", pax25(tmp, data + AXLEN + ALEN));
-			lprintf(T_DATA, "    %3u\n", data[AXLEN + ALEN + AXLEN]);
+			lprintf(T_DATA, "    %12s",
+				pax25(tmp, data + AXLEN + ALEN));
+			lprintf(T_DATA, "    %3u\n",
+				data[AXLEN + ALEN + AXLEN]);
 
-			data   += (AXLEN + ALEN + AXLEN + 1);
+			data += (AXLEN + ALEN + AXLEN + 1);
 			length -= (AXLEN + ALEN + AXLEN + 1);
 		}
 
@@ -76,63 +79,73 @@ void netrom_dump(unsigned char *data, int length, int hexdump)
 	lprintf(T_AXHDR, "NET/ROM: ");
 	lprintf(T_ADDR, "%s->", pax25(tmp, data));
 	lprintf(T_ADDR, "%s", pax25(tmp, data + AXLEN));
-	lprintf(T_AXHDR," ttl %d\n", data[AXLEN + AXLEN]);
+	lprintf(T_AXHDR, " ttl %d\n", data[AXLEN + AXLEN]);
 
-	data   += (AXLEN + AXLEN + 1);
+	data += (AXLEN + AXLEN + 1);
 	length -= (AXLEN + AXLEN + 1);
 
 	switch (data[4] & NR4OPCODE) {
-	case NR4OPPID:  /* network PID extension */
+	case NR4OPPID:		/* network PID extension */
 		if (data[0] == NRPROTO_IP && data[1] == NRPROTO_IP) {
 			ip_dump(data + 5, length - 5, hexdump);
 			return;
 		} else {
-			lprintf(T_AXHDR, "         protocol family %x, proto %x",
-						data[0], data[1]);
+			lprintf(T_AXHDR,
+				"         protocol family %x, proto %x",
+				data[0], data[1]);
 		}
 		break;
 
-	case NR4OPCONRQ:        /* Connect request */
-		lprintf(T_AXHDR, "         conn rqst: my ckt %02X/%02X", data[0], data[1]);
+	case NR4OPCONRQ:	/* Connect request */
+		lprintf(T_AXHDR, "         conn rqst: my ckt %02X/%02X",
+			data[0], data[1]);
 		lprintf(T_AXHDR, " wnd %d", data[5]);
 		lprintf(T_ADDR, " %s", pax25(tmp, data + 6));
 		lprintf(T_ADDR, "@%s", pax25(tmp, data + 6 + AXLEN));
-		data   += AXLEN + AXLEN + 6;
+		data += AXLEN + AXLEN + 6;
 		length -= AXLEN + AXLEN + 6;
 		if (length > 0)
-			lprintf(T_AXHDR, " timeout %d", data[1] * 256 + data[0]);
+			lprintf(T_AXHDR, " timeout %d",
+				data[1] * 256 + data[0]);
 		lprintf(T_AXHDR, "\n");
 		break;
 
-	case NR4OPCONAK:        /* Connect acknowledgement */
-		lprintf(T_AXHDR,"         conn ack: ur ckt %02X/%02X my ckt %02X/%02X", data[0], data[1], data[2], data[3]);
+	case NR4OPCONAK:	/* Connect acknowledgement */
+		lprintf(T_AXHDR,
+			"         conn ack: ur ckt %02X/%02X my ckt %02X/%02X",
+			data[0], data[1], data[2], data[3]);
 		lprintf(T_AXHDR, " wnd %d", data[5]);
 		netrom_flags(data[4]);
 		break;
 
-	case NR4OPDISRQ:        /* Disconnect request */
-		lprintf(T_AXHDR, "         disc: ur ckt %02X/%02X\n", data[0], data[1]);
+	case NR4OPDISRQ:	/* Disconnect request */
+		lprintf(T_AXHDR, "         disc: ur ckt %02X/%02X\n",
+			data[0], data[1]);
 		break;
 
-	case NR4OPDISAK:        /* Disconnect acknowledgement */
-		lprintf(T_AXHDR, "         disc ack: ur ckt %02X/%02X\n", data[0], data[1]);
+	case NR4OPDISAK:	/* Disconnect acknowledgement */
+		lprintf(T_AXHDR, "         disc ack: ur ckt %02X/%02X\n",
+			data[0], data[1]);
 		break;
 
-	case NR4OPINFO: /* Information (data) */
-		lprintf(T_AXHDR, "         info: ur ckt %02X/%02X", data[0], data[1]);
+	case NR4OPINFO:	/* Information (data) */
+		lprintf(T_AXHDR, "         info: ur ckt %02X/%02X",
+			data[0], data[1]);
 		lprintf(T_AXHDR, " txseq %d rxseq %d", data[2], data[3]);
 		netrom_flags(data[4]);
 		data_dump(data + 5, length - 5, hexdump);
 		break;
 
-	case NR4OPACK:  /* Information acknowledgement */
-		lprintf(T_AXHDR, "         info ack: ur ckt %02X/%02X", data[0], data[1]);
+	case NR4OPACK:		/* Information acknowledgement */
+		lprintf(T_AXHDR, "         info ack: ur ckt %02X/%02X",
+			data[0], data[1]);
 		lprintf(T_AXHDR, " rxseq %d", data[3]);
 		netrom_flags(data[4]);
 		break;
 
 	default:
-		lprintf(T_AXHDR, "         unknown transport type %d\n", data[4] & 0x0f) ;
+		lprintf(T_AXHDR, "         unknown transport type %d\n",
+			data[4] & 0x0f);
 		break;
 	}
 }
@@ -141,15 +154,13 @@ void netrom_dump(unsigned char *data, int length, int hexdump)
 static void netrom_flags(int flags)
 {
 	if (flags & NR4CHOKE)
-		lprintf(T_AXHDR," CHOKE");
+		lprintf(T_AXHDR, " CHOKE");
 
 	if (flags & NR4NAK)
-		lprintf(T_AXHDR," NAK");
+		lprintf(T_AXHDR, " NAK");
 
 	if (flags & NR4MORE)
-		lprintf(T_AXHDR," MORE");
+		lprintf(T_AXHDR, " MORE");
 
 	lprintf(T_AXHDR, "\n");
 }
-
-

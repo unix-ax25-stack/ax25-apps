@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/kissdump.c,v 1.1 2001/04/10 01:58:53 csmall Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/kissdump.c,v 1.2 2001/09/12 13:18:44 terry Exp $ */
 
 /* Tracing routines for KISS TNC
  * Copyright 1991 Phil Karn, KA9Q
@@ -13,7 +13,7 @@
 #define	PARAM_TXTAIL	4
 #define	PARAM_FULLDUP	5
 #define	PARAM_HW	6
-#define	PARAM_RETURN	15		/* Should be 255, but is ANDed with 0x0F */
+#define	PARAM_RETURN	15	/* Should be 255, but is ANDed with 0x0F */
 
 void ki_dump(unsigned char *data, int length, int hexdump)
 {
@@ -22,16 +22,14 @@ void ki_dump(unsigned char *data, int length, int hexdump)
 
 	type = data[0] & 0xf;
 
-	if (type == PARAM_DATA)
-	{
+	if (type == PARAM_DATA) {
 		ax25_dump(data + 1, length - 1, hexdump);
 		return;
 	}
-	
+
 	val = data[1];
-	
-	switch (type)
-	{
+
+	switch (type) {
 	case PARAM_TXDELAY:
 		lprintf(T_KISS, "TX Delay: %lu ms\n", val * 10L);
 		break;
@@ -45,7 +43,8 @@ void ki_dump(unsigned char *data, int length, int hexdump)
 		lprintf(T_KISS, "TX Tail time: %lu ms\n", val * 10L);
 		break;
 	case PARAM_FULLDUP:
-		lprintf(T_KISS, "Duplex: %s\n", val == 0 ? "Half" : "Full");
+		lprintf(T_KISS, "Duplex: %s\n",
+			val == 0 ? "Half" : "Full");
 		break;
 	case PARAM_HW:
 		lprintf(T_KISS, "Hardware %u\n", val);

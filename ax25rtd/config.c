@@ -1,4 +1,4 @@
-/* $Id: config.c,v 1.1 2001/04/10 01:58:40 csmall Exp $
+/* $Id: config.c,v 1.2 2001/09/12 13:18:43 terry Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -17,13 +17,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
- 
+
 #include <stdio.h>
-#include <stdlib.h> 
+#include <stdlib.h>
 #include <unistd.h>
-#include <fcntl.h> 
-#include <string.h> 
-#include <ctype.h> 
+#include <fcntl.h>
+#include <string.h>
+#include <ctype.h>
 #include <errno.h>
 #include <time.h>
 #include <sys/ioctl.h>
@@ -45,13 +45,13 @@
 
 #include "../pathnames.h"
 #include "ax25rtd.h"
- 
+
 ax25_address *asc2ax(char *call)
 {
 	static ax25_address callsign;
-	
-	ax25_aton_entry(call, (char *)&callsign);
-	
+
+	ax25_aton_entry(call, (char *) &callsign);
+
 	return &callsign;
 }
 
@@ -66,49 +66,46 @@ static long asc2ip(char *s)
 }
 
 
-char * prepare_cmdline(char *buf)
+char *prepare_cmdline(char *buf)
 {
 	char *p;
-	for (p = buf; *p; p++)
-	{
-		if (*p == '\t') *p = ' ';
+	for (p = buf; *p; p++) {
+		if (*p == '\t')
+			*p = ' ';
 		*p = tolower(*p);
-		
-		if (*p == '\n')
-		{
+
+		if (*p == '\n') {
 			*p = '\0';
 			break;
 		}
-		
-		if (*p == '#') 
-		{
+
+		if (*p == '#') {
 			*p = '\0';
 			break;
 		}
 	}
-	
+
 	return buf;
 }
 
-char * get_next_arg(char **p)
+char *get_next_arg(char **p)
 {
 	char *p2;
-	
+
 	if (p == NULL || *p == NULL)
 		return NULL;
 
 	p2 = *p;
-	for (; *p2 && *p2 == ' '; p2++) ;
+	for (; *p2 && *p2 == ' '; p2++);
 	if (!*p2)
 		return NULL;
-		
+
 	*p = strchr(p2, ' ');
-	if (*p != NULL)
-	{
+	if (*p != NULL) {
 		**p = '\0';
 		(*p)++;
 	}
-	
+
 	return p2;
 }
 
@@ -128,7 +125,7 @@ static int yesno(char *arg)
 		return 0;
 	if (!strcmp(arg, "yes") || !strcmp(arg, "1"))
 		return 1;
-	if (!strcmp(arg, "no")  || !strcmp(arg, "0"))
+	if (!strcmp(arg, "no") || !strcmp(arg, "0"))
 		return 0;
 	return -1;
 }
@@ -136,7 +133,7 @@ static int yesno(char *arg)
 static ax25_address *get_mycall(char *port)
 {
 	char *addr;
-	
+
 	if ((addr = ax25_config_get_addr(port)) == NULL)
 		return NULL;
 
@@ -149,36 +146,35 @@ void load_ports(void)
 	config *config, *cfg, *ncfg;
 	char buf[1024];
 	struct ifconf ifc;
-	struct ifreq  ifr, *ifrp;
+	struct ifreq ifr, *ifrp;
 	int k, fd;
 
-	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) 
-	{
+	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		fprintf(stderr, "Unable to open socket\n");
 		exit(1);
 	}
-	                                                        
-        ifc.ifc_len = sizeof(buf);
-        ifc.ifc_buf = buf;
-        if (ioctl(fd, SIOCGIFCONF, &ifc) < 0) 
-        {
-                fprintf(stderr, "SIOCGIFCONF: %s\n", strerror(errno));
-                return;
-        }
+
+	ifc.ifc_len = sizeof(buf);
+	ifc.ifc_buf = buf;
+	if (ioctl(fd, SIOCGIFCONF, &ifc) < 0) {
+		fprintf(stderr, "SIOCGIFCONF: %s\n", strerror(errno));
+		return;
+	}
 
 	ifrp = ifc.ifc_req;
-        for (k = ifc.ifc_len / sizeof(struct ifreq); k > 0; k--, ifrp++) 
-        {
-        	strcpy(ifr.ifr_name, ifrp->ifr_name);
-		if (strcmp(ifr.ifr_name, "lo") == 0) continue;
+	for (k = ifc.ifc_len / sizeof(struct ifreq); k > 0; k--, ifrp++) {
+		strcpy(ifr.ifr_name, ifrp->ifr_name);
+		if (strcmp(ifr.ifr_name, "lo") == 0)
+			continue;
 
-		if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) 
-		{
-			fprintf(stderr, "SIOCGIFFLAGS: %s\n", strerror(errno));
+		if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) {
+			fprintf(stderr, "SIOCGIFFLAGS: %s\n",
+				strerror(errno));
 			exit(1);
-                }
+		}
 
-		if (!(ifr.ifr_flags & IFF_UP)) continue;
+		if (!(ifr.ifr_flags & IFF_UP))
+			continue;
 
 		ioctl(fd, SIOCGIFHWADDR, &ifr);
 
@@ -186,14 +182,19 @@ void load_ports(void)
 			continue;
 
 		for (config = Config; config; config = config->next)
-			if (!memcmp(&config->mycalls[0], ifr.ifr_hwaddr.sa_data, AXLEN) && !*config->dev)
-			{
+			if (!memcmp
+			    (&config->mycalls[0], ifr.ifr_hwaddr.sa_data,
+			     AXLEN) && !*config->dev) {
 				strcpy(config->dev, ifr.ifr_name);
 				ioctl(fd, SIOCGIFADDR, &ifr);
-				config->ip = ((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr.s_addr;
+				config->ip =
+				    ((struct sockaddr_in *) &ifr.
+				     ifr_addr)->sin_addr.s_addr;
 				strcpy(ifr.ifr_name, config->dev);
 				ioctl(fd, SIOCGIFNETMASK, &ifr);
-				config->netmask = ((struct sockaddr_in *) &ifr.ifr_netmask)->sin_addr.s_addr;
+				config->netmask =
+				    ((struct sockaddr_in *) &ifr.
+				     ifr_netmask)->sin_addr.s_addr;
 				break;
 			}
 	}
@@ -201,12 +202,9 @@ void load_ports(void)
 
 	config = cfg = Config;
 
-	while(config)
-	{
-		if (!*config->dev)
-		{
-			if (config == Config)
-			{
+	while (config) {
+		if (!*config->dev) {
+			if (config == Config) {
 				Config = config->next;
 				cfg = Config;
 			} else
@@ -230,33 +228,39 @@ void load_listeners(void)
 	FILE *fp;
 	ax25_address *axcall;
 
-	
+
 	fp = fopen(PROC_AX25_FILE, "r");
-	
-	if (fp == NULL)
-	{
+
+	if (fp == NULL) {
 		fprintf(stderr, "No AX.25 in kernel. Tss, tss...\n");
 		exit(1);
 	}
-	
-	while (fgets(buf, sizeof(buf)-1, fp) != NULL)
-	{
+
+	while (fgets(buf, sizeof(buf) - 1, fp) != NULL) {
 		k = sscanf(buf, "%s %s %s %s", dummy, device, call, dcall);
-		if (k == 4 && !strcmp(dcall, "*"))
-		{
+		if (k == 4 && !strcmp(dcall, "*")) {
 			axcall = asc2ax(call);
 			if (!strcmp("*", device)) {
-				for (config = Config; config; config = config->next) {
-					if (call_is_mycall(config, axcall) || config->nmycalls > AX25_MAXCALLS)
+				for (config = Config; config;
+				     config = config->next) {
+					if (call_is_mycall(config, axcall)
+					    || config->nmycalls >
+					    AX25_MAXCALLS)
 						continue;
-					memcpy(&config->mycalls[config->nmycalls++], axcall, AXLEN);
+					memcpy(&config->
+					       mycalls[config->nmycalls++],
+					       axcall, AXLEN);
 				}
 			} else {
 				config = dev_get_config(device);
-				if (config == NULL || call_is_mycall(config, axcall) || config->nmycalls > AX25_MAXCALLS)
+				if (config == NULL
+				    || call_is_mycall(config, axcall)
+				    || config->nmycalls > AX25_MAXCALLS)
 					continue;
 
-				memcpy(&config->mycalls[config->nmycalls++], axcall, AXLEN);
+				memcpy(&config->
+				       mycalls[config->nmycalls++], axcall,
+				       AXLEN);
 			}
 		}
 	}
@@ -269,19 +273,18 @@ void load_config()
 	char buf[1024], *p, *cmd, *arg;
 	config *config, *cfg;
 	ax25_address *axcall;
-	
+
 	config = NULL;
-	
+
 	fp = fopen(CONF_AX25ROUTED_FILE, "r");
-	
-	if (fp == NULL)
-	{
-		fprintf(stderr, "config file %s not found\n", CONF_AX25ROUTED_FILE);
+
+	if (fp == NULL) {
+		fprintf(stderr, "config file %s not found\n",
+			CONF_AX25ROUTED_FILE);
 		exit(1);
 	}
-	
-	while(fgets(buf, sizeof(buf)-1, fp) != NULL)
-	{
+
+	while (fgets(buf, sizeof(buf) - 1, fp) != NULL) {
 		p = prepare_cmdline(buf);
 		if (!*p)
 			continue;
@@ -290,50 +293,46 @@ void load_config()
 		if (cmd == NULL)
 			continue;
 		arg = get_next_arg(&p);
-		
-		if (*cmd == '[')
-		{
+
+		if (*cmd == '[') {
 			cmd++;
 			p = strrchr(cmd, ']');
-			if (p == NULL)
-			{
-				fprintf(stderr, "syntax error: [%s\n", cmd);
+			if (p == NULL) {
+				fprintf(stderr, "syntax error: [%s\n",
+					cmd);
 				continue;
 			}
 			*p = '\0';
-			
+
 			axcall = get_mycall(cmd);
 			if (axcall == NULL)
 				continue;
-			
-			cfg = (struct config_ *) malloc(sizeof(struct config_));
-			if (cfg == NULL)
-			{
+
+			cfg =
+			    (struct config_ *)
+			    malloc(sizeof(struct config_));
+			if (cfg == NULL) {
 				fprintf(stderr, "out of memory\n");
 				exit(1);
 			}
 			memset(cfg, 0, sizeof(struct config_));
-			
+
 			if (config)
 				config->next = cfg;
 			else
 				Config = cfg;
-				
+
 			cfg->next = NULL;
 			config = cfg;
 			strcpy(config->port, cmd);
 			memcpy(&config->mycalls[0], axcall, AXLEN);
 			config->nmycalls = 1;
-		} else
-		if (config && !strcmp(cmd, "ax25-learn-routes"))
-		{	
-		/* ax25-learn-routes no|yes: learn digipeater path */
-			if (arg)
-			{
+		} else if (config && !strcmp(cmd, "ax25-learn-routes")) {
+			/* ax25-learn-routes no|yes: learn digipeater path */
+			if (arg) {
 				int k = yesno(arg);
 
-				if (k == -1)
-				{
+				if (k == -1) {
 					invalid_arg(cmd, arg);
 					continue;
 				} else {
@@ -341,16 +340,12 @@ void load_config()
 				}
 			} else
 				missing_arg(cmd);
-		} else
-		if (config && !strcmp(cmd, "ax25-learn-only-mine"))
-		{	
-		/* ax25-learn-only-mine no|yes: learn only if addressed to me */
-			if (arg)
-			{
+		} else if (config && !strcmp(cmd, "ax25-learn-only-mine")) {
+			/* ax25-learn-only-mine no|yes: learn only if addressed to me */
+			if (arg) {
 				int k = yesno(arg);
 
-				if (k == -1)
-				{
+				if (k == -1) {
 					invalid_arg(cmd, arg);
 					continue;
 				} else {
@@ -358,50 +353,46 @@ void load_config()
 				}
 			} else
 				missing_arg(cmd);
-		} else
-		if (config && !strcmp(cmd, "ax25-add-path"))
-		{	
-		/* ax25-add-path [no|<digis>]: add digis if digi-less frame rvd */
+		} else if (config && !strcmp(cmd, "ax25-add-path")) {
+			/* ax25-add-path [no|<digis>]: add digis if digi-less frame rvd */
 			int k = 0;
 			if (!arg || (arg && yesno(arg) == 0))
 				continue;
 
 			config->ax25_add_default = 1;
-			while (arg && k < AX25_MAX_DIGIS)
-			{
-				memcpy(&config->ax25_default_path.fsa_digipeater[k], asc2ax(arg), AXLEN);
+			while (arg && k < AX25_MAX_DIGIS) {
+				memcpy(&config->ax25_default_path.
+				       fsa_digipeater[k], asc2ax(arg),
+				       AXLEN);
 				arg = get_next_arg(&p);
 				k++;
 			}
-			config->ax25_default_path.fsa_ax25.sax25_ndigis = k;
-		} else
-		if (config && !strcmp(cmd, "ax25-more-mycalls"))
-		{
-		/* ax25-more-mycalls call1 call2: frames to this calls are for "me", too. */
-			if (arg)
-			{
-				while(arg && config->nmycalls < AX25_MAXCALLS)
-				{
+			config->ax25_default_path.fsa_ax25.sax25_ndigis =
+			    k;
+		} else if (config && !strcmp(cmd, "ax25-more-mycalls")) {
+			/* ax25-more-mycalls call1 call2: frames to this calls are for "me", too. */
+			if (arg) {
+				while (arg
+				       && config->nmycalls <
+				       AX25_MAXCALLS) {
 					axcall = asc2ax(arg);
 					if (call_is_mycall(config, axcall)) {
 						arg = get_next_arg(&p);
 						continue;
 					}
-					memcpy(&config->mycalls[config->nmycalls++], axcall, AXLEN);
+					memcpy(&config->
+					       mycalls[config->nmycalls++],
+					       axcall, AXLEN);
 					arg = get_next_arg(&p);
 				}
 			} else
 				missing_arg(cmd);
-		} else
-		if (config && !strcmp(cmd, "ip-learn-routes"))
-		{
-		/* ip-learn-routes no|yes: learn ip routes */
-			if (arg)
-			{
+		} else if (config && !strcmp(cmd, "ip-learn-routes")) {
+			/* ip-learn-routes no|yes: learn ip routes */
+			if (arg) {
 				int k = yesno(arg);
-				
-				if (k == -1)
-				{
+
+				if (k == -1) {
 					invalid_arg(cmd, arg);
 					continue;
 				} else {
@@ -409,16 +400,12 @@ void load_config()
 				}
 			} else
 				missing_arg(cmd);
-		} else
-		if (config && !strcmp(cmd, "irtt"))
-		{
-		/* irtt <irtt>: new routes will get this IRTT in msec */
-			if (arg)
-			{
+		} else if (config && !strcmp(cmd, "irtt")) {
+			/* irtt <irtt>: new routes will get this IRTT in msec */
+			if (arg) {
 				int k = atoi(arg);
-                                
-				if (k == 0)
-				{
+
+				if (k == 0) {
 					invalid_arg(cmd, arg);
 					continue;
 				} else {
@@ -426,16 +413,12 @@ void load_config()
 				}
 			} else
 				missing_arg(cmd);
-		} else
-		if (config && !strcmp(cmd, "dg-mtu"))
-		{
-		/* dg-mtu <mtu>: MTU for datagram mode routes (unused) */
-			if (arg)
-			{
+		} else if (config && !strcmp(cmd, "dg-mtu")) {
+			/* dg-mtu <mtu>: MTU for datagram mode routes (unused) */
+			if (arg) {
 				int k = atoi(arg);
-                                
-				if (k == 0)
-				{
+
+				if (k == 0) {
 					invalid_arg(cmd, arg);
 					continue;
 				} else {
@@ -443,33 +426,25 @@ void load_config()
 				}
 			} else
 				missing_arg(cmd);
-		} else
-			if (config && !strcmp(cmd, "vc-mtu"))
-			{
+		} else if (config && !strcmp(cmd, "vc-mtu")) {
 			/* vc-mtu <mtu>: MTU for virtual connect mode routes (unused) */
-				if (arg)
-				{
-					int k = atoi(arg);
+			if (arg) {
+				int k = atoi(arg);
 
-					if (k == 0)
-					{
-						invalid_arg(cmd, arg);
-						continue;
-					} else {
-						config->vc_mtu = k;
+				if (k == 0) {
+					invalid_arg(cmd, arg);
+					continue;
+				} else {
+					config->vc_mtu = k;
 				}
 			} else
 				missing_arg(cmd);
-		} else
-		if (config && !strcmp(cmd, "ip-adjust-mode"))
-		{
-		/* ip-adjust-mode no|yes: adjust ip-mode? (dg or vc) */
-			if (arg)
-			{
+		} else if (config && !strcmp(cmd, "ip-adjust-mode")) {
+			/* ip-adjust-mode no|yes: adjust ip-mode? (dg or vc) */
+			if (arg) {
 				int k = yesno(arg);
-			
-				if (k == -1)
-				{
+
+				if (k == -1) {
 					invalid_arg(cmd, arg);
 					continue;
 				} else {
@@ -477,16 +452,12 @@ void load_config()
 				}
 			} else
 				missing_arg(cmd);
-		} else
-		if (config && !strcmp(cmd, "arp-add"))
-		{
-		/* arp-add no|yes: adjust arp table? */
-			if (arg)
-			{
+		} else if (config && !strcmp(cmd, "arp-add")) {
+			/* arp-add no|yes: adjust arp table? */
+			if (arg) {
 				int k = yesno(arg);
-				
-				if (k == -1)
-				{
+
+				if (k == -1) {
 					invalid_arg(cmd, arg);
 					continue;
 				} else {
@@ -494,44 +465,38 @@ void load_config()
 				}
 			} else
 				missing_arg(cmd);
-		} else
-		if (!strcmp(cmd, "ip-encaps-dev")) {
+		} else if (!strcmp(cmd, "ip-encaps-dev")) {
 			if (arg)
 				strcpy(ip_encaps_dev, arg);
 			else
 				missing_arg(cmd);
-		} else
-		if (!strcmp(cmd, "ax25-maxroutes"))
-		{
+		} else if (!strcmp(cmd, "ax25-maxroutes")) {
 			if (arg)
 				ax25_maxroutes = atoi(arg);
 			else
 				missing_arg(cmd);
-		} else
-		if (!strcmp(cmd, "ip-maxroutes"))
-		{
+		} else if (!strcmp(cmd, "ip-maxroutes")) {
 			if (arg)
 				ax25_maxroutes = atoi(arg);
 			else
 				missing_arg(cmd);
-				
+
 		} else
 			fprintf(stderr, "invalid command %s\n", cmd);
 	}
 	fclose(fp);
-	
+
 	load_ports();
 	load_listeners();
-	
+
 	reload = 0;
 }
 
 void reload_config(void)
 {
 	config *cfg, *config = Config;
-	
-	while(config)
-	{
+
+	while (config) {
 		cfg = config->next;
 		free(config);
 		config = cfg;
@@ -584,65 +549,68 @@ void interpret_command(int fd, unsigned char *buf)
 	long ip;
 
 	p = prepare_cmdline(buf);
-	
-	if (!*p) return;
-		
+
+	if (!*p)
+		return;
+
 	cmd = get_next_arg(&p);
 	arg = get_next_arg(&p);
-	
-	if (!strcmp(cmd, "add"))
-	{
+
+	if (!strcmp(cmd, "add")) {
 		if (arg == NULL)
 			return;
 		if ((arg2 = get_next_arg(&p)) == NULL)
 			return;
-		if ( (dev = get_next_arg(&p)) == NULL)
+		if ((dev = get_next_arg(&p)) == NULL)
 			return;
-		if ( (time = get_next_arg(&p)) == NULL)
+		if ((time = get_next_arg(&p)) == NULL)
 			return;
-		if ( (config = dev_get_config(dev)) == NULL) 
+		if ((config = dev_get_config(dev)) == NULL)
 			return;
 
 		sscanf(time, "%lx", &stamp);
 
-		if (!strcmp(arg, "ax25"))
-		{
+		if (!strcmp(arg, "ax25")) {
 			ndigi = 0;
 			arg = get_next_arg(&p);
 
-			while (arg != NULL)
-			{
-				memcpy(&digipeater[ndigi++], asc2ax(arg), AXLEN);
+			while (arg != NULL) {
+				memcpy(&digipeater[ndigi++], asc2ax(arg),
+				       AXLEN);
 				if (ndigi == AX25_MAX_DIGIS)
 					break;
 				arg = get_next_arg(&p);
 			}
 
-			ax25rt = update_ax25_route(config, asc2ax(arg2), ndigi, digipeater, stamp);
+			ax25rt =
+			    update_ax25_route(config, asc2ax(arg2), ndigi,
+					      digipeater, stamp);
 			if (ax25rt != NULL)
 				set_ax25_route(config, ax25rt);
-		} else
-		if (!strcmp(arg, "ip"))
-		{
+		} else if (!strcmp(arg, "ip")) {
 			ip = asc2ip(arg2);
-			
+
 			if ((arg2 = get_next_arg(&p)) == NULL)
 				return;
 
 			if ((arg = get_next_arg(&p)) == NULL)
 				return;
-			
+
 			if (*arg == 'x')
 				return;
-				
+
 			ipmode = (*arg == 'v');
 
-			if ((config = dev_get_config(ip_encaps_dev)) == NULL) {
-				printf("no config for %s\n", ip_encaps_dev);
+			if ((config =
+			     dev_get_config(ip_encaps_dev)) == NULL) {
+				printf("no config for %s\n",
+				       ip_encaps_dev);
 				return;
 			}
 
-			action = update_ip_route(config, ip, ipmode, asc2ax(arg2), stamp);
+			action =
+			    update_ip_route(config, ip, ipmode,
+					    asc2ax(arg2), stamp);
 
 			if (action & NEW_ROUTE)
 				if (set_route(config, ip))
@@ -651,68 +619,57 @@ void interpret_command(int fd, unsigned char *buf)
 			if (action & NEW_ARP)
 				if (set_arp(config, ip, asc2ax(arg2)))
 					return;
-					
+
 			if (action & NEW_IPMODE)
-				if (set_ipmode(config, asc2ax(arg2), ipmode))
+				if (set_ipmode
+				    (config, asc2ax(arg2), ipmode))
 					return;
 		}
-	} else if (!strcmp(cmd, "del"))
-	{
+	} else if (!strcmp(cmd, "del")) {
 		if (arg == NULL)
 			return;
 		arg2 = get_next_arg(&p);
 		if (arg2 == NULL)
 			return;
-		
-		if (!strcmp(arg, "ax25"))
-		{
+
+		if (!strcmp(arg, "ax25")) {
 			arg = get_next_arg(&p);
-			if (arg == NULL || (config = dev_get_config(arg)) == NULL)
+			if (arg == NULL
+			    || (config = dev_get_config(arg)) == NULL)
 				return;
 			del_ax25_route(config, asc2ax(arg2));
-		} else 
-		if (!strcmp(arg, "ip"))
-		{
+		} else if (!strcmp(arg, "ip")) {
 			del_ip_route(asc2ip(arg2));
 		}
-	} else if (!strcmp(cmd, "expire"))
-	{
+	} else if (!strcmp(cmd, "expire")) {
 		if (arg == NULL)
 			return;
 		sscanf(arg, "%ld", &stamp);
-		if (stamp != 0)
-		{
-			stamp*=60;
+		if (stamp != 0) {
+			stamp *= 60;
 			expire_ax25_route(stamp);
 			expire_ip_route(stamp);
 		}
-	} else if (!strcmp(cmd, "reload"))
-	{
+	} else if (!strcmp(cmd, "reload")) {
 		reload_config();
-	} else if (!strcmp(cmd, "list"))
-	{
+	} else if (!strcmp(cmd, "list")) {
 		if (arg == NULL)
 			return;
-		
+
 		if (!strcmp(arg, "ax25"))
 			dump_ax25_routes(fd, 0);
-		else
-		if (!strcmp(arg, "ip"))
+		else if (!strcmp(arg, "ip"))
 			dump_ip_routes(fd, 0);
-	} else if (!strcmp(cmd, "shutdown"))
-	{
+	} else if (!strcmp(cmd, "shutdown")) {
 		save_cache();
 		daemon_shutdown(0);
-	} else if (!strcmp(cmd, "save"))
-	{
+	} else if (!strcmp(cmd, "save")) {
 		save_cache();
-	} else if (!strcmp(cmd, "version"))
-	{
+	} else if (!strcmp(cmd, "version")) {
 		char buf[256];
 		sprintf(buf, "%s\n", Version);
 		write(fd, buf, strlen(buf));
-	} else if (!strcmp(cmd, "quit"))
-	{
+	} else if (!strcmp(cmd, "quit")) {
 		close(fd);
 	}
 }
@@ -721,28 +678,28 @@ void load_cache(void)
 {
 	FILE *fp;
 	char buf[512];
-	
+
 	fp = fopen(DATA_AX25ROUTED_AXRT_FILE, "r");
-	if (fp != NULL)
-	{
-		while(fgets(buf, sizeof(buf), fp) != NULL)
+	if (fp != NULL) {
+		while (fgets(buf, sizeof(buf), fp) != NULL)
 			interpret_command(2, buf);
 		fclose(fp);
-	} else perror("open AX.25 route cache file");
-	
+	} else
+		perror("open AX.25 route cache file");
+
 	fp = fopen(DATA_AX25ROUTED_IPRT_FILE, "r");
-	if (fp != NULL)
-	{
-		while(fgets(buf, sizeof(buf), fp) != NULL)
+	if (fp != NULL) {
+		while (fgets(buf, sizeof(buf), fp) != NULL)
 			interpret_command(2, buf);
 		fclose(fp);
-	} else perror("open IP route cache file");
+	} else
+		perror("open IP route cache file");
 }
 
 void save_cache(void)
 {
 	int fd;
-	
+
 	fd = creat(DATA_AX25ROUTED_AXRT_FILE, 0664);
 	dump_ax25_routes(fd, 1);
 	close(fd);

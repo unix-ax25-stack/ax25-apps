@@ -1,4 +1,4 @@
-/* $Id: cache_ctl.c,v 1.1 2001/04/10 01:58:39 csmall Exp $
+/* $Id: cache_ctl.c,v 1.2 2001/09/12 13:18:43 terry Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -18,7 +18,7 @@
  *
  */
 
-#include <stdlib.h> 
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <sys/socket.h>
@@ -37,75 +37,69 @@
 
 /* (later: haven't I seen this statement elsewere? hmm...) */
 
-int update_ip_route(config *config, unsigned long ip, int ipmode, ax25_address *call, time_t timestamp)
+int update_ip_route(config * config, unsigned long ip, int ipmode,
+		    ax25_address * call, time_t timestamp)
 {
 	ip_rt_entry *bp = ip_routes;
 	ip_rt_entry *bp_prev = ip_routes;
 	char *iface;
 	int action = 0;
-	
+
 	if (((ip ^ config->ip) & config->netmask) != 0)
 		return 0;
-		
+
 	iface = config->dev;
-		
-	while (bp)
-	{
-		if (bp->ip == ip)
-		{
+
+	while (bp) {
+		if (bp->ip == ip) {
 			if (bp->timestamp == 0 && timestamp != 0)
 				return 0;
 
-			if (strcmp(bp->iface, iface))
-			{
+			if (strcmp(bp->iface, iface)) {
 				action |= NEW_ROUTE;
 				strcpy(bp->iface, iface);
 			}
-			
-			if (memcmp(&bp->call, call, AXLEN))
-			{
+
+			if (memcmp(&bp->call, call, AXLEN)) {
 				action |= NEW_ARP;
 				memcpy(&bp->call, call, AXLEN);
-			} 
+			}
 
-			if (ipmode != bp->ipmode)
-			{
+			if (ipmode != bp->ipmode) {
 				action |= NEW_IPMODE;
 				bp->ipmode = ipmode;
 			}
-			
+
 			bp->timestamp = timestamp;
 
-			if (bp != ip_routes)
-			{
+			if (bp != ip_routes) {
 				if (bp->next)
 					bp->next->prev = bp->prev;
 				if (bp->prev)
 					bp->prev->next = bp->next;
 
-				bp->next    = ip_routes;
-				bp->prev    = NULL;
+				bp->next = ip_routes;
+				bp->prev = NULL;
 				ip_routes->prev = bp;
-				ip_routes   = bp;
+				ip_routes = bp;
 			}
-			
+
 			return action;
 		}
 
 		bp_prev = bp;
 		bp = bp->next;
 	}
-	
-	if (ip_routes_cnt >= ip_maxroutes)
-	{
+
+	if (ip_routes_cnt >= ip_maxroutes) {
 		if (bp_prev == NULL)	/* error */
 			return 0;
-			
+
 		bp_prev->prev->next = NULL;
 		free(bp_prev);
 		ip_routes_cnt--;
 	}
-	
+
 	bp = (ip_rt_entry *) malloc(sizeof(ip_rt_entry));
 	if (bp == NULL)
 		return 0;
@@ -118,67 +112,67 @@ int update_ip_route(config *config, unsigned long ip, int ipmode, ax25_address *
 
 	bp->timestamp = timestamp;
 	strcpy(bp->iface, iface);
-	memcpy(&bp->call,  call, AXLEN);
+	memcpy(&bp->call, call, AXLEN);
 
-	if (ip_routes == NULL)
-	{
+	if (ip_routes == NULL) {
 		ip_routes = bp;
 		bp->next = bp->prev = NULL;
 		return action;
 	}
-	
-	bp->next    = ip_routes;
-	bp->prev    = NULL;
+
+	bp->next = ip_routes;
+	bp->prev = NULL;
 	ip_routes->prev = bp;
-	ip_routes   = bp;
+	ip_routes = bp;
 
 	return action;
 }
 
 
-ax25_rt_entry *update_ax25_route(config *config, ax25_address *call, int ndigi, ax25_address *digi, time_t timestamp)
+ax25_rt_entry *update_ax25_route(config * config, ax25_address * call,
+				 int ndigi, ax25_address * digi,
+				 time_t timestamp)
 {
 	ax25_rt_entry *bp = ax25_routes;
 	ax25_rt_entry *bp_prev = ax25_routes;
 	unsigned char *iface = config->dev;
 	int action = 0;
-	
-	while (bp)
-	{
-		if (!memcmp(call, &bp->call, AXLEN) )
-		{
+
+	while (bp) {
+		if (!memcmp(call, &bp->call, AXLEN)) {
 			if (bp->timestamp == 0 && timestamp != 0)
 				return NULL;
 
-            		if (strcmp(bp->iface, iface))
-			{
-                   		del_kernel_ax25_route(bp->iface, &bp->call);
-                   		action |= NEW_ROUTE;
-			       	strcpy(bp->iface, iface);
-            		}
-            
-			if (ndigi != bp->ndigi || memcmp(bp->digipeater, digi, bp->ndigi*AXLEN))
-			{
+			if (strcmp(bp->iface, iface)) {
+				del_kernel_ax25_route(bp->iface,
+						      &bp->call);
 				action |= NEW_ROUTE;
-				memcpy(bp->digipeater, digi, ndigi*AXLEN);
+				strcpy(bp->iface, iface);
+			}
+
+			if (ndigi != bp->ndigi
+			    || memcmp(bp->digipeater, digi,
+				      bp->ndigi * AXLEN)) {
+				action |= NEW_ROUTE;
+				memcpy(bp->digipeater, digi,
+				       ndigi * AXLEN);
 				bp->ndigi = ndigi;
 			}
-					
+
 			bp->timestamp = timestamp;
 
-			if (bp != ax25_routes)
-			{
+			if (bp != ax25_routes) {
 				if (bp->next)
 					bp->next->prev = bp->prev;
 				if (bp->prev)
 					bp->prev->next = bp->next;
-					
-				bp->next    = ax25_routes;
-				bp->prev    = NULL;
+
+				bp->next = ax25_routes;
+				bp->prev = NULL;
 				ax25_routes->prev = bp;
 				ax25_routes = bp;
 			}
-			
+
 			if (action)
 				return bp;
 			else
@@ -188,17 +182,16 @@ ax25_rt_entry *update_ax25_route(config *config, ax25_address *call, int ndigi, 
 		bp_prev = bp;
 		bp = bp->next;
 	}
-	
-	if (ax25_routes_cnt >= ax25_maxroutes)
-	{
+
+	if (ax25_routes_cnt >= ax25_maxroutes) {
 		if (bp_prev == NULL)	/* error */
 			return NULL;
-			
+
 		bp_prev->prev->next = NULL;
 		free(bp_prev);
 		ax25_routes_cnt--;
 	}
-	
+
 	bp = (ax25_rt_entry *) malloc(sizeof(ax25_rt_entry));
 	if (bp == NULL)
 		return NULL;
@@ -210,33 +203,32 @@ ax25_rt_entry *update_ax25_route(config *config, ax25_address *call, int ndigi, 
 	bp->call = *call;
 
 	if (ndigi)
-		memcpy(bp->digipeater, digi, ndigi*AXLEN);
+		memcpy(bp->digipeater, digi, ndigi * AXLEN);
 
 	bp->ndigi = ndigi;
 
-	if (ax25_routes == NULL)
-	{
+	if (ax25_routes == NULL) {
 		ax25_routes = bp;
 		bp->next = bp->prev = NULL;
 		return bp;
 	}
-	
-	bp->next    = ax25_routes;
-	bp->prev    = NULL;
+
+	bp->next = ax25_routes;
+	bp->prev = NULL;
 	ax25_routes->prev = bp;
 	ax25_routes = bp;
 
 	return bp;
 }
 
-ip_rt_entry * remove_ip_route(ip_rt_entry *bp)
+ip_rt_entry *remove_ip_route(ip_rt_entry * bp)
 {
 	ip_rt_entry *bp2;
-	
+
 	bp2 = bp->next;
 	if (bp2)
 		bp2->prev = bp->prev;
-	if (bp->prev) 
+	if (bp->prev)
 		bp->prev->next = bp2;
 	if (bp == ip_routes)
 		ip_routes = bp2;
@@ -248,7 +240,7 @@ ip_rt_entry * remove_ip_route(ip_rt_entry *bp)
 	return bp2;
 }
 
-ax25_rt_entry * remove_ax25_route(ax25_rt_entry *bp)
+ax25_rt_entry *remove_ax25_route(ax25_rt_entry * bp)
 {
 	ax25_rt_entry *bp2;
 	ip_rt_entry *iprt;
@@ -260,7 +252,7 @@ ax25_rt_entry * remove_ax25_route(ax25_rt_entry *bp)
 		bp->prev->next = bp2;
 	if (bp == ax25_routes)
 		ax25_routes = bp2;
-		
+
 	for (iprt = ip_routes; iprt; iprt = iprt->next)
 		if (!memcmp(&iprt->call, &bp->call, AXLEN))
 			remove_ip_route(iprt);
@@ -275,17 +267,16 @@ ax25_rt_entry * remove_ax25_route(ax25_rt_entry *bp)
 int del_ip_route(unsigned long ip)
 {
 	ip_rt_entry *bp;
-	
+
 	if (ip == 0)
 		return 1;
 
-	for (bp=ip_routes; bp; bp = bp->next)
-		if (bp->ip == ip)
-		{
+	for (bp = ip_routes; bp; bp = bp->next)
+		if (bp->ip == ip) {
 			remove_ip_route(bp);
 			return 0;
 		}
-	
+
 	return 1;
 }
 
@@ -293,27 +284,26 @@ int invalidate_ip_route(unsigned long ip)
 {
 	ip_rt_entry *bp;
 
-	for (bp=ip_routes; bp; bp = bp->next)
-		if (bp->ip == ip)
-		{
+	for (bp = ip_routes; bp; bp = bp->next)
+		if (bp->ip == ip) {
 			bp->invalid = 1;
 			return 1;
 		}
-	
+
 	return 0;
 }
 
-int del_ax25_route(config * config, ax25_address *call)
+int del_ax25_route(config * config, ax25_address * call)
 {
 	ax25_rt_entry *bp;
-	
-	for (bp=ax25_routes; bp; bp = bp->next)
-		if (!memcmp(call, &bp->call, AXLEN) && !strcmp(config->dev, bp->iface))
-		{
+
+	for (bp = ax25_routes; bp; bp = bp->next)
+		if (!memcmp(call, &bp->call, AXLEN)
+		    && !strcmp(config->dev, bp->iface)) {
 			remove_ax25_route(bp);
 			return 0;
 		}
-	
+
 	return 1;
 }
 
@@ -322,9 +312,9 @@ void expire_ax25_route(time_t when)
 {
 	ax25_rt_entry *bp;
 	time_t now = time(NULL);
-	
-	for (bp = ax25_routes; bp; )
-		if (bp->timestamp != 0 && bp->timestamp+when <= now)
+
+	for (bp = ax25_routes; bp;)
+		if (bp->timestamp != 0 && bp->timestamp + when <= now)
 			bp = remove_ax25_route(bp);
 		else
 			bp = bp->next;
@@ -334,9 +324,9 @@ void expire_ip_route(time_t when)
 {
 	ip_rt_entry *bp;
 	time_t now = time(NULL);
-	
-	for (bp = ip_routes; bp; )
-		if (bp->timestamp != 0 && bp->timestamp+when <= now) 
+
+	for (bp = ip_routes; bp;)
+		if (bp->timestamp != 0 && bp->timestamp + when <= now)
 			bp = remove_ip_route(bp);
 		else
 			bp = bp->next;

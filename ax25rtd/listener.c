@@ -1,4 +1,4 @@
-/* $Id: listener.c,v 1.1 2001/04/10 01:58:42 csmall Exp $
+/* $Id: listener.c,v 1.2 2001/09/12 13:18:43 terry Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -17,14 +17,14 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
- 
+
  /* TODO: Should add partial path to ax25_route if we are one of the
   *       digipeaters.
   */
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h> 
+#include <unistd.h>
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -49,29 +49,29 @@ static unsigned long get_from_arp(unsigned char *data, int size)
 {
 	if (size < 16)
 		return 0;
-	
+
 	return ntohl(0);
 }
 
 static unsigned long get_from_ip(unsigned char *data, int size)
 {
 	unsigned long adr;
-	
-	if ((*data & 0xf)*4 < IPLEN)
+
+	if ((*data & 0xf) * 4 < IPLEN)
 		return 0;
 
-	adr  = data[12] << 24;	/* NETWORK byte order */
+	adr = data[12] << 24;	/* NETWORK byte order */
 	adr += data[13] << 16;
-	adr += data[14] <<  8;
+	adr += data[14] << 8;
 	adr += data[15];
 
 	return ntohl(adr);	/* HOST byte order */
 }
 
-int call_is_mycall(config *config, ax25_address *call)
+int call_is_mycall(config * config, ax25_address * call)
 {
 	int k;
-	
+
 	for (k = 0; k < config->nmycalls; k++)
 		if (!memcmp(call, &config->mycalls[k], AXLEN))
 			return 1;
@@ -84,30 +84,32 @@ int call_is_mycall(config *config, ax25_address *call)
 
 static int check_ax25_addr(unsigned char *buf)
 {
-        int k;
-        unsigned char c;
+	int k;
+	unsigned char c;
 
-        /* must start with at least one capital letter or digit */
-        for (k=0; k < 6; k++) {
-                c = buf[k] >> 1;
-                if (c == ' ') break;
-                if ((c < 'A' || c > 'Z') && (c < '0' || c > '9'))
-                        return 1;
-        }
+	/* must start with at least one capital letter or digit */
+	for (k = 0; k < 6; k++) {
+		c = buf[k] >> 1;
+		if (c == ' ')
+			break;
+		if ((c < 'A' || c > 'Z') && (c < '0' || c > '9'))
+			return 1;
+	}
 
-        /* NULL address is invalid */
-        if (k == 0)
-                return 1;
+	/* NULL address is invalid */
+	if (k == 0)
+		return 1;
 
-        /* remaining fields must consist of spaces only */
-        for (k++; k < 6; k++)
-                if (buf[k] >> 1 != ' ')
-                        return 1;
+	/* remaining fields must consist of spaces only */
+	for (k++; k < 6; k++)
+		if (buf[k] >> 1 != ' ')
+			return 1;
 
-        return 0;
+	return 0;
 }
 
-static inline void invert_digipeater_path(ax25_address *digipeater, int ndigi)
+static inline void invert_digipeater_path(ax25_address * digipeater,
+					  int ndigi)
 {
 	int k, m;
 	ax25_address fdigi;
@@ -115,43 +117,42 @@ static inline void invert_digipeater_path(ax25_address *digipeater, int ndigi)
 	if (ndigi == 0)
 		return;
 
-	for (m = 0,k = ndigi-1; k > m; k--, m++) {
+	for (m = 0, k = ndigi - 1; k > m; k--, m++) {
 		memcpy(&fdigi, &digipeater[m], AXLEN);
 		memcpy(&digipeater[m], &digipeater[k], AXLEN);
 		memcpy(&digipeater[k], &fdigi, AXLEN);
 	}
 }
 
-int set_arp(config *config, long ip, ax25_address *call)
+int set_arp(config * config, long ip, ax25_address * call)
 {
-	struct sockaddr_in   *isa;
+	struct sockaddr_in *isa;
 	struct sockaddr_ax25 *asa;
 	struct arpreq arp;
-	int    fds;
-	
+	int fds;
+
 	if (!config->ip_add_arp)
 		return 0;
-	
+
 	fds = socket(AF_INET, SOCK_DGRAM, 0);
 
 	memset((char *) &arp, 0, sizeof(arp));
 
-	isa = (struct sockaddr_in   *) &arp.arp_pa;
+	isa = (struct sockaddr_in *) &arp.arp_pa;
 	asa = (struct sockaddr_ax25 *) &arp.arp_ha;
-	
+
 	isa->sin_family = AF_INET;
 	isa->sin_port = 0;
 	isa->sin_addr.s_addr = ip;
 
 	asa->sax25_family = AF_AX25;
 	asa->sax25_ndigis = 0;
-	asa->sax25_call   = *call;
+	asa->sax25_call = *call;
 
 	arp.arp_flags = ATF_PERM | ATF_COM;
 	strcpy(arp.arp_dev, config->dev);
-	
-	if (ioctl(fds, SIOCSARP, &arp) < 0)
-	{
+
+	if (ioctl(fds, SIOCSARP, &arp) < 0) {
 		invalidate_ip_route(ip);
 		perror("routspy: SIOCSARP");
 		close(fds);
@@ -161,42 +162,37 @@ int set_arp(config *config, long ip, ax25_address *call)
 	return 0;
 }
 
-int set_route(config *config, long ip)
+int set_route(config * config, long ip)
 {
 	struct rtentry rt;
 	struct sockaddr_in *isa;
-	char   origdev[16], buf[1024];
+	char origdev[16], buf[1024];
 /* modif f5lct */
-	long  gwr;
+	long gwr;
 /* fin modif f5lct */
 	long ipr;
 	int fds;
 	FILE *fp;
-	
+
 	fp = fopen(PROC_IP_ROUTE_FILE, "r");
-	if (fp == NULL)
-	{
+	if (fp == NULL) {
 		invalidate_ip_route(ip);
 		return 1;
 	}
 
-	fgets(buf, sizeof(buf)-1, fp);	/* discard header */
-	while (fgets(buf, sizeof(buf)-1, fp) != NULL)
-	{
+	fgets(buf, sizeof(buf) - 1, fp);	/* discard header */
+	while (fgets(buf, sizeof(buf) - 1, fp) != NULL) {
 /* modif f5lct */
-	/*	sscanf(buf, "%s %lx", origdev, &ipr); */
+		/*      sscanf(buf, "%s %lx", origdev, &ipr); */
 		sscanf(buf, "%s %lx %lx", origdev, &ipr, &gwr);
-		if (ipr == ip && gwr == 00000000 )
+		if (ipr == ip && gwr == 00000000)
 /* fin modif f5lct */
 		{
-			if (dev_get_config(origdev) == NULL)
-			{
+			if (dev_get_config(origdev) == NULL) {
 				invalidate_ip_route(ip);
 				fclose(fp);
 				return 1;
-			}
-			else
-			{
+			} else {
 				del_kernel_ip_route(origdev, ip);
 			}
 		}
@@ -212,25 +208,23 @@ int set_route(config *config, long ip)
 	memset((char *) &rt, 0, sizeof(rt));
 
 	isa = (struct sockaddr_in *) &rt.rt_dst;
-	
+
 	isa->sin_family = AF_INET;
 	isa->sin_port = 0;
 	isa->sin_addr.s_addr = ip;
-	
+
 	rt.rt_flags = RTF_UP | RTF_HOST;
 	rt.rt_dev = config->dev;
 
-	if (config->tcp_irtt != 0)
-	{
+	if (config->tcp_irtt != 0) {
 		rt.rt_irtt = config->tcp_irtt;
 		rt.rt_flags |= RTF_IRTT;
 	}
 
 	isa = (struct sockaddr_in *) &rt.rt_genmask;
 	isa->sin_addr.s_addr = 0xffffffff;
-	
-	if (ioctl(fds, SIOCADDRT, &rt) < 0)
-	{
+
+	if (ioctl(fds, SIOCADDRT, &rt) < 0) {
 		invalidate_ip_route(ip);
 		perror("ax25rtd: IP SIOCADDRT");
 		close(fds);
@@ -256,15 +250,14 @@ int del_kernel_ip_route(char *dev, long ip)
 	memset((char *) &rt, 0, sizeof(struct rtentry));
 
 	isa = (struct sockaddr_in *) &rt.rt_dst;
-	
+
 	isa->sin_family = AF_INET;
 	isa->sin_addr.s_addr = ip;
 
-	rt.rt_flags = RTF_UP | RTF_HOST;	
+	rt.rt_flags = RTF_UP | RTF_HOST;
 	rt.rt_dev = dev;
 
-	if (ioctl(fds, SIOCDELRT, &rt) < 0)
-	{
+	if (ioctl(fds, SIOCDELRT, &rt) < 0) {
 		perror("ax25rtd: IP SIOCDELRT");
 		close(fds);
 		return 1;
@@ -273,77 +266,74 @@ int del_kernel_ip_route(char *dev, long ip)
 	return 0;
 }
 
-int set_ax25_route(config *config, ax25_rt_entry *rt)
+int set_ax25_route(config * config, ax25_rt_entry * rt)
 {
 	struct ax25_routes_struct ax25_route;
 	int fds, k;
-	
+
 	if (!config->ax25_add_route)
 		return 0;
 
-	ax25_route.port_addr  = config->mycalls[0];
-	ax25_route.dest_addr  = rt->call;
+	ax25_route.port_addr = config->mycalls[0];
+	ax25_route.dest_addr = rt->call;
 	ax25_route.digi_count = rt->ndigi;
 
 	for (k = 0; k < rt->ndigi; k++)
 		ax25_route.digi_addr[k] = rt->digipeater[k];
 
 	fds = socket(AF_AX25, SOCK_SEQPACKET, 0);
-	
-	if (ioctl(fds, SIOCADDRT, &ax25_route) < 0)
-	{
+
+	if (ioctl(fds, SIOCADDRT, &ax25_route) < 0) {
 		perror("ax25rtd: AX.25 SIOCADDRT");
 		close(fds);
 		return 1;
 	}
-	
+
 	close(fds);
 	return 0;
 }
 
-int del_kernel_ax25_route(char *dev, ax25_address *call)
+int del_kernel_ax25_route(char *dev, ax25_address * call)
 {
 	struct ax25_routes_struct ax25_route;
 	int fds;
 	config *config;
-	
+
 	config = dev_get_config(dev);
 	if (config == NULL || !config->ax25_add_route)
 		return 0;
 
-	ax25_route.port_addr  = config->mycalls[0];
-	ax25_route.dest_addr  = *call;
+	ax25_route.port_addr = config->mycalls[0];
+	ax25_route.dest_addr = *call;
 
 	fds = socket(AF_AX25, SOCK_SEQPACKET, 0);
-	
-	if (ioctl(fds, SIOCDELRT, &ax25_route) < 0)
-	{
+
+	if (ioctl(fds, SIOCDELRT, &ax25_route) < 0) {
 		perror("ax25rtd: AX.25 SIOCDELRT");
 		close(fds);
 		return 1;
 	}
-	
+
 	close(fds);
 	return 0;
 }
 
-int set_ipmode(config *config, ax25_address *call, int ipmode)
+int set_ipmode(config * config, ax25_address * call, int ipmode)
 {
 	struct ax25_route_opt_struct ax25_opt;
 	int fds;
-	
+
 	if (!config->ip_adjust_mode)
 		return 0;
-	
+
 	ax25_opt.port_addr = config->mycalls[0];
 	ax25_opt.dest_addr = *call;
-	ax25_opt.cmd       = AX25_SET_RT_IPMODE;
-	ax25_opt.arg       = ipmode? 'V':'D';
-	
+	ax25_opt.cmd = AX25_SET_RT_IPMODE;
+	ax25_opt.arg = ipmode ? 'V' : 'D';
+
 	fds = socket(AF_AX25, SOCK_SEQPACKET, 0);
-	
-	if (ioctl(fds, SIOCAX25OPTRT, &ax25_opt) < 0)
-	{
+
+	if (ioctl(fds, SIOCAX25OPTRT, &ax25_opt) < 0) {
 		perror("ax25rtd: SIOCAX25OPTRT");
 		close(fds);
 		return 1;
@@ -351,7 +341,7 @@ int set_ipmode(config *config, ax25_address *call, int ipmode)
 
 	close(fds);
 	return 0;
-	
+
 }
 
 /* Yes, the code *IS* ugly... */
@@ -368,11 +358,10 @@ void ax25_receive(int sock)
 	int size, asize, action, ipmode, ctl, pid, ndigi, kdigi, mine;
 	time_t stamp;
 	config *config;
-	ax25_rt_entry * ax25rt;
+	ax25_rt_entry *ax25rt;
 
 	asize = sizeof(sa);
-	if ((size = recvfrom(sock, buf, sizeof(buf), 0, &sa, &asize)) < 0) 
-	{
+	if ((size = recvfrom(sock, buf, sizeof(buf), 0, &sa, &asize)) < 0) {
 		perror("recvfrom");
 		save_cache();
 		daemon_shutdown(1);
@@ -383,7 +372,7 @@ void ax25_receive(int sock)
 	pid = ctl = 0;
 
 	config = dev_get_config(sa.sa_data);
-		
+
 	if (config == NULL)
 		return;
 
@@ -393,16 +382,16 @@ void ax25_receive(int sock)
 	 * KISS data?
 	 */
 
-	if ((*data & 0x0f) != 0) 
+	if ((*data & 0x0f) != 0)
 		return;
-			
+
 	SKIP(1);
 
 	/* valid frame? */
-		
-	if (size < (2*AXLEN+1)) 
+
+	if (size < (2 * AXLEN + 1))
 		return;
-			
+
 	/*
 	 * Get destination callsign
 	 */
@@ -413,33 +402,32 @@ void ax25_receive(int sock)
 	memcpy(&destcall, data, AXLEN);
 	destcall.ax25_call[6] &= 0x1e;
 	SKIP(AXLEN);
-	
+
 	mine = call_is_mycall(config, &destcall);
-	
+
 	/*
 	 * Get Source callsign
 	 */
-	 
+
 	if (check_ax25_addr(data))
 		return;
 
 	memcpy(&srccall, data, AXLEN);
 	srccall.ax25_call[6] &= 0x1e;
 	SKIP(ALEN);
-	
+
 	/* 
 	 * How long is our control field?
 	 */
-		
+
 	extseq = ~(*data) & SSSID_SPARE;
-		
+
 	/*
 	 * Extract digipeaters
 	 */
 
 	ndigi = 0;
-	while (((*data) & HDLCAEB) != HDLCAEB)
-	{
+	while (((*data) & HDLCAEB) != HDLCAEB) {
 		SKIP(1);
 		if (size <= 0 || check_ax25_addr(data))
 			return;
@@ -448,23 +436,22 @@ void ax25_receive(int sock)
 			memcpy(&digipeater[ndigi++], data, AXLEN);
 		else
 			return;
-			
+
 
 		SKIP(ALEN);
 	}
-		
+
 	SKIP(1);
-	if (size <= 0) 
+	if (size <= 0)
 		return;
-		
+
 	/*
 	 * Get type of frame
 	 */
 
 	if ((*data & LAPB_S) == LAPB_I)
 		ctl = LAPB_I;
-	else
-	{
+	else {
 		ctl = *data;
 		if (extseq == 0)
 			ctl &= ~LAPB_PF;
@@ -474,68 +461,72 @@ void ax25_receive(int sock)
 	 * Check if info frame and get PID
 	 */
 
-	if (ctl == LAPB_I || ctl == LAPB_UI)
-	{
-		SKIP(extseq? 2:1);
+	if (ctl == LAPB_I || ctl == LAPB_UI) {
+		SKIP(extseq ? 2 : 1);
 		if (size <= 0)
 			return;
 
 		/* Get PID */
-		
+
 		pid = *data;
 
-		if (pid == PID_SEGMENT)
-		{
+		if (pid == PID_SEGMENT) {
 			SKIP(1);
 			if (size <= 0)
 				return;
 			pid = 0;
-			
-			if (*data && SEG_FIRST)
-			{
+
+			if (*data && SEG_FIRST) {
 				pid = *data;
-				SKIP(1); 			
+				SKIP(1);
 				if (size <= 0)
 					return;
-			} 
+			}
 		}
-	} 
-	
+	}
+
 	/*
 	 * See if it is fully digipeated (TODO: or if we are the next digipeater)
 	 */
 
-	for (kdigi = 0; kdigi < ndigi; kdigi++)
-	{
-		if ((digipeater[kdigi].ax25_call[6] & AX25_REPEATED) != AX25_REPEATED)
+	for (kdigi = 0; kdigi < ndigi; kdigi++) {
+		if ((digipeater[kdigi].ax25_call[6] & AX25_REPEATED) !=
+		    AX25_REPEATED)
 			return;
-			
+
 		digipeater[kdigi].ax25_call[6] &= 0x1e;
 	}
 
 	invert_digipeater_path(digipeater, ndigi);
-	
+
 	/*
 	 * Are we allowed to add it to our routing table?
 	 */
 
-	if (mine || !config->ax25_for_me)
-	{
-		if (!mine && ndigi == 0 && config->ax25_add_default)
-		{
-			ndigi = config->ax25_default_path.fsa_ax25.sax25_ndigis;
+	if (mine || !config->ax25_for_me) {
+		if (!mine && ndigi == 0 && config->ax25_add_default) {
+			ndigi =
+			    config->ax25_default_path.fsa_ax25.
+			    sax25_ndigis;
 			for (kdigi = 0; kdigi < ndigi; kdigi++)
-				if (!memcmp(&srccall, &config->ax25_default_path.fsa_digipeater[kdigi], AXLEN))
+				if (!memcmp
+				    (&srccall,
+				     &config->ax25_default_path.
+				     fsa_digipeater[kdigi], AXLEN))
 					break;
 
 			if (ndigi == kdigi)
-				memcpy(digipeater, config->ax25_default_path.fsa_digipeater, ndigi*AXLEN);
+				memcpy(digipeater,
+				       config->ax25_default_path.
+				       fsa_digipeater, ndigi * AXLEN);
 			else
 				ndigi = 0;
 		}
 
-		ax25rt = update_ax25_route(config, &srccall, ndigi, digipeater, stamp);
-			
+		ax25rt =
+		    update_ax25_route(config, &srccall, ndigi, digipeater,
+				      stamp);
+
 		if (ax25rt != NULL)
 			set_ax25_route(config, ax25rt);
 	}
@@ -543,39 +534,38 @@ void ax25_receive(int sock)
 	/*
 	 * Now see if it carries IP traffic
 	 */
-	
-	switch(pid)
-	{
-		case PID_ARP:
-			SKIP(1);
-			if (size > 0)
-				ip = get_from_arp(data, size);
-			break;
-		case PID_IP:
-			if (!mine)
-				return;
 
-			SKIP(1);
-			if (size > 0)
-				ip = get_from_ip(data, size);
-			break;
-		default:
+	switch (pid) {
+	case PID_ARP:
+		SKIP(1);
+		if (size > 0)
+			ip = get_from_arp(data, size);
+		break;
+	case PID_IP:
+		if (!mine)
 			return;
+
+		SKIP(1);
+		if (size > 0)
+			ip = get_from_ip(data, size);
+		break;
+	default:
+		return;
 	}
-	
+
 	/*
 	 * And adjust routes/arp/ipmode if we are allowed to...
 	 */
 
 	ipmode = (ctl == LAPB_I);
 
-	if (ip != 0)
-	{
-                if ((config = dev_get_config(ip_encaps_dev)) == NULL) 
-                  return;
+	if (ip != 0) {
+		if ((config = dev_get_config(ip_encaps_dev)) == NULL)
+			return;
 
-		action = update_ip_route(config, ip, ipmode, &srccall, stamp);
-		
+		action =
+		    update_ip_route(config, ip, ipmode, &srccall, stamp);
+
 		if (action & NEW_ROUTE)
 			if (set_route(config, ip))
 				return;
@@ -583,7 +573,7 @@ void ax25_receive(int sock)
 		if (action & NEW_ARP)
 			if (set_arp(config, ip, &srccall))
 				return;
-				
+
 		if (action & NEW_IPMODE)
 			if (set_ipmode(config, &srccall, ipmode))
 				return;

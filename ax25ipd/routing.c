@@ -15,31 +15,30 @@
 /* The routing table structure is not visible outside this module. */
 
 struct route_table_entry {
-	unsigned char callsign[7];		/* the callsign and ssid */
-	unsigned char padcall;			/* always set to zero */
-	unsigned char ip_addr[4];		/* the IP address */
-	unsigned short udp_port;		/* the port number if udp */
+	unsigned char callsign[7];	/* the callsign and ssid */
+	unsigned char padcall;	/* always set to zero */
+	unsigned char ip_addr[4];	/* the IP address */
+	unsigned short udp_port;	/* the port number if udp */
 	unsigned char pad1;
 	unsigned char pad2;
-	unsigned int flags;			/* route flags */
-	struct route_table_entry* next;
+	unsigned int flags;	/* route flags */
+	struct route_table_entry *next;
 };
 
-struct route_table_entry* route_tbl;
-struct route_table_entry* default_route;
+struct route_table_entry *route_tbl;
+struct route_table_entry *default_route;
 
 /* The Broadcast address structure is not visible outside this module either */
 
 struct bcast_table_entry {
-	unsigned char callsign[7];		/* The broadcast address */
-	struct bcast_table_entry* next;
+	unsigned char callsign[7];	/* The broadcast address */
+	struct bcast_table_entry *next;
 };
 
-struct bcast_table_entry* bcast_tbl;
+struct bcast_table_entry *bcast_tbl;
 
 /* Initialize the routing module */
-void
-route_init()
+void route_init()
 {
 	route_tbl = NULL;
 	default_route = NULL;
@@ -47,8 +46,7 @@ route_init()
 }
 
 /* Add a new route entry */
-void
-route_add(ip, call, udpport, flags)
+void route_add(ip, call, udpport, flags)
 unsigned char *ip;
 unsigned char *call;
 int udpport;
@@ -58,23 +56,24 @@ unsigned int flags;
 	int i;
 
 	/* Check we have an IP address */
-	if (ip==NULL)
+	if (ip == NULL)
 		return;
 
 	/* Check we have a callsign */
-	if (call==NULL)
+	if (call == NULL)
 		return;
 
 	/* Find the last entry in the list */
-	rl=route_tbl;
+	rl = route_tbl;
 	if (route_tbl)
 		while (rl->next)
-			rl=rl->next;
+			rl = rl->next;
 
-	rn=(struct route_table_entry*)malloc(sizeof(struct route_table_entry));
+	rn = (struct route_table_entry *)
+	    malloc(sizeof(struct route_table_entry));
 
 	/* Build this entry ... */
-	for (i=0; i<6; i++)
+	for (i = 0; i < 6; i++)
 		rn->callsign[i] = call[i] & 0xfe;
 	rn->callsign[6] = (call[6] & 0x1e) | 0x60;
 	rn->padcall = 0;
@@ -83,58 +82,57 @@ unsigned int flags;
 	rn->pad1 = 0;
 	rn->pad2 = 0;
 	rn->flags = flags;
-	rn->next=NULL;
+	rn->next = NULL;
 
 	/* Update the default_route pointer if this is a default route */
 	if (flags & AXRT_DEFAULT)
-		default_route=rn;
+		default_route = rn;
 
-	if (rl)	/* ... the list is already started add the new route */
-		rl->next=rn;
-	else	/* ... start the list off */
-		route_tbl=rn;
+	if (rl)			/* ... the list is already started add the new route */
+		rl->next = rn;
+	else			/* ... start the list off */
+		route_tbl = rn;
 
 	/* Log this entry ... */
 	LOGL4("added route: %s\t%s\t%s\t%d\t%d\n",
-			call_to_a(rn->callsign),
-			(char *)inet_ntoa(*(struct in_addr *)rn->ip_addr),
-			rn->udp_port ? "udp" : "ip",
-			ntohs(rn->udp_port), flags);
+	      call_to_a(rn->callsign),
+	      (char *) inet_ntoa(*(struct in_addr *) rn->ip_addr),
+	      rn->udp_port ? "udp" : "ip", ntohs(rn->udp_port), flags);
 
 	return;
 }
 
 /* Add a new broadcast address entry */
-void
-bcast_add(call)
-unsigned char* call;
+void bcast_add(call)
+unsigned char *call;
 {
 	struct bcast_table_entry *bl, *bn;
 	int i;
 
 	/* Check we have a callsign */
-	if (call==NULL)
+	if (call == NULL)
 		return;
 
 	/* Find the last entry in the list */
-	bl=bcast_tbl;
+	bl = bcast_tbl;
 	if (bcast_tbl)
 		while (bl->next)
-			bl=bl->next;
+			bl = bl->next;
 
-	bn=(struct bcast_table_entry*)malloc(sizeof(struct bcast_table_entry));
+	bn = (struct bcast_table_entry *)
+	    malloc(sizeof(struct bcast_table_entry));
 
 	/* Build this entry ... */
-	for (i=0; i<6; i++)
+	for (i = 0; i < 6; i++)
 		bn->callsign[i] = call[i] & 0xfe;
 	bn->callsign[6] = (call[6] & 0x1e) | 0x60;
 
-	bn->next=NULL;
+	bn->next = NULL;
 
-	if (bl)	/* ... the list is already started add the new route */
-		bl->next=bn;
-	else	/* ... start the list off */
-		bcast_tbl=bn;
+	if (bl)			/* ... the list is already started add the new route */
+		bl->next = bn;
+	else			/* ... start the list off */
+		bcast_tbl = bn;
 
 	/* Log this entry ... */
 	LOGL4("added broadcast address: %s\n", call_to_a(bn->callsign));
@@ -146,32 +144,32 @@ unsigned char* call;
  * immediately following the IP address. (UGLY coding; to be fixed later!)
  */
 
-unsigned char *
-call_to_ip(call)
+unsigned char *call_to_ip(call)
 unsigned char *call;
 {
-	struct route_table_entry* rp;
+	struct route_table_entry *rp;
 	unsigned char mycall[7];
 	int i;
 
-	if(call==NULL)
+	if (call == NULL)
 		return NULL;
 
-	for(i=0; i<6; i++)
+	for (i = 0; i < 6; i++)
 		mycall[i] = call[i] & 0xfe;
 
 	mycall[6] = (call[6] & 0x1e) | 0x60;
 
-	LOGL4("lookup call %s ",call_to_a(mycall));
+	LOGL4("lookup call %s ", call_to_a(mycall));
 
-	rp=route_tbl;
+	rp = route_tbl;
 	while (rp) {
-		if (addrmatch(mycall,rp->callsign)) {
+		if (addrmatch(mycall, rp->callsign)) {
 			LOGL4("found ip addr %s\n",
-				(char *)inet_ntoa(*(struct in_addr *)rp->ip_addr));
+			      (char *) inet_ntoa(*(struct in_addr *)
+						 rp->ip_addr));
 			return rp->ip_addr;
 		}
-		rp=rp->next;
+		rp = rp->next;
 	}
 
 	/*
@@ -180,7 +178,8 @@ unsigned char *call;
 	 */
 	if (default_route) {
 		LOGL4("failed, using default ip addr %s\n",
-				(char *)inet_ntoa(*(struct in_addr *)default_route->ip_addr));
+		      (char *) inet_ntoa(*(struct in_addr *)
+					 default_route->ip_addr));
 		return default_route->ip_addr;
 	}
 
@@ -192,73 +191,70 @@ unsigned char *call;
  * Accept a callsign and return true if it is a broadcast address, or false
  * if it is not found on the list
  */
-int
-is_call_bcast(call)
+int is_call_bcast(call)
 unsigned char *call;
 {
-	struct bcast_table_entry* bp;
+	struct bcast_table_entry *bp;
 	unsigned char bccall[7];
 	int i;
 
-	if(call==NULL)
-		return(FALSE);
+	if (call == NULL)
+		return (FALSE);
 
-	for(i=0; i<6; i++)
+	for (i = 0; i < 6; i++)
 		bccall[i] = call[i] & 0xfe;
 
 	bccall[6] = (call[6] & 0x1e) | 0x60;
 
-	LOGL4("lookup broadcast %s ",call_to_a(bccall));
+	LOGL4("lookup broadcast %s ", call_to_a(bccall));
 
-	bp=bcast_tbl;
+	bp = bcast_tbl;
 	while (bp) {
-		if (addrmatch(bccall,bp->callsign)) {
-			LOGL4("found broadcast %s\n", call_to_a(bp->callsign));
-			return(TRUE);
+		if (addrmatch(bccall, bp->callsign)) {
+			LOGL4("found broadcast %s\n",
+			      call_to_a(bp->callsign));
+			return (TRUE);
 		}
-		bp=bp->next;
+		bp = bp->next;
 	}
-	return(FALSE);
+	return (FALSE);
 }
 
 /* Traverse the routing table, transmitting the packet to each bcast route */
-void
-send_broadcast(buf, l)
+void send_broadcast(buf, l)
 unsigned char *buf;
 int l;
 {
 	struct route_table_entry *rp;
 
-	rp=route_tbl;
+	rp = route_tbl;
 	while (rp) {
 		if (rp->flags & AXRT_BCAST) {
 			send_ip(buf, l, rp->ip_addr);
 		}
-		rp=rp->next;
+		rp = rp->next;
 	}
 }
 
 /* print out the list of routes */
-void
-dump_routes()
+void dump_routes()
 {
-	struct route_table_entry* rp;
+	struct route_table_entry *rp;
 	int i;
 
-	for (rp=route_tbl, i=0; rp; rp=rp->next)
+	for (rp = route_tbl, i = 0; rp; rp = rp->next)
 		i++;
 
-	LOGL1("\n%d active routes.\n",i);
+	LOGL1("\n%d active routes.\n", i);
 
-	rp=route_tbl;
+	rp = route_tbl;
 	while (rp) {
 		LOGL1("  %s\t%s\t%s\t%d\t%d\n",
-			call_to_a(rp->callsign),
-			(char *)inet_ntoa(*(struct in_addr *)rp->ip_addr),
-			rp->udp_port ? "udp" : "ip",
-			ntohs(rp->udp_port), rp->flags);
-		rp=rp->next;
+		      call_to_a(rp->callsign),
+		      (char *) inet_ntoa(*(struct in_addr *) rp->ip_addr),
+		      rp->udp_port ? "udp" : "ip",
+		      ntohs(rp->udp_port), rp->flags);
+		rp = rp->next;
 	}
 	fflush(stdout);
 }
-

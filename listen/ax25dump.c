@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.1 2001/04/10 01:58:51 csmall Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.2 2001/09/12 13:18:43 terry Exp $ */
 
 /* AX25 header tracing
  * Copyright 1991 Phil Karn, KA9Q
@@ -57,7 +57,7 @@
 #define	Y		4
 #define	Z		8
 
-static int  ftype(unsigned char *, int *, int *, int *, int *, int);
+static int ftype(unsigned char *, int *, int *, int *, int *, int);
 static char *decode_type(int);
 
 #define NDAMA_STRING ""
@@ -90,11 +90,13 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 		tmp[4] = ' ' + (data[5] >> 2);
 		tmp[5] = ' ' + ((data[5] << 4) & 0x30) + (data[6] >> 4);
 		if (data[6] & 0xf)
-			sprintf(tmp+7, "-%d", data[6] & 0xf);
-		lprintf(T_ADDR, "%d->%s%s", (data[0] << 6) | ((data[1] >> 2) & 0x3f), strtok(tmp, " "), tmp+7);
+			sprintf(tmp + 7, "-%d", data[6] & 0xf);
+		lprintf(T_ADDR, "%d->%s%s",
+			(data[0] << 6) | ((data[1] >> 2) & 0x3f),
+			strtok(tmp, " "), tmp + 7);
 		cmdrsp = (data[1] & 2) ? LAPB_COMMAND : LAPB_RESPONSE;
 		dama = NDAMA_STRING;
-		data   += 7;
+		data += 7;
 		length -= 7;
 	} else {
 		/* Extract the address header */
@@ -103,124 +105,133 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 			lprintf(T_ERROR, "AX25: bad header!\n");
 			return;
 		}
-		
+
 		if ((data[AXLEN + ALEN] & SSSID_SPARE) == SSSID_SPARE) {
 			extseq = 0;
-//			lprintf(T_PROTOCOL, " ");
+//                      lprintf(T_PROTOCOL, " ");
 		} else {
 			extseq = 1;
 			lprintf(T_PROTOCOL, "EAX25: ");
 		}
-		
+
 		if ((data[AXLEN + ALEN] & ESSID_SPARE) == ESSID_SPARE)
 			dama = NDAMA_STRING;
 		else
 			dama = DAMA_STRING;
-		
-		lprintf(T_AXHDR, "fm ");					
+
+		lprintf(T_AXHDR, "fm ");
 		lprintf(T_ADDR, "%s", pax25(tmp, data + AXLEN));
 		lprintf(T_AXHDR, " to ");
 		lprintf(T_ADDR, "%s", pax25(tmp, data));
-		
+
 		cmdrsp = LAPB_UNKNOWN;
-		
+
 		if ((data[ALEN] & C) && !(data[AXLEN + ALEN] & C))
 			cmdrsp = LAPB_COMMAND;
-		
+
 		if ((data[AXLEN + ALEN] & C) && !(data[ALEN] & C))
 			cmdrsp = LAPB_RESPONSE;
 
 		end = (data[AXLEN + ALEN] & HDLCAEB);
-		
-		data   += (AXLEN + AXLEN);
+
+		data += (AXLEN + AXLEN);
 		length -= (AXLEN + AXLEN);
 
 		if (!end) {
 			lprintf(T_AXHDR, " via");
-			
+
 			while (!end) {
 				/* Print digi string */
-				lprintf(T_ADDR," %s%s", pax25(tmp, data), (data[ALEN] & REPEATED) ? "*" : "");
-				
+				lprintf(T_ADDR, " %s%s", pax25(tmp, data),
+					(data[ALEN] & REPEATED) ? "*" :
+					"");
+
 				end = (data[ALEN] & HDLCAEB);
-				
-				data   += AXLEN;
+
+				data += AXLEN;
 				length -= AXLEN;
 			}
 		}
 	}
 
-	if (length == 0) return;
-	
+	if (length == 0)
+		return;
+
 	ctlen = ftype(data, &type, &ns, &nr, &pf, extseq);
-	
-	data   += ctlen;
+
+	data += ctlen;
 	length -= ctlen;
 
 	lprintf(T_AXHDR, " ctl %s", decode_type(type));
 
-        if ((type & 0x3) != U)   /* I or S frame? */
-             lprintf(T_AXHDR, "%d", nr);
+	if ((type & 0x3) != U)	/* I or S frame? */
+		lprintf(T_AXHDR, "%d", nr);
 
 	if (type == I)
-             lprintf(T_AXHDR, "%d", ns);
-	
+		lprintf(T_AXHDR, "%d", ns);
+
 	switch (cmdrsp) {
-		case LAPB_COMMAND:
-			if (pf) lprintf(T_AXHDR, "+");
-			else lprintf(T_AXHDR, "^");
-			break;
-		case LAPB_RESPONSE:
-			if (pf) lprintf(T_AXHDR, "-");
-			else lprintf(T_AXHDR, "v");
-			break;
-		default:
-			break;
+	case LAPB_COMMAND:
+		if (pf)
+			lprintf(T_AXHDR, "+");
+		else
+			lprintf(T_AXHDR, "^");
+		break;
+	case LAPB_RESPONSE:
+		if (pf)
+			lprintf(T_AXHDR, "-");
+		else
+			lprintf(T_AXHDR, "v");
+		break;
+	default:
+		break;
 	}
 
 	if (type == I || type == UI) {
 		/* Decode I field */
-		if (length > 0) {        /* Get pid */
+		if (length > 0) {	/* Get pid */
 			pid = *data++;
 			length--;
 
-			lprintf(T_AXHDR," pid=%X",pid);
+			lprintf(T_AXHDR, " pid=%X", pid);
 
-                        switch (pid) {
-                                case PID_SEGMENT:
-                                        lprintf(T_AXHDR,"(segment)");
-                                        break;
-                                case PID_ARP:
-                                        lprintf(T_AXHDR,"(ARP)");
-                                        break;
-                                case PID_NETROM:
-                                        lprintf(T_AXHDR,"(NET/ROM)");
-                                        break;
-                                case PID_IP:
-                                        lprintf(T_AXHDR,"(IP)");
-                                        break;
-                                case PID_X25:
-                                        lprintf(T_AXHDR, "(X.25)");
-                                        break;
-                                case PID_TEXNET:
-                                        lprintf(T_AXHDR, "(TEXNET)");
-                                        break;
-                                case PID_FLEXNET:
-                                        lprintf(T_AXHDR, "(FLEXNET)");
-                                        break;
-                                case PID_NO_L3:
-                                        lprintf(T_AXHDR, "(Text)");
-                                        break;
+			switch (pid) {
+			case PID_SEGMENT:
+				lprintf(T_AXHDR, "(segment)");
+				break;
+			case PID_ARP:
+				lprintf(T_AXHDR, "(ARP)");
+				break;
+			case PID_NETROM:
+				lprintf(T_AXHDR, "(NET/ROM)");
+				break;
+			case PID_IP:
+				lprintf(T_AXHDR, "(IP)");
+				break;
+			case PID_X25:
+				lprintf(T_AXHDR, "(X.25)");
+				break;
+			case PID_TEXNET:
+				lprintf(T_AXHDR, "(TEXNET)");
+				break;
+			case PID_FLEXNET:
+				lprintf(T_AXHDR, "(FLEXNET)");
+				break;
+			case PID_NO_L3:
+				lprintf(T_AXHDR, "(Text)");
+				break;
 			}
-                	lprintf(T_AXHDR, "%s len %d ",dama,length);
+			lprintf(T_AXHDR, "%s len %d ", dama, length);
 
-			if(timestamp)
+			if (timestamp)
 				display_timestamp();
 
 			if (pid == PID_SEGMENT) {
 				seg = *data++;
 				length--;
-				lprintf(T_AXHDR, "%s remain %u", seg & SEG_FIRST ? " First seg;" : "", seg & SEG_REM);
+				lprintf(T_AXHDR, "%s remain %u",
+					seg & SEG_FIRST ? " First seg;" :
+					"", seg & SEG_REM);
 
 				if (seg & SEG_FIRST) {
 					pid = *data++;
@@ -230,99 +241,99 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 			lprintf(T_AXHDR, "\n");
 
 			switch (pid) {
-				case PID_SEGMENT:
-					data_dump(data, length, hexdump);
-					break;
-				case PID_ARP:
-					arp_dump(data, length);
-					break;
-				case PID_NETROM:
-					netrom_dump(data, length, hexdump);
-					break;
-				case PID_IP:
-					ip_dump(data, length, hexdump);
-					break;
-				case PID_X25:
-					rose_dump(data, length, hexdump);
-					break;
-				case PID_TEXNET:
-					data_dump(data, length, hexdump);
-					break;
-				case PID_FLEXNET:
-					flexnet_dump(data, length, hexdump);
-					break;
-				case PID_NO_L3:
-					data_dump(data, length, hexdump);
-					break;
-				default:
-					data_dump(data, length, hexdump);
-					break;
+			case PID_SEGMENT:
+				data_dump(data, length, hexdump);
+				break;
+			case PID_ARP:
+				arp_dump(data, length);
+				break;
+			case PID_NETROM:
+				netrom_dump(data, length, hexdump);
+				break;
+			case PID_IP:
+				ip_dump(data, length, hexdump);
+				break;
+			case PID_X25:
+				rose_dump(data, length, hexdump);
+				break;
+			case PID_TEXNET:
+				data_dump(data, length, hexdump);
+				break;
+			case PID_FLEXNET:
+				flexnet_dump(data, length, hexdump);
+				break;
+			case PID_NO_L3:
+				data_dump(data, length, hexdump);
+				break;
+			default:
+				data_dump(data, length, hexdump);
+				break;
 			}
 		}
 	} else if (type == FRMR && length >= 3) {
-	/* FIX ME XXX
-		lprintf(T_AXHDR, ": %s", decode_type(ftype(data[0])));
-	*/
+		/* FIX ME XXX
+		   lprintf(T_AXHDR, ": %s", decode_type(ftype(data[0])));
+		 */
 		lprintf(T_AXHDR, ": %02X", data[0]);
 		lprintf(T_AXHDR, " Vr = %d Vs = %d",
-			(data[1] >> 5) & MMASK,
-			(data[1] >> 1) & MMASK);
-		if(data[2] & W)
+			(data[1] >> 5) & MMASK, (data[1] >> 1) & MMASK);
+		if (data[2] & W)
 			lprintf(T_ERROR, " Invalid control field");
-		if(data[2] & X)
+		if (data[2] & X)
 			lprintf(T_ERROR, " Illegal I-field");
-		if(data[2] & Y)
+		if (data[2] & Y)
 			lprintf(T_ERROR, " Too-long I-field");
-		if(data[2] & Z)
+		if (data[2] & Z)
 			lprintf(T_ERROR, " Invalid seq number");
-		lprintf(T_AXHDR,"%s ", dama);
+		lprintf(T_AXHDR, "%s ", dama);
 
-		if(timestamp)
-                    display_timestamp();
-		lprintf(T_AXHDR,"\n");
+		if (timestamp)
+			display_timestamp();
+		lprintf(T_AXHDR, "\n");
 	} else if ((type == SABM || type == UA) && length >= 2) {
 		/* FlexNet transmits the QSO "handle" for header
 		 * compression in SABM and UA frame data fields 
 		 */
-		lprintf(T_AXHDR," [%d]%s ", (data[0] << 8) | data[1], dama);
-                if(timestamp)
+		lprintf(T_AXHDR, " [%d]%s ", (data[0] << 8) | data[1],
+			dama);
+		if (timestamp)
 			display_timestamp();
-                lprintf(T_AXHDR,"\n");	
+		lprintf(T_AXHDR, "\n");
 	} else {
-		lprintf(T_AXHDR,"%s ", dama);
-                if(timestamp)
-		        display_timestamp();
-                lprintf(T_AXHDR,"\n");
+		lprintf(T_AXHDR, "%s ", dama);
+		if (timestamp)
+			display_timestamp();
+		lprintf(T_AXHDR, "\n");
 	}
 }
 
 static char *decode_type(int type)
 {
 	switch (type) {
-		case I:
-			return "I";
-		case SABM:
-			return "SABM";
-		case SABME:
-			return "SABME";
-		case DISC:
-			return "DISC";
-		case DM:
-			return "DM";
-		case UA:
-			return "UA";
-		case RR:
-			return "RR";
-		case RNR:
-			return "RNR";
-		case REJ:
-			return "REJ";
-		case FRMR:
-			return "FRMR";
-		case UI:
-			return "UI";
-		default:
-			return "[invalid]";
+	case I:
+		return "I";
+	case SABM:
+		return "SABM";
+	case SABME:
+		return "SABME";
+	case DISC:
+		return "DISC";
+	case DM:
+		return "DM";
+	case UA:
+		return "UA";
+	case RR:
+		return "RR";
+	case RNR:
+		return "RNR";
+	case REJ:
+		return "REJ";
+	case FRMR:
+		return "FRMR";
+	case UI:
+		return "UI";
+	default:
+		return "[invalid]";
 	}
 }
 
@@ -331,9 +342,9 @@ char *pax25(char *buf, unsigned char *data)
 	int i, ssid;
 	char *s;
 	char c;
-	
+
 	s = buf;
-	
+
 	for (i = 0; i < ALEN; i++) {
 		c = (data[i] >> 1) & 0x7F;
 
@@ -341,56 +352,58 @@ char *pax25(char *buf, unsigned char *data)
 			strcpy(buf, "[invalid]");
 			return buf;
 		}
-		
-		if (c != ' ') *s++ = c;
-	}	
+
+		if (c != ' ')
+			*s++ = c;
+	}
 
 	if ((ssid = (data[ALEN] & SSID)) != 0)
 		sprintf(s, "-%d", ssid >> 1);
 	else
 		*s = '\0';
 
-	return(buf);
+	return (buf);
 }
 
-static int ftype(unsigned char *data, int *type, int *ns, int *nr, int *pf, int extseq)
+static int ftype(unsigned char *data, int *type, int *ns, int *nr, int *pf,
+		 int extseq)
 {
 	if (extseq) {
 		if ((*data & 0x01) == 0) {	/* An I frame is an I-frame ... */
 			*type = I;
-			*ns   = (*data >> 1) & 127;
+			*ns = (*data >> 1) & 127;
 			data++;
-			*nr   = (*data >> 1) & 127;
-			*pf   = *data & EPF;
+			*nr = (*data >> 1) & 127;
+			*pf = *data & EPF;
 			return 2;
 		}
 		if (*data & 0x02) {
 			*type = *data & ~PF;
-			*pf   = *data & PF;
+			*pf = *data & PF;
 			return 1;
 		} else {
 			*type = *data;
 			data++;
-			*nr   = (*data >> 1) & 127;
-			*pf   = *data & EPF;
+			*nr = (*data >> 1) & 127;
+			*pf = *data & EPF;
 			return 2;
 		}
 	} else {
 		if ((*data & 0x01) == 0) {	/* An I frame is an I-frame ... */
 			*type = I;
-			*ns   = (*data >> 1) & 7;
-			*nr   = (*data >> 5) & 7;
-			*pf   = *data & PF;
+			*ns = (*data >> 1) & 7;
+			*nr = (*data >> 5) & 7;
+			*pf = *data & PF;
 			return 1;
 		}
-		if (*data & 0x02) {		/* U-frames use all except P/F bit for type */
+		if (*data & 0x02) {	/* U-frames use all except P/F bit for type */
 			*type = *data & ~PF;
-			*pf   = *data & PF;
+			*pf = *data & PF;
 			return 1;
-		} else {			/* S-frames use low order 4 bits for type */
+		} else {	/* S-frames use low order 4 bits for type */
 			*type = *data & 0x0F;
-			*nr   = (*data >> 5) & 7;
-			*pf   = *data & PF;
+			*nr = (*data >> 5) & 7;
+			*pf = *data & PF;
 			return 1;
 		}
 	}

@@ -43,8 +43,7 @@ int param_tbl_top;
  * Initialize the KISS variables
  */
 
-void
-kiss_init()
+void kiss_init()
 {
 	ifptr = iframe;
 	ifcount = 0;
@@ -60,31 +59,33 @@ kiss_init()
  * frame has been assembled.
  */
 
-void
-assemble_kiss(buf, l)
+void assemble_kiss(buf, l)
 unsigned char *buf;
 int l;
 {
 	int i;
 	unsigned char c;
 
-	for(i=0;i<l;i++,buf++){
+	for (i = 0; i < l; i++, buf++) {
 		c = *buf;
-		if(c==FEND){
-			if(ifcount>0){
+		if (c == FEND) {
+			if (ifcount > 0) {
 				/* Make sure that the control byte is zero */
-				if(*iframe=='\0' || *iframe==0x10) {
+				if (*iframe == '\0' || *iframe == 0x10) {
 					/* Room for CRC in buffer? */
-					if(ifcount < (MAX_FRAME - 2)) {
+					if (ifcount < (MAX_FRAME - 2)) {
 						stats.kiss_in++;
-						from_kiss(iframe+1,ifcount-1);
+						from_kiss(iframe +
+							  1, ifcount - 1);
 					} else {
 						stats.kiss_toobig++;
-						LOGL2("assemble_kiss: dumped - frame too large\n");
+						LOGL2
+						    ("assemble_kiss: dumped - frame too large\n");
 					}
 				} else {
 					stats.kiss_badtype++;
-					LOGL2("assemble_kiss: dumped - control byte non-zero\n");
+					LOGL2
+					    ("assemble_kiss: dumped - control byte non-zero\n");
 				}
 			}
 			ifcount = 0;
@@ -92,26 +93,27 @@ int l;
 			ifptr = iframe;
 			continue;
 		}
-		if(c==FESC){
-			iescaped=1;
+		if (c == FESC) {
+			iescaped = 1;
 			continue;
 		}
-		if(iescaped){
-			if(c==TFEND)c = FEND;
-			if(c==TFESC)c = FESC;
+		if (iescaped) {
+			if (c == TFEND)
+				c = FEND;
+			if (c == TFESC)
+				c = FESC;
 			iescaped = 0;
 		}
-		if(ifcount < MAX_FRAME){
+		if (ifcount < MAX_FRAME) {
 			*ifptr = c;
 			ifptr++;
 			ifcount++;
 		}
-	} /* for every character in the buffer */
+	}			/* for every character in the buffer */
 }
 
 /* convert a standard AX25 frame into a kiss frame */
-void
-send_kiss(type, buf, l)
+void send_kiss(type, buf, l)
 unsigned char type;
 unsigned char *buf;
 int l;
@@ -125,27 +127,27 @@ int l;
 
 	KISSEMIT(FEND);
 
-	if(type==FEND){
+	if (type == FEND) {
 		KISSEMIT(FESC);
 		KISSEMIT(TFEND);
-	}else if (type==FESC){
+	} else if (type == FESC) {
 		KISSEMIT(FESC);
 		KISSEMIT(TFESC);
-	}else {
+	} else {
 		KISSEMIT(type);
 	}
 
-	for(i=0;i<l;i++,buf++){
-		if(*buf==FEND){
+	for (i = 0; i < l; i++, buf++) {
+		if (*buf == FEND) {
 			KISSEMIT(FESC);
 			KISSEMIT(TFEND);
-		}else if (*buf==FESC){
+		} else if (*buf == FESC) {
 			KISSEMIT(FESC);
 			KISSEMIT(TFESC);
-		}else {
+		} else {
 			KISSEMIT(*buf);
 		}
-	} /* for each character in the incoming AX25 frame */
+	}			/* for each character in the incoming AX25 frame */
 
 	KISSEMIT(FEND);
 
@@ -153,49 +155,45 @@ int l;
 }
 
 /* Add an entry to the parameter table */
-void
-param_add(p, v)
+void param_add(p, v)
 int p;
 int v;
 {
-	if(param_tbl_top >= PTABLE_SIZE){
-		fprintf(stderr,"param table is full; entry ignored.\n");
+	if (param_tbl_top >= PTABLE_SIZE) {
+		fprintf(stderr, "param table is full; entry ignored.\n");
 	}
-	param_tbl[param_tbl_top].parameter = p&0xff;
-	param_tbl[param_tbl_top].value = v&0xff;
+	param_tbl[param_tbl_top].parameter = p & 0xff;
+	param_tbl[param_tbl_top].value = v & 0xff;
 	LOGL4("added param: %d\t%d\n",
-			param_tbl[param_tbl_top].parameter,
-			param_tbl[param_tbl_top].value);
+	      param_tbl[param_tbl_top].parameter,
+	      param_tbl[param_tbl_top].value);
 	param_tbl_top++;
 	return;
 }
 
 /* dump the contents of the parameter table */
-void
-dump_params()
+void dump_params()
 {
 	int i;
 
-	LOGL1("\n%d parameters\n",param_tbl_top);
-	for(i=0;i<param_tbl_top;i++){
+	LOGL1("\n%d parameters\n", param_tbl_top);
+	for (i = 0; i < param_tbl_top; i++) {
 		LOGL1("  %d\t%d\n",
-			param_tbl[i].parameter,
-			param_tbl[i].value);
+		      param_tbl[i].parameter, param_tbl[i].value);
 	}
 	fflush(stdout);
 }
 
 /* send the parameters to the TNC */
-void
-send_params()
+void send_params()
 {
 	int i;
 	unsigned char p, v;
 
-	for(i=0;i<param_tbl_top;i++){
+	for (i = 0; i < param_tbl_top; i++) {
 		p = param_tbl[i].parameter;
 		v = param_tbl[i].value;
 		send_kiss(p, &v, 1);
-		LOGL2("send_params: param %d %d\n",p,v);
+		LOGL2("send_params: param %d %d\n", p, v);
 	}
 }

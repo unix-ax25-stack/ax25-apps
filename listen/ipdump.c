@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ipdump.c,v 1.1 2001/04/10 01:58:52 csmall Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ipdump.c,v 1.2 2001/09/12 13:18:44 terry Exp $ */
 
 /* IP header tracing routines
  * Copyright 1991 Phil Karn, KA9Q
@@ -12,8 +12,8 @@
 #define	DF		0x4000
 #define	CE		0x8000
 
-#define	IPIPNEW_PTCL	4	
-#define	IPIPOLD_PTCL	94	
+#define	IPIPNEW_PTCL	4
+#define	IPIPOLD_PTCL	94
 #define	TCP_PTCL	6
 #define	UDP_PTCL	17
 #define	ICMP_PTCL	1
@@ -37,42 +37,45 @@ void ip_dump(unsigned char *data, int length, int hexdump)
 
 	/* Sneak peek at IP header and find length */
 	hdr_length = (data[0] & 0xf) << 2;
-	
-	if (hdr_length < IPLEN)
-	{
+
+	if (hdr_length < IPLEN) {
 		lprintf(T_ERROR, " bad header\n");
 		return;
 	}
 
-	tos       = data[1];
+	tos = data[1];
 	ip_length = get16(data + 2);
-	id        = get16(data + 4);
-	fl_offs   = get16(data + 6);
-	flags     = fl_offs & 0xE000;
-	offset    = (fl_offs & 0x1FFF) << 3;
-	ttl       = data[8];
-	protocol  = data[9];
-	source    = data + 12;
-	dest      = data + 16;
+	id = get16(data + 4);
+	fl_offs = get16(data + 6);
+	flags = fl_offs & 0xE000;
+	offset = (fl_offs & 0x1FFF) << 3;
+	ttl = data[8];
+	protocol = data[9];
+	source = data + 12;
+	dest = data + 16;
 
 	lprintf(T_IPHDR, " len %d", ip_length);
-	
+
 	lprintf(T_ADDR, " %d.%d.%d.%d->%d.%d.%d.%d",
-			source[0], source[1], source[2], source[3], 
-			dest[0], dest[1], dest[2], dest[3]);
-	
+		source[0], source[1], source[2], source[3],
+		dest[0], dest[1], dest[2], dest[3]);
+
 	lprintf(T_IPHDR, " ihl %d ttl %d", hdr_length, ttl);
-		
-	if (tos != 0) lprintf(T_IPHDR, " tos %d", tos);
-		
+
+	if (tos != 0)
+		lprintf(T_IPHDR, " tos %d", tos);
+
 	if (offset != 0 || (flags & MF))
 		lprintf(T_IPHDR, " id %d offs %d", id, offset);
-		
-	if (flags & DF) lprintf(T_IPHDR, " DF");
-	if (flags & MF) lprintf(T_IPHDR, " MF");
-	if (flags & CE) lprintf(T_IPHDR, " CE");
-	
-	data   += hdr_length;
+
+	if (flags & DF)
+		lprintf(T_IPHDR, " DF");
+	if (flags & MF)
+		lprintf(T_IPHDR, " MF");
+	if (flags & CE)
+		lprintf(T_IPHDR, " CE");
+
+	data += hdr_length;
 	length -= hdr_length;
 
 	if (offset != 0) {

@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/udpdump.c,v 1.1 2001/04/10 01:58:56 csmall Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/udpdump.c,v 1.2 2001/09/12 13:18:44 terry Exp $ */
 
 /* UDP packet tracing
  * Copyright 1991 Phil Karn, KA9Q
@@ -18,27 +18,28 @@ void udp_dump(unsigned char *data, int length, int hexdump)
 	int dest;
 
 	hdr_length = get16(data + 4);
-	source     = get16(data + 0);
-	dest       = get16(data + 2);
+	source = get16(data + 0);
+	dest = get16(data + 2);
 
 	lprintf(T_PROTOCOL, "UDP:");
 
-	lprintf(T_TCPHDR, " len %d %s->", hdr_length, servname(source, "udp"));
+	lprintf(T_TCPHDR, " len %d %s->", hdr_length,
+		servname(source, "udp"));
 	lprintf(T_TCPHDR, "%s", servname(dest, "udp"));
-	
+
 	if (hdr_length > UDPHDR) {
 		length -= UDPHDR;
-		data   += UDPHDR;
-	
+		data += UDPHDR;
+
 		switch (dest) {
-			case RIP_PORT:
-				lprintf(T_TCPHDR, "\n");
-				rip_dump(data, length);
-				break;
-			default:
-				lprintf(T_TCPHDR, " Data %d\n", length);
-				data_dump(data, length, hexdump);
-				break;
+		case RIP_PORT:
+			lprintf(T_TCPHDR, "\n");
+			rip_dump(data, length);
+			break;
+		default:
+			lprintf(T_TCPHDR, " Data %d\n", length);
+			data_dump(data, length, hexdump);
+			break;
 		}
 	}
 }

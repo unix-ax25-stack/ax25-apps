@@ -29,17 +29,16 @@
 #define SETREPEATED(p)  (*(p+6))|=0x80
 #define SETLAST(p)      (*(p+6))|=0x01
 
-unsigned char bcbuf[256];       /* Must be larger than bc_text!!! */
-int bclen;                      /* The size of bcbuf */
+unsigned char bcbuf[256];	/* Must be larger than bc_text!!! */
+int bclen;			/* The size of bcbuf */
 
 /*
  * Initialize the process variables
  */
 
-void
-process_init()
+void process_init()
 {
-	bclen = -1;             /* flag that we need to rebuild the bctext */
+	bclen = -1;		/* flag that we need to rebuild the bctext */
 }
 
 /*
@@ -65,62 +64,66 @@ process_init()
  * the IP interface.
  */
 
-void
-from_kiss(buf, l)
+void from_kiss(buf, l)
 unsigned char *buf;
 int l;
 {
 	unsigned char *a, *ipaddr;
 
-	if (l<15) {
+	if (l < 15) {
 		LOGL2("from_kiss: dumped - length wrong!\n");
 		stats.kiss_tooshort++;
 		return;
 	}
 
-	if (loglevel>2)
+	if (loglevel > 2)
 		dump_ax25frame("from_kiss: ", buf, l);
 
-	if(digi) {			/* if we are in digi mode */
+	if (digi) {		/* if we are in digi mode */
 		a = next_addr(buf);
-		if(NOT_ME(a)){
+		if (NOT_ME(a)) {
 			stats.kiss_not_for_me++;
 			LOGL4("from_kiss: (digi) dumped - not for me\n");
 			return;
 		}
-		if (a==buf) {		/* must be a digi */
+		if (a == buf) {	/* must be a digi */
 			stats.kiss_i_am_dest++;
-			LOGL2("from_kiss: (digi) dumped - I am destination!\n");
+			LOGL2
+			    ("from_kiss: (digi) dumped - I am destination!\n");
 			return;
 		}
 		SETREPEATED(a);
 		a = next_addr(buf);	/* find who gets it after us */
-	} else {			/* must be tnc mode */
+	} else {		/* must be tnc mode */
 		a = next_addr(buf);
 #ifdef TNC_FILTER
 		if (IS_ME(a)) {
-			LOGL2("from_kiss: (tnc) dumped - addressed to self!\n");
+			LOGL2
+			    ("from_kiss: (tnc) dumped - addressed to self!\n");
 			return;
 		}
 #endif
-	}                       /* end of tnc mode */
+	}			/* end of tnc mode */
 
 	/* Lookup the IP address for this route */
 	ipaddr = call_to_ip(a);
 
-	if (ipaddr==NULL) {
+	if (ipaddr == NULL) {
 		if (is_call_bcast(a)) {
 			/* Warning - assuming buffer has room for 2 bytes */
-			add_crc(buf, l); l+=2;
+			add_crc(buf, l);
+			l += 2;
 			send_broadcast(buf, l);
 		} else {
 			stats.kiss_no_ip_addr++;
-			LOGL2("from_kiss: dumped - cannot figure out where to send this!\n");
+			LOGL2
+			    ("from_kiss: dumped - cannot figure out where to send this!\n");
 		}
 		return;
 	} else {
 		/* Warning - assuming buffer has room for 2 bytes */
-		add_crc(buf, l); l+=2;
+		add_crc(buf, l);
+		l += 2;
 		send_ip(buf, l, ipaddr);
 		if (is_call_bcast(a)) {
 			send_broadcast(buf, l);
@@ -144,54 +147,56 @@ int l;
  * We simply send the packet to the KISS send routine.
  */
 
-void
-from_ip(buf, l)
+void from_ip(buf, l)
 unsigned char *buf;
 int l;
 {
 	int port = 0;
 	unsigned char *a;
 
-	if(!ok_crc(buf, l)){
+	if (!ok_crc(buf, l)) {
 		stats.ip_failed_crc++;
 		LOGL2("from_ip: dumped - CRC incorrect!\n");
 		return;
 	}
-	l = l - 2;      /* dump the blasted CRC */
+	l = l - 2;		/* dump the blasted CRC */
 
-	if(l<15){
+	if (l < 15) {
 		stats.ip_tooshort++;
 		LOGL2("from_ip: dumped - length wrong!\n");
 		return;
 	}
 
-	if(loglevel>2)dump_ax25frame("from_ip: ", buf, l);
+	if (loglevel > 2)
+		dump_ax25frame("from_ip: ", buf, l);
 
-	if(digi){               /* if we are in digi mode */
+	if (digi) {		/* if we are in digi mode */
 		a = next_addr(buf);
-		if(NOT_ME(a)){
+		if (NOT_ME(a)) {
 			stats.ip_not_for_me++;
 			LOGL2("from_ip: (digi) dumped - not for me!\n");
 			return;
 		}
-		if(a==buf){     /* must be a digi */
+		if (a == buf) {	/* must be a digi */
 			stats.ip_i_am_dest++;
-			LOGL2("from_ip: (digi) dumped - I am destination!\n");
+			LOGL2
+			    ("from_ip: (digi) dumped - I am destination!\n");
 			return;
 		}
-		if(dual_port == 1 && FOR_PORT2(a)){
+		if (dual_port == 1 && FOR_PORT2(a)) {
 			port = 0x10;
 		}
 		SETREPEATED(a);
-	} else {                /* must be tnc mode */
+	} else {		/* must be tnc mode */
 		a = next_addr(buf);
 #ifdef TNC_FILTER
-		if(NOT_ME(a)){
-			LOGL2("from_ip: (tnc) dumped - I am not destination!\n");
+		if (NOT_ME(a)) {
+			LOGL2
+			    ("from_ip: (tnc) dumped - I am not destination!\n");
 			return;
 		}
 #endif
-	}                       /* end of tnc mode */
+	}			/* end of tnc mode */
 	send_kiss(port, buf, l);
 }
 
@@ -199,38 +204,40 @@ int l;
  * Send an ID frame out the KISS port.
  */
 
-void
-do_beacon()
+void do_beacon()
 {
 	int i;
 	unsigned char *p;
 
-	if(bclen == 0) return;          /* nothing to do! */
+	if (bclen == 0)
+		return;		/* nothing to do! */
 
-	if(bclen < 0) {                 /* build the id string */
+	if (bclen < 0) {	/* build the id string */
 		p = bcbuf;
-		*p++ = ('I'<<1);
-		*p++ = ('D'<<1);
-		*p++ = (' '<<1);
-		*p++ = (' '<<1);
-		*p++ = (' '<<1);
-		*p++ = (' '<<1);
-		*p++ = '\0' | 0x60;             /* SSID, set reserved bits */
+		*p++ = ('I' << 1);
+		*p++ = ('D' << 1);
+		*p++ = (' ' << 1);
+		*p++ = (' ' << 1);
+		*p++ = (' ' << 1);
+		*p++ = (' ' << 1);
+		*p++ = '\0' | 0x60;	/* SSID, set reserved bits */
 
-		for(i=0;i<6;i++)*p++=mycallsign[i];
-		*p++ = mycallsign[6] | 0x60;    /* ensure reserved bits are set */
-		SETLAST(bcbuf+7);               /* Set the E bit -- last address */
+		for (i = 0; i < 6; i++)
+			*p++ = mycallsign[i];
+		*p++ = mycallsign[6] | 0x60;	/* ensure reserved bits are set */
+		SETLAST(bcbuf + 7);	/* Set the E bit -- last address */
 
-		*p++ = 0x03;                    /* Control field -- UI frame */
+		*p++ = 0x03;	/* Control field -- UI frame */
 
-		*p++ = 0xf0;                    /* Protocol ID -- 0xf0 is no protocol */
+		*p++ = 0xf0;	/* Protocol ID -- 0xf0 is no protocol */
 
-		strcpy(p, bc_text);       /* add the text field */
+		strcpy(p, bc_text);	/* add the text field */
 
-		bclen = 16 + strlen(bc_text);   /* adjust the length nicely */
+		bclen = 16 + strlen(bc_text);	/* adjust the length nicely */
 	}
 
-	if(loglevel>2)dump_ax25frame("do_beacon: ", bcbuf, bclen);
+	if (loglevel > 2)
+		dump_ax25frame("do_beacon: ", bcbuf, bclen);
 	stats.kiss_beacon_outs++;
 	send_kiss(0, bcbuf, bclen);
 }
@@ -239,20 +246,28 @@ do_beacon()
  * return true if the addresses supplied match
  * modified for wildcarding by vk5xxx
  */
-int
-addrmatch(a,b)
+int addrmatch(a, b)
 unsigned char *a, *b;
 {
-	if((*a=='\0') || (*b=='\0'))return 0;
+	if ((*a == '\0') || (*b == '\0'))
+		return 0;
 
-	if((*a++^*b++)&0xfe)return 0;   /* "K" */
-	if((*a++^*b++)&0xfe)return 0;   /* "A" */
-	if((*a++^*b++)&0xfe)return 0;   /* "9" */
-	if((*a++^*b++)&0xfe)return 0;   /* "W" */
-	if((*a++^*b++)&0xfe)return 0;   /* "S" */
-	if((*a++^*b++)&0xfe)return 0;   /* "B" */
-	if(((*b++)&0x1e)==0)return 1;	/* ssid 0 matches all ssid's */
-	if((*a++^*b)&0x1e)return 0;  	/* ssid */
+	if ((*a++ ^ *b++) & 0xfe)
+		return 0;	/* "K" */
+	if ((*a++ ^ *b++) & 0xfe)
+		return 0;	/* "A" */
+	if ((*a++ ^ *b++) & 0xfe)
+		return 0;	/* "9" */
+	if ((*a++ ^ *b++) & 0xfe)
+		return 0;	/* "W" */
+	if ((*a++ ^ *b++) & 0xfe)
+		return 0;	/* "S" */
+	if ((*a++ ^ *b++) & 0xfe)
+		return 0;	/* "B" */
+	if (((*b++) & 0x1e) == 0)
+		return 1;	/* ssid 0 matches all ssid's */
+	if ((*a++ ^ *b) & 0x1e)
+		return 0;	/* ssid */
 /*	if((*a++^*b++)&0x1e)return 0;      ssid (how it was ...) */
 	return 1;
 }
@@ -260,47 +275,47 @@ unsigned char *a, *b;
 /*
  * return pointer to the next station to get this packet
  */
-unsigned char *
-next_addr(f)
+unsigned char *next_addr(f)
 unsigned char *f;
 {
 	unsigned char *a;
 
 /* If no digis, return the destination address */
-	if(NO_DIGIS(f))return f;
+	if (NO_DIGIS(f))
+		return f;
 
 /* check each digi field.  The first one that hasn't seen it is the one */
 	a = f + 7;
 	do {
 		a += 7;
-		if(NOTREPEATED(a))return a;
-	}while(NOT_LAST(a));
+		if (NOTREPEATED(a))
+			return a;
+	}
+	while (NOT_LAST(a));
 
 /* all the digis have seen it.  return the destination address */
-	return f;       
+	return f;
 }
 
 /*
  * tack on the CRC for the frame.  Note we assume the buffer is long
  * enough to have the two bytes tacked on.
  */
-void
-add_crc(buf, l)
+void add_crc(buf, l)
 unsigned char *buf;
 int l;
 {
 	unsigned short int u;
 
 	u = compute_crc(buf, l);
-	buf[l] = u&0xff;                /* lsb first */
-	buf[l+1] = (u>>8)&0xff;         /* msb next */
+	buf[l] = u & 0xff;	/* lsb first */
+	buf[l + 1] = (u >> 8) & 0xff;	/* msb next */
 }
 
 /*
  * Dump AX25 frame.
  */
-void
-dump_ax25frame(t, buf, l)
+void dump_ax25frame(t, buf, l)
 unsigned char *buf;
 char *t;
 int l;
@@ -312,28 +327,31 @@ int l;
 
 	printf("%s AX25: (l=%3d)   ", t, l);
 
-	if(l<15){
+	if (l < 15) {
 		printf("Bogus size...\n");
 		return;
 	}
 
-	printf("%s -> ", call_to_a(buf+7));
+	printf("%s -> ", call_to_a(buf + 7));
 	printf("%s", call_to_a(buf));
 
-	if(ARE_DIGIS(buf)){
+	if (ARE_DIGIS(buf)) {
 		printf(" v");
-		a = buf+7;
-		do{
-			a+=7;
+		a = buf + 7;
+		do {
+			a += 7;
 			printf(" %s", call_to_a(a));
-			if(REPEATED(a))printf("*");
-		}while(NOT_LAST(a));
+			if (REPEATED(a))
+				printf("*");
+		}
+		while (NOT_LAST(a));
 	}
 
 	printf("\n");
 
 #ifdef DEBUG
-	for(i=0;i<l;i++)printf("%02x ",buf[i]);
+	for (i = 0; i < l; i++)
+		printf("%02x ", buf[i]);
 	printf("\n");
 #endif
 

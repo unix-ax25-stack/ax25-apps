@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p4 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -64,15 +64,17 @@ AWK = @AWK@
 AX25_LIB = @AX25_LIB@
 CC = @CC@
 DLLTOOL = @DLLTOOL@
-LD = @LD@
+ECHO = @ECHO@
+EXEEXT = @EXEEXT@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 MAKEINFO = @MAKEINFO@
 NCURSES_LIB = @NCURSES_LIB@
-NM = @NM@
 OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
+STRIP = @STRIP@
 VERSION = @VERSION@
 
 etcfiles = ax25rtd.conf
@@ -97,6 +99,7 @@ INCLUDES = -DAX25_SYSCONFDIR=\""$(AX25_SYSCONFDIR)"\" 	   -DAX25_LOCALSTATEDIR=\
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
+sbin_PROGRAMS =  ax25rtd$(EXEEXT) ax25rtctl$(EXEEXT)
 PROGRAMS =  $(sbin_PROGRAMS)
 
 
@@ -104,13 +107,13 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I..
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-ax25rtd_OBJECTS =  ax25rtd.o cache_ctl.o cache_dump.o config.o \
-listener.o
+ax25rtd_OBJECTS =  ax25rtd.$(OBJEXT) cache_ctl.$(OBJEXT) \
+cache_dump.$(OBJEXT) config.$(OBJEXT) listener.$(OBJEXT)
 ax25rtd_LDADD = $(LDADD)
 ax25rtd_DEPENDENCIES = 
 ax25rtd_LDFLAGS = 
 ax25rtctl_SOURCES = ax25rtctl.c
-ax25rtctl_OBJECTS =  ax25rtctl.o
+ax25rtctl_OBJECTS =  ax25rtctl.$(OBJEXT)
 ax25rtctl_LDADD = $(LDADD)
 ax25rtctl_DEPENDENCIES = 
 ax25rtctl_LDFLAGS = 
@@ -129,11 +132,11 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 TAR = tar
 GZIP_ENV = --best
 SOURCES = $(ax25rtd_SOURCES) ax25rtctl.c
-OBJECTS = $(ax25rtd_OBJECTS) ax25rtctl.o
+OBJECTS = $(ax25rtd_OBJECTS) ax25rtctl.$(OBJEXT)
 
 all: all-redirect
 .SUFFIXES:
-.SUFFIXES: .S .c .lo .o .s
+.SUFFIXES: .S .c .lo .o .obj .s
 $(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
 	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps ax25rtd/Makefile
 
@@ -170,6 +173,11 @@ uninstall-sbinPROGRAMS:
 .c.o:
 	$(COMPILE) -c $<
 
+# FIXME: We should only use cygpath when building on Windows,
+# and only if it is available.
+.c.obj:
+	$(COMPILE) -c `cygpath -w $<`
+
 .s.o:
 	$(COMPILE) -c $<
 
@@ -178,6 +186,7 @@ uninstall-sbinPROGRAMS:
 
 mostlyclean-compile:
 	-rm -f *.o core *.core
+	-rm -f *.$(OBJEXT)
 
 clean-compile:
 
@@ -205,12 +214,12 @@ distclean-libtool:
 
 maintainer-clean-libtool:
 
-ax25rtd: $(ax25rtd_OBJECTS) $(ax25rtd_DEPENDENCIES)
-	@rm -f ax25rtd
+ax25rtd$(EXEEXT): $(ax25rtd_OBJECTS) $(ax25rtd_DEPENDENCIES)
+	@rm -f ax25rtd$(EXEEXT)
 	$(LINK) $(ax25rtd_LDFLAGS) $(ax25rtd_OBJECTS) $(ax25rtd_LDADD) $(LIBS)
 
-ax25rtctl: $(ax25rtctl_OBJECTS) $(ax25rtctl_DEPENDENCIES)
-	@rm -f ax25rtctl
+ax25rtctl$(EXEEXT): $(ax25rtctl_OBJECTS) $(ax25rtctl_DEPENDENCIES)
+	@rm -f ax25rtctl$(EXEEXT)
 	$(LINK) $(ax25rtctl_LDFLAGS) $(ax25rtctl_OBJECTS) $(ax25rtctl_LDADD) $(LIBS)
 
 install-docDATA: $(doc_DATA)

@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.c,v 1.1 2001/04/10 01:58:38 csmall Exp $
+/* $Id: ax25rtd.c,v 1.2 2001/09/12 13:18:43 terry Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -17,7 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
- 
+
 /*
  * This daemon tries to learn AX.25, ARP, IP route entries by listening
  * to the AX.25 traffic. It caches up to 256 entries (in "FIFO" mode) 
@@ -63,36 +63,36 @@
 #include "../pathnames.h"
 #include "ax25rtd.h"
 
-const char *Version = "ax25rtd $Revision: 1.1 $";
+const char *Version = "ax25rtd $Revision: 1.2 $";
 config *Config = NULL;
 
 int reload = 0;
 
-ip_rt_entry * ip_routes = NULL;
-int ip_routes_cnt	= 0;
-int ip_maxroutes	= IP_MAXROUTES;
+ip_rt_entry *ip_routes = NULL;
+int ip_routes_cnt = 0;
+int ip_maxroutes = IP_MAXROUTES;
 
-ax25_rt_entry * ax25_routes = NULL;
-int ax25_routes_cnt	= 0;
-int ax25_maxroutes	= AX25_MAXROUTES;
+ax25_rt_entry *ax25_routes = NULL;
+int ax25_routes_cnt = 0;
+int ax25_maxroutes = AX25_MAXROUTES;
 
-char ip_encaps_dev[32]  = "";
+char ip_encaps_dev[32] = "";
 
 config *dev_get_config(char *dev)
 {
 	config *config;
-	
+
 	for (config = Config; config; config = config->next)
 		if (!strcmp(config->dev, dev))
 			return config;
-			
+
 	return port_get_config(dev);
 }
 
 config *port_get_config(char *port)
 {
 	config *config;
-	
+
 	for (config = Config; config; config = config->next)
 		if (!strcmp(config->port, port))
 			return config;
@@ -102,7 +102,7 @@ config *port_get_config(char *port)
 void sig_reload(int d)
 {
 	reload = 1;
-	signal(SIGHUP,  sig_reload);
+	signal(SIGHUP, sig_reload);
 }
 
 void sig_debug(int d)
@@ -113,7 +113,7 @@ void sig_debug(int d)
 	dump_ip_routes(2, 0);
 	fprintf(stderr, "ax25-routes:\n");
 	dump_ax25_routes(2, 0);
-	signal(SIGUSR1, sig_debug); 
+	signal(SIGUSR1, sig_debug);
 }
 
 void sig_term(int d)
@@ -146,64 +146,59 @@ int main(int argc, char **argv)
 
 	load_config();
 	load_cache();
-	
+
 	if (fork())
 		return 0;
 
-	if ((s = socket(AF_INET, SOCK_PACKET, htons(ETH_P_AX25))) == -1) 
-	{
+	if ((s = socket(AF_INET, SOCK_PACKET, htons(ETH_P_AX25))) == -1) {
 		perror("AX.25 socket");
 		return 1;
 	}
-	
-	if ((cntrl_s = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
-	{
+
+	if ((cntrl_s = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
 		perror("Control socket");
 		return 1;
 	}
-	
+
 	unlink(DATA_AX25ROUTED_CTL_SOCK);
 
 	cntrl_addr.sun_family = AF_UNIX;
 	strcpy(cntrl_addr.sun_path, DATA_AX25ROUTED_CTL_SOCK);
-	cntrl_len = sizeof(cntrl_addr.sun_family) + strlen(DATA_AX25ROUTED_CTL_SOCK);
+	cntrl_len =
+	    sizeof(cntrl_addr.sun_family) +
+	    strlen(DATA_AX25ROUTED_CTL_SOCK);
 
-	if (bind(cntrl_s, (struct sockaddr *)&cntrl_addr, cntrl_len) < 0)
-	{
+	if (bind(cntrl_s, (struct sockaddr *) &cntrl_addr, cntrl_len) < 0) {
 		perror("bind Control socket");
 		daemon_shutdown(1);
 	}
 
 	chmod(DATA_AX25ROUTED_CTL_SOCK, 0600);
 	listen(cntrl_s, 1);
-	
+
 	signal(SIGUSR1, sig_debug);
-	signal(SIGHUP,  sig_reload);
+	signal(SIGHUP, sig_reload);
 	signal(SIGTERM, sig_term);
-	
+
 	cntrl_fd = -1;
-	
-	for (;;) 
-	{
+
+	for (;;) {
 		fd_max = 0;
 		FD_ZERO(&fd_set);
 		FD_ZERO(&fd_set2);
 		FD_MAX(s);
-		if (cntrl_fd > 0)
-		{
+		if (cntrl_fd > 0) {
 			FD_MAX(cntrl_fd);
 			FD_SET(cntrl_fd, &fd_set2);
 		} else {
 			FD_MAX(cntrl_s);
 		}
 
-		if (select(fd_max+1, &fd_set, NULL, &fd_set2, NULL) < 0)
-		{
+		if (select(fd_max + 1, &fd_set, NULL, &fd_set2, NULL) < 0) {
 			if (errno == EINTR)	/* woops! */
 				continue;
 
-			if (!FD_ISSET(cntrl_fd, &fd_set2))
-			{
+			if (!FD_ISSET(cntrl_fd, &fd_set2)) {
 				perror("select");
 				save_cache();
 				daemon_shutdown(1);
@@ -213,14 +208,11 @@ int main(int argc, char **argv)
 				continue;
 			}
 		}
-		  
-		if (cntrl_fd > 0)
-		{
-			if (FD_ISSET(cntrl_fd, &fd_set))
-			{
+
+		if (cntrl_fd > 0) {
+			if (FD_ISSET(cntrl_fd, &fd_set)) {
 				size = read(cntrl_fd, buf, sizeof(buf));
-				if (size > 0)
-				{
+				if (size > 0) {
 					buf[size] = '\0';
 					interpret_command(cntrl_fd, buf);
 				} else {
@@ -228,11 +220,11 @@ int main(int argc, char **argv)
 					cntrl_fd = -1;
 				}
 			}
-		} else
-		if (FD_ISSET(cntrl_s, &fd_set))
-		{
-		 	if ((cntrl_fd=accept(cntrl_s, (struct sockaddr *) &cntrl_addr, &cntrl_len)) < 0)
-			{
+		} else if (FD_ISSET(cntrl_s, &fd_set)) {
+			if ((cntrl_fd =
+			     accept(cntrl_s,
+				    (struct sockaddr *) &cntrl_addr,
+				    &cntrl_len)) < 0) {
 				perror("accept Control");
 				save_cache();
 				daemon_shutdown(1);
@@ -241,10 +233,10 @@ int main(int argc, char **argv)
 
 		if (reload)
 			reload_config();
-		
+
 		if (FD_ISSET(s, &fd_set))
 			ax25_receive(s);
 	}
-	
-	return 0;	/* what ?! */
+
+	return 0;		/* what ?! */
 }

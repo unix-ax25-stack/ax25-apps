@@ -11,43 +11,44 @@
 #include <string.h>
 #include "menu.h"
 
-typedef struct
-{
+typedef struct {
 	char *st_ptr;
 	int xpos;
 	char key;
 } topmenuitem;
 
-WINDOW* winopen(wint *wtab, int nlines, int ncols, int begin_y, int begin_x, int border)
+WINDOW *winopen(wint * wtab, int nlines, int ncols, int begin_y,
+		int begin_x, int border)
 {
 
 	while (wtab->next != NULL)
 		wtab = wtab->next;
 
-	wtab->next = (wint *)malloc(sizeof(wint));
-	wtab       = wtab->next;
+	wtab->next = (wint *) malloc(sizeof(wint));
+	wtab = wtab->next;
 
 	wtab->next = NULL;
 
-	wtab->ptr  = newwin(nlines, ncols, begin_y, begin_x);
+	wtab->ptr = newwin(nlines, ncols, begin_y, begin_x);
 
 	if (wtab->ptr == NULL)
 		return NULL;
 
- 	wtab->fline = begin_y;
+	wtab->fline = begin_y;
 	wtab->lline = begin_y + nlines;
 
 	if (border)
-		wborder(wtab->ptr, ACS_VLINE, ACS_VLINE, ACS_HLINE, ACS_HLINE,
-			ACS_ULCORNER, ACS_URCORNER, ACS_LLCORNER, ACS_LRCORNER);
-	
+		wborder(wtab->ptr, ACS_VLINE, ACS_VLINE, ACS_HLINE,
+			ACS_HLINE, ACS_ULCORNER, ACS_URCORNER,
+			ACS_LLCORNER, ACS_LRCORNER);
+
 	return wtab->ptr;
 }
 
-void winclose(wint *wtab)
+void winclose(wint * wtab)
 {
-	wint* awin;
-	wint* lwin;
+	wint *awin;
+	wint *lwin;
 	int awin_lines;
 
 	if (wtab->next == NULL)
@@ -61,31 +62,39 @@ void winclose(wint *wtab)
 	awin_lines = awin->lline - awin->fline;
 
 	while (wtab->next != NULL) {
-		if (awin->lline >= wtab->fline && awin->fline <= wtab->lline) {
+		if (awin->lline >= wtab->fline
+		    && awin->fline <= wtab->lline) {
 			if (wtab->fline <= awin->fline) {
 				if (wtab->lline < awin->lline) {
-					wtouchln(wtab->ptr, awin->fline - wtab->fline,
-						awin_lines - (awin->lline - wtab->lline), 1);
+					wtouchln(wtab->ptr,
+						 awin->fline - wtab->fline,
+						 awin_lines -
+						 (awin->lline -
+						  wtab->lline), 1);
 				} else {
-					wtouchln(wtab->ptr, awin->fline - wtab->fline,
-						awin_lines, 1);
+					wtouchln(wtab->ptr,
+						 awin->fline - wtab->fline,
+						 awin_lines, 1);
 				}
 			} else {
-				wtouchln(wtab->ptr, 0, awin_lines - wtab->fline + awin->fline, 1);
+				wtouchln(wtab->ptr, 0,
+					 awin_lines - wtab->fline +
+					 awin->fline, 1);
 			}
 
 			wnoutrefresh(wtab->ptr);
 		}
 
 		wtab = wtab->next;
-	} 
+	}
 
 	doupdate();
 	lwin->next = 0;
 	free(awin);
-}   
+}
 
-void menu_write_line(WINDOW *win, int ypos ,int menu_breite, int reverse, char st[])
+void menu_write_line(WINDOW * win, int ypos, int menu_breite, int reverse,
+		     char st[])
 {
 	int cnt;
 	int high = FALSE;
@@ -94,7 +103,7 @@ void menu_write_line(WINDOW *win, int ypos ,int menu_breite, int reverse, char s
 		wattron(win, A_REVERSE);
 
 	wmove(win, ypos + 1, 1);
-	for (cnt = 0; st[cnt] !=0; cnt++) {
+	for (cnt = 0; st[cnt] != 0; cnt++) {
 		if (st[cnt] == '~') {
 			if (!reverse) {
 				wattron(win, A_BOLD);
@@ -116,7 +125,7 @@ void menu_write_line(WINDOW *win, int ypos ,int menu_breite, int reverse, char s
 		wattroff(win, A_REVERSE);
 }
 
-int p_dwn_menu(wint *wtab, menuitem *menustr, int starty, int startx) 
+int p_dwn_menu(wint * wtab, menuitem * menustr, int starty, int startx)
 {
 	int str_max_length = 0;
 	int cnt = 0, pos;
@@ -130,48 +139,58 @@ int p_dwn_menu(wint *wtab, menuitem *menustr, int starty, int startx)
 			str_max_length = strlen(menustr[lines].st_ptr);
 	}
 
-	menuwin = winopen(wtab, lines + 2, str_max_length + 1, starty, startx, TRUE);
-  
+	menuwin =
+	    winopen(wtab, lines + 2, str_max_length + 1, starty, startx,
+		    TRUE);
+
 	wrefresh(menuwin);
 
 	pos = 0;
-	menu_write_line(menuwin, 0, str_max_length, TRUE, menustr[0].st_ptr);
+	menu_write_line(menuwin, 0, str_max_length, TRUE,
+			menustr[0].st_ptr);
 	for (ypos = 1; ypos < lines; ypos++)
-		menu_write_line(menuwin, ypos, str_max_length, FALSE, menustr[ypos].st_ptr);
+		menu_write_line(menuwin, ypos, str_max_length, FALSE,
+				menustr[ypos].st_ptr);
 
 	wrefresh(menuwin);
 	ypos = 0;
 
 	do {
-		while ((c=getch()) == ERR);
-		oldypos=ypos;
-		switch(c) {
-			case KEY_DOWN :
-				if (++ypos >= lines) ypos=0;
-				break;
-			case KEY_UP :
-				if (ypos == 0)
-					ypos = lines - 1;
-				else
-					ypos--;
-				break;
-			default :
-				if ((char)c >= 'a' && (char)c <= 'z')
-					c -= 'a'-'A';
+		while ((c = getch()) == ERR);
+		oldypos = ypos;
+		switch (c) {
+		case KEY_DOWN:
+			if (++ypos >= lines)
+				ypos = 0;
+			break;
+		case KEY_UP:
+			if (ypos == 0)
+				ypos = lines - 1;
+			else
+				ypos--;
+			break;
+		default:
+			if ((char) c >= 'a' && (char) c <= 'z')
+				c -= 'a' - 'A';
 
-				for (cnt = 0; menustr[cnt].key !=(char)c && cnt < lines; cnt++);
-				if (menustr[cnt].key == (char)c)
-					ypos = cnt;
-				break;
+			for (cnt = 0;
+			     menustr[cnt].key != (char) c && cnt < lines;
+			     cnt++);
+			if (menustr[cnt].key == (char) c)
+				ypos = cnt;
+			break;
 		}
 
 		if (ypos != oldypos) {
-			menu_write_line(menuwin, ypos, str_max_length, TRUE, menustr[ypos].st_ptr);
-			menu_write_line(menuwin, oldypos, str_max_length, FALSE, menustr[oldypos].st_ptr);
+			menu_write_line(menuwin, ypos, str_max_length,
+					TRUE, menustr[ypos].st_ptr);
+			menu_write_line(menuwin, oldypos, str_max_length,
+					FALSE, menustr[oldypos].st_ptr);
 
 			wrefresh(menuwin);
 		}
-	} while (c != KEY_ENTER && c != '\r' && c != '\n' && c != KEY_RIGHT && c != KEY_LEFT && c != 0x1b);
+	} while (c != KEY_ENTER && c != '\r' && c != '\n' && c != KEY_RIGHT
+		 && c != KEY_LEFT && c != 0x1b);
 
 	delwin(menuwin);
 
@@ -181,13 +200,13 @@ int p_dwn_menu(wint *wtab, menuitem *menustr, int starty, int startx)
 		return 0;
 
 
-	if (c == KEY_RIGHT || c == KEY_LEFT) 
+	if (c == KEY_RIGHT || c == KEY_LEFT)
 		return c;
 	else
 		return ypos + 1;
 }
 
-void menu_write_item(WINDOW *win, int xpos, int reverse, const char st[])
+void menu_write_item(WINDOW * win, int xpos, int reverse, const char st[])
 {
 	int cnt;
 	int high = FALSE;
@@ -217,25 +236,26 @@ void menu_write_item(WINDOW *win, int xpos, int reverse, const char st[])
 }
 
 
-int top_menu(wint* wtab,menuitem menustr[],int ystart) 
+int top_menu(wint * wtab, menuitem menustr[], int ystart)
 {
 	int str_max_length = 0;
-	int str_length=0;
+	int str_length = 0;
 	int cnt, pos;
 	int xpos, oldxpos;
-	int ypos=0;
-	int items=0;
+	int ypos = 0;
+	int items = 0;
 	int c;
 	WINDOW *menuwin;
 	int items_xpos[12];
 
-	curs_set(0);	/*cursor visibility off*/
+	curs_set(0);		/*cursor visibility off */
 
 	for (items = 0; *(menustr[items].st_ptr) != 0; items++) {
 		if (items == 0)
 			items_xpos[0] = 1;
 		else
-			items_xpos[items] = items_xpos[items - 1] + str_length;
+			items_xpos[items] =
+			    items_xpos[items - 1] + str_length;
 
 		if (strlen(menustr[items].st_ptr) > str_max_length)
 			str_max_length = strlen(menustr[items].st_ptr);
@@ -244,14 +264,15 @@ int top_menu(wint* wtab,menuitem menustr[],int ystart)
 	}
 
 	menuwin = winopen(wtab, 3, 80, ystart, 0, TRUE);
-  
+
 	wrefresh(menuwin);
 
 	pos = 0;
 	menu_write_item(menuwin, 1, TRUE, menustr[0].st_ptr);
 
 	for (xpos = 1; xpos < items; xpos++)
-		menu_write_item(menuwin, items_xpos[xpos], FALSE, menustr[xpos].st_ptr);
+		menu_write_item(menuwin, items_xpos[xpos], FALSE,
+				menustr[xpos].st_ptr);
 
 	wrefresh(menuwin);
 	xpos = 0;
@@ -262,64 +283,88 @@ int top_menu(wint* wtab,menuitem menustr[],int ystart)
 		oldxpos = xpos;
 
 		switch (c) {
-			case KEY_RIGHT:
-				if (++xpos >= items)
-					xpos = 0;
-				break;
+		case KEY_RIGHT:
+			if (++xpos >= items)
+				xpos = 0;
+			break;
 
-			case KEY_LEFT:
-				if (xpos == 0)
-					xpos = items - 1;
-				else
-					xpos--;
-				break;
+		case KEY_LEFT:
+			if (xpos == 0)
+				xpos = items - 1;
+			else
+				xpos--;
+			break;
 
-			case KEY_DOWN:
-			case KEY_ENTER:
-			case '\r':
-			case '\n':
-			        ypos = 0;
-				do {
-					switch (ypos) {
-						case KEY_RIGHT:
-							if (++xpos >= items)
-								xpos = 0;
-							menu_write_item(menuwin, items_xpos[xpos], TRUE, menustr[xpos].st_ptr);
-							menu_write_item(menuwin, items_xpos[oldxpos], FALSE, menustr[oldxpos].st_ptr);
-							wrefresh(menuwin);
-							oldxpos = xpos;
-							break;
-
-						case KEY_LEFT:
-							if (xpos == 0)
-								xpos = items - 1;
-							else
-								xpos--;
-							menu_write_item(menuwin, items_xpos[xpos], TRUE, menustr[xpos].st_ptr);
-							menu_write_item(menuwin, items_xpos[oldxpos], FALSE, menustr[oldxpos].st_ptr);
-							wrefresh(menuwin);
-							oldxpos = xpos;
-							break;
-
-					}
-	
-					ypos = p_dwn_menu(wtab, (menuitem*)menustr[xpos].arg, ystart + 2, items_xpos[xpos] + 1);
-					touchwin(menuwin);
+		case KEY_DOWN:
+		case KEY_ENTER:
+		case '\r':
+		case '\n':
+			ypos = 0;
+			do {
+				switch (ypos) {
+				case KEY_RIGHT:
+					if (++xpos >= items)
+						xpos = 0;
+					menu_write_item(menuwin,
+							items_xpos[xpos],
+							TRUE,
+							menustr[xpos].
+							st_ptr);
+					menu_write_item(menuwin,
+							items_xpos
+							[oldxpos], FALSE,
+							menustr[oldxpos].
+							st_ptr);
 					wrefresh(menuwin);
-				} while (ypos == KEY_RIGHT || ypos == KEY_LEFT);
-				break;
+					oldxpos = xpos;
+					break;
 
-			default:
-				if ((char)c >= 'a' && (char)c <= 'z')
-					c -= 'a' - 'A';
-				for (cnt = 0; menustr[cnt].key != (char)c && cnt <= items; cnt++);
-				if (menustr[cnt].key == (char)c)
-					xpos = cnt;
+				case KEY_LEFT:
+					if (xpos == 0)
+						xpos = items - 1;
+					else
+						xpos--;
+					menu_write_item(menuwin,
+							items_xpos[xpos],
+							TRUE,
+							menustr[xpos].
+							st_ptr);
+					menu_write_item(menuwin,
+							items_xpos
+							[oldxpos], FALSE,
+							menustr[oldxpos].
+							st_ptr);
+					wrefresh(menuwin);
+					oldxpos = xpos;
+					break;
+
+				}
+
+				ypos =
+				    p_dwn_menu(wtab,
+					       (menuitem *) menustr[xpos].
+					       arg, ystart + 2,
+					       items_xpos[xpos] + 1);
+				touchwin(menuwin);
+				wrefresh(menuwin);
+			} while (ypos == KEY_RIGHT || ypos == KEY_LEFT);
+			break;
+
+		default:
+			if ((char) c >= 'a' && (char) c <= 'z')
+				c -= 'a' - 'A';
+			for (cnt = 0;
+			     menustr[cnt].key != (char) c && cnt <= items;
+			     cnt++);
+			if (menustr[cnt].key == (char) c)
+				xpos = cnt;
 		}
 
 		if (xpos != oldxpos) {
-			menu_write_item(menuwin, items_xpos[xpos], TRUE, menustr[xpos].st_ptr);
-			menu_write_item(menuwin, items_xpos[oldxpos], FALSE, menustr[oldxpos].st_ptr);
+			menu_write_item(menuwin, items_xpos[xpos], TRUE,
+					menustr[xpos].st_ptr);
+			menu_write_item(menuwin, items_xpos[oldxpos],
+					FALSE, menustr[oldxpos].st_ptr);
 			wrefresh(menuwin);
 		}
 

@@ -20,6 +20,9 @@
  * added route flags, it's a little ugly, but is extensible fairly easily.
  * provided a mechanism for handling broadcast traffic
  * Terry Dawson, VK2KTJ, July 1997.
+ *
+ * Minor bug fixes.
+ * Terry Dawson, VK2KTJ, September 2001.
  */
 
 /* Define the current version number

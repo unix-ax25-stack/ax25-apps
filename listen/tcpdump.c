@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/tcpdump.c,v 1.1 2001/04/10 01:58:56 csmall Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/tcpdump.c,v 1.2 2001/09/12 13:18:44 terry Exp $ */
 
 /* TCP header tracing routines
  * Copyright 1991 Phil Karn, KA9Q
@@ -38,37 +38,46 @@ void tcp_dump(unsigned char *data, int length, int hexdump)
 	int mss = 0;
 
 	source = get16(data + 0);
-	dest   = get16(data + 2);
-	seq    = get32(data + 4);
-	ack    = get32(data + 8);
+	dest = get16(data + 2);
+	seq = get32(data + 4);
+	ack = get32(data + 8);
 	hdrlen = (data[12] & 0xF0) >> 2;
-	flags  = data[13];
-	wnd    = get16(data + 14);
-	up     = get16(data + 18);
+	flags = data[13];
+	wnd = get16(data + 14);
+	up = get16(data + 18);
 
 	lprintf(T_PROTOCOL, "TCP:");
 	lprintf(T_TCPHDR, " %s->", servname(source, "tcp"));
 	lprintf(T_TCPHDR, "%s Seq x%x", servname(dest, "tcp"), seq);
 
-	if (flags & ACK) lprintf(T_TCPHDR, " Ack x%x", ack);
+	if (flags & ACK)
+		lprintf(T_TCPHDR, " Ack x%x", ack);
 
-	if (flags & CE)  lprintf(T_TCPHDR, " CE");
+	if (flags & CE)
+		lprintf(T_TCPHDR, " CE");
 
-	if (flags & URG) lprintf(T_TCPHDR, " URG");
+	if (flags & URG)
+		lprintf(T_TCPHDR, " URG");
 
-	if (flags & ACK) lprintf(T_TCPHDR, " ACK");
+	if (flags & ACK)
+		lprintf(T_TCPHDR, " ACK");
 
-	if (flags & PSH) lprintf(T_TCPHDR, " PSH");
+	if (flags & PSH)
+		lprintf(T_TCPHDR, " PSH");
 
-	if (flags & RST) lprintf(T_TCPHDR, " RST");
+	if (flags & RST)
+		lprintf(T_TCPHDR, " RST");
 
-	if (flags & SYN) lprintf(T_TCPHDR, " SYN");
+	if (flags & SYN)
+		lprintf(T_TCPHDR, " SYN");
 
-	if (flags & FIN) lprintf(T_TCPHDR, " FIN");
+	if (flags & FIN)
+		lprintf(T_TCPHDR, " FIN");
 
 	lprintf(T_TCPHDR, " Wnd %d", wnd);
 
-	if (flags & URG) lprintf(T_TCPHDR, " UP x%x", up);
+	if (flags & URG)
+		lprintf(T_TCPHDR, " UP x%x", up);
 
 	/* Process options, if any */
 	if (hdrlen > TCPLEN && length >= hdrlen) {
@@ -95,29 +104,30 @@ void tcp_dump(unsigned char *data, int length, int hexdump)
 			optlen = *cp++;
 
 			/* Process valid multi-byte options */
-  			switch (kind) {
+			switch (kind) {
 			case MSS_KIND:
-			 	if (optlen == MSS_LENGTH)
+				if (optlen == MSS_LENGTH)
 					mss = get16(cp);
 				break;
 			}
 
-			optlen = max(2, optlen); /* Enforce legal minimum */
+			optlen = max(2, optlen);	/* Enforce legal minimum */
 			i -= optlen;
 			cp += optlen - 2;
 		}
 	}
 
-	if (mss != 0) lprintf(T_TCPHDR," MSS %d", mss);
+	if (mss != 0)
+		lprintf(T_TCPHDR, " MSS %d", mss);
 
 	length -= hdrlen;
-	data   += hdrlen;
+	data += hdrlen;
 
 	if (length > 0) {
 		lprintf(T_TCPHDR, " Data %d\n", length);
 		data_dump(data, length, hexdump);
 		return;
 	}
-	
+
 	lprintf(T_TCPHDR, "\n");
 }

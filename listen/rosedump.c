@@ -56,7 +56,7 @@ void rose_dump(unsigned char *data, int length, int hexdump)
 	unsigned char *source = NULL;
 	unsigned char *dest = NULL;
 	unsigned int len, hlen;
-	unsigned int lci = ((unsigned)(data[0] & 0x0F) << 8) + data[1];
+	unsigned int lci = ((unsigned) (data[0] & 0x0F) << 8) + data[1];
 	lprintf(T_ROSEHDR, "X.25: LCI %3.3X : ", lci);
 
 	switch (data[2]) {
@@ -64,26 +64,22 @@ void rose_dump(unsigned char *data, int length, int hexdump)
 		len = 4;
 		hlen = (((data[3] >> 4) & 0x0F) + 1) / 2;
 		hlen += (((data[3] >> 0) & 0x0F) + 1) / 2;
-		if (hlen == 10)
-		{
-			dest   = data+4;
-			source = data+9;
+		if (hlen == 10) {
+			dest = data + 4;
+			source = data + 9;
 		}
-		len    += hlen;
-		data   += len;
+		len += hlen;
+		data += len;
 		length -= len;
 		lprintf(T_ROSEHDR, "CALL REQUEST - ");
-		if (length)
-		{
-			unsigned int flen = data[0]+1;
+		if (length) {
+			unsigned int flen = data[0] + 1;
 			facility(data, length);
 			length -= flen;
 			data += flen;
 			if (length > 0)
 				data_dump(data, length, 1);
-		}
-		else
-		{
+		} else {
 			lprintf(T_ROSEHDR, "\n");
 		}
 		return;
@@ -95,9 +91,8 @@ void rose_dump(unsigned char *data, int length, int hexdump)
 	case CLEAR_REQUEST:
 		lprintf(T_ROSEHDR, "CLEAR REQUEST - Cause %s - Diag %d\n",
 			clear_code(data[3]), data[4]);
-		if (length > 6)
-		{
-			facility(data+6, length-6);
+		if (length > 6) {
+			facility(data + 6, length - 6);
 		}
 		return;
 
@@ -126,12 +121,13 @@ void rose_dump(unsigned char *data, int length, int hexdump)
 	case RESET_CONFIRMATION:
 		lprintf(T_ROSEHDR, "RESET CONFIRMATION\n");
 		return;
-		
+
 	case RESTART_REQUEST:
-		lprintf(T_ROSEHDR, "RESTART REQUEST - Cause %s - Diag %d\n",
+		lprintf(T_ROSEHDR,
+			"RESTART REQUEST - Cause %s - Diag %d\n",
 			restart_code(data[3]), data[4]);
 		return;
-		
+
 	case RESTART_CONFIRMATION:
 		lprintf(T_ROSEHDR, "RESTART CONFIRMATION\n");
 		return;
@@ -139,7 +135,7 @@ void rose_dump(unsigned char *data, int length, int hexdump)
 	case REGISTRATION_REQUEST:
 		lprintf(T_ROSEHDR, "REGISTRATION REQUEST\n");
 		return;
-		
+
 	case REGISTRATION_CONFIRMATION:
 		lprintf(T_ROSEHDR, "REGISTRATION CONFIRMATION\n");
 		return;
@@ -151,53 +147,59 @@ void rose_dump(unsigned char *data, int length, int hexdump)
 			(data[0] & QBIT) ? "Q" : "",
 			(data[0] & DBIT) ? "D" : "",
 			(data[2] & MBIT) ? "M" : "");
-		if ((length >= 5) && (data[0] & QBIT) && (data[3] == 0x7f))
-		{
+		if ((length >= 5) && (data[0] & QBIT) && (data[3] == 0x7f)) {
 			/* pid transport */
 			int pid = data[4];
 			data += 5;
 			length -= 5;
 			switch (pid) {
-				case PID_SEGMENT:
-					lprintf(T_ROSEHDR," len %d\n", length - 5);
-					data_dump(data, length, hexdump);
-					break;
-				case PID_ARP:
-					lprintf(T_ROSEHDR," pid=ARP len %d\n", length - 5);
-					arp_dump(data, length);
-					break;
-				case PID_NETROM:
-					lprintf(T_ROSEHDR," pid=NET/ROM len %d\n", length - 5);
-					netrom_dump(data, length, hexdump);
-					break;
-				case PID_IP:
-					lprintf(T_ROSEHDR," pid=IP len %d\n", length - 5);
-					ip_dump(data, length, hexdump);
-					break;
-				case PID_X25:
-					lprintf(T_ROSEHDR, " pid=X.25 len %d\n", length - 5);
-					rose_dump(data, length, hexdump);
-					break;
-				case PID_TEXNET:
-					lprintf(T_ROSEHDR, " pid=TEXNET len %d\n", length - 5);
-					data_dump(data, length, hexdump);
-					break;
-				case PID_FLEXNET:
-					lprintf(T_ROSEHDR, " pid=FLEXNET len %d\n", length - 5);
-					flexnet_dump(data, length, hexdump);
-					break;
-				case PID_NO_L3:
-					lprintf(T_ROSEHDR, " pid=Text len %d\n", length - 5);
-					data_dump(data, length, hexdump);
-					break;
-				default:
-					lprintf(T_ROSEHDR, " pid=0x%x len %d\n", pid, length - 5);
-					data_dump(data, length, hexdump);
-					break;
+			case PID_SEGMENT:
+				lprintf(T_ROSEHDR, " len %d\n",
+					length - 5);
+				data_dump(data, length, hexdump);
+				break;
+			case PID_ARP:
+				lprintf(T_ROSEHDR, " pid=ARP len %d\n",
+					length - 5);
+				arp_dump(data, length);
+				break;
+			case PID_NETROM:
+				lprintf(T_ROSEHDR, " pid=NET/ROM len %d\n",
+					length - 5);
+				netrom_dump(data, length, hexdump);
+				break;
+			case PID_IP:
+				lprintf(T_ROSEHDR, " pid=IP len %d\n",
+					length - 5);
+				ip_dump(data, length, hexdump);
+				break;
+			case PID_X25:
+				lprintf(T_ROSEHDR, " pid=X.25 len %d\n",
+					length - 5);
+				rose_dump(data, length, hexdump);
+				break;
+			case PID_TEXNET:
+				lprintf(T_ROSEHDR, " pid=TEXNET len %d\n",
+					length - 5);
+				data_dump(data, length, hexdump);
+				break;
+			case PID_FLEXNET:
+				lprintf(T_ROSEHDR, " pid=FLEXNET len %d\n",
+					length - 5);
+				flexnet_dump(data, length, hexdump);
+				break;
+			case PID_NO_L3:
+				lprintf(T_ROSEHDR, " pid=Text len %d\n",
+					length - 5);
+				data_dump(data, length, hexdump);
+				break;
+			default:
+				lprintf(T_ROSEHDR, " pid=0x%x len %d\n",
+					pid, length - 5);
+				data_dump(data, length, hexdump);
+				break;
 			}
-		}
-		else
-		{
+		} else {
 			lprintf(T_ROSEHDR, " len %d\n", length - 3);
 			data_dump(data + 3, length - 3, hexdump);
 		}
@@ -205,15 +207,15 @@ void rose_dump(unsigned char *data, int length, int hexdump)
 	}
 
 	switch (data[2] & 0x1F) {
-		case RR:
-			lprintf(T_ROSEHDR, "RR R%d\n", (data[2] >> 5) & 0x07);
-			return;
-		case RNR:
-			lprintf(T_ROSEHDR, "RNR R%d\n", (data[2] >> 5) & 0x07);
-			return;
-		case REJ:
-			lprintf(T_ROSEHDR, "REJ R%d\n", (data[2] >> 5) & 0x07);
-			return;
+	case RR:
+		lprintf(T_ROSEHDR, "RR R%d\n", (data[2] >> 5) & 0x07);
+		return;
+	case RNR:
+		lprintf(T_ROSEHDR, "RNR R%d\n", (data[2] >> 5) & 0x07);
+		return;
+	case REJ:
+		lprintf(T_ROSEHDR, "REJ R%d\n", (data[2] >> 5) & 0x07);
+		return;
 	}
 
 	lprintf(T_ROSEHDR, "UNKNOWN\n");
@@ -234,7 +236,7 @@ static char *clear_code(unsigned char code)
 		return "Remote Procedure Error";
 	if (code == 0x19)
 		return "Reverse Charging Acceptance Not Subscribed";
-	if (code == 0x21)	
+	if (code == 0x21)
 		return "Incompatible Destination";
 	if (code == 0x29)
 		return "Fast Select Acceptance Not Subscribed";
@@ -252,9 +254,9 @@ static char *clear_code(unsigned char code)
 		return "Not Obtainable";
 	if (code == 0x15)
 		return "RPOA Out Of Order";
-	
+
 	sprintf(buffer, "Unknown %02X", code);
-	
+
 	return buffer;
 }
 
@@ -266,15 +268,15 @@ static char *reset_code(unsigned char code)
 		return "DTE Originated";
 	if (code == 0x03)
 		return "Remote Procedure Error";
-	if (code == 0x11)	
+	if (code == 0x11)
 		return "Incompatible Destination";
 	if (code == 0x05)
 		return "Local Procedure Error";
 	if (code == 0x07)
 		return "Network Congestion";
-	
+
 	sprintf(buffer, "Unknown %02X", code);
-	
+
 	return buffer;
 }
 
@@ -290,9 +292,9 @@ static char *restart_code(unsigned char code)
 		return "Network Congestion";
 	if (code == 0x07)
 		return "Network Operational";
-	
+
 	sprintf(buffer, "Unknown %02X", code);
-	
+
 	return buffer;
 }
 
@@ -300,7 +302,8 @@ static char *dump_x25_addr(unsigned char *data)
 {
 	static char buffer[25];
 
-	sprintf(buffer, "%02X%02X,%02X%02X%02X", data[0], data[1], data[2], data[3], data[4]);
+	sprintf(buffer, "%02X%02X,%02X%02X%02X", data[0], data[1], data[2],
+		data[3], data[4]);
 
 	return buffer;
 }
@@ -311,8 +314,7 @@ static char *dump_ax25_call(unsigned char *data, int l_data)
 	char *ptr = buffer;
 	int ssid;
 
-	while (l_data-- > 1)
-	{
+	while (l_data-- > 1) {
 		*ptr = *data++ >> 1;
 		if (*ptr != ' ')
 			++ptr;
@@ -320,8 +322,7 @@ static char *dump_ax25_call(unsigned char *data, int l_data)
 
 	*ptr++ = '-';
 	ssid = (*data & 0x1F) >> 1;
-	if (ssid >= 10)
-	{
+	if (ssid >= 10) {
 		*ptr++ = '1';
 		ssid -= 10;
 	}
@@ -343,7 +344,7 @@ static void facility(unsigned char *data, int lgtot)
 	char *result = buf;
 
 	factot = data;
-	
+
 	lgfac = *data++;
 	lg = lgfac;
 
@@ -351,12 +352,10 @@ static void facility(unsigned char *data, int lgtot)
 	digid[0] = digis[0] = '\0';
 	indorig[0] = inddest[0] = '\0';
 
-	while (lg > 0)
-	{
+	while (lg > 0) {
 		fct = *data++;
 		lg--;
-		switch (fct)
-		{
+		switch (fct) {
 		case 0:
 			/* Marker=0 National Fac ou Marker=15 CCITT */
 			data++;
@@ -364,12 +363,13 @@ static void facility(unsigned char *data, int lgtot)
 			break;
 		case 0x3F:
 			/* Used if call request via L2 digi instead of L3 */
-			lprintf (T_ROSEHDR, "Facility 3F%2.2X\n", *data++);
+			lprintf(T_ROSEHDR, "Facility 3F%2.2X\n", *data++);
 			lg--;
 			break;
 		case 0x7F:
 			/* Random number to avoid loops */
-			lprintf (T_ROSEHDR, "NbAlea: %2.2X%2.2X\n", *data, *(data + 1));
+			lprintf(T_ROSEHDR, "NbAlea: %2.2X%2.2X\n", *data,
+				*(data + 1));
 			data += 2;
 			lg -= 2;
 			break;
@@ -377,7 +377,8 @@ static void facility(unsigned char *data, int lgtot)
 			/* Destination digi (for compatibility) */
 			lgdigi = *data++;
 			if (!digi_fac)
-				strcpy(digid, dump_ax25_call(data, lgdigi));
+				strcpy(digid,
+				       dump_ax25_call(data, lgdigi));
 			data += lgdigi;
 			lg -= 1 + lgdigi;
 			break;
@@ -385,14 +386,16 @@ static void facility(unsigned char *data, int lgtot)
 			/* Origin digi (for compatibility) */
 			lgdigi = *data++;
 			if (!digi_fac)
-				strcpy(digis, dump_ax25_call(data, lgdigi));
+				strcpy(digis,
+				       dump_ax25_call(data, lgdigi));
 			data += lgdigi;
 			lg -= 1 + lgdigi;
 			break;
 		case 0xED:
 			/* Out of order : callsign */
 			lgaddcall = *data++;
-			lprintf(T_ROSEHDR, "at %s", dump_ax25_call(data, lgaddcall));
+			lprintf(T_ROSEHDR, "at %s",
+				dump_ax25_call(data, lgaddcall));
 			data += lgaddcall;
 			lg -= 1 + lgaddcall;
 			break;
@@ -407,21 +410,19 @@ static void facility(unsigned char *data, int lgtot)
 			break;
 		case 0xEF:
 			lgaddcall = *data++;
-			for (d = data, l = 0; l < lgaddcall ; l += 7, d += 7)
-			{
-				if (l > (6 * 7))
-				{
+			for (d = data, l = 0; l < lgaddcall;
+			     l += 7, d += 7) {
+				if (l > (6 * 7)) {
 					/* 6 digis maximum */
 					break;
 				}
-				if (d[6] & AX25_HBIT)
-				{
-					strcat(digis, dump_ax25_call(d, 7));
+				if (d[6] & AX25_HBIT) {
+					strcat(digis,
+					       dump_ax25_call(d, 7));
 					strcat(digis, " ");
-				}
-				else
-				{
-					strcat(digid, dump_ax25_call(d, 7));
+				} else {
+					strcat(digid,
+					       dump_ax25_call(d, 7));
 					strcat(digid, " ");
 				}
 			}
@@ -439,50 +440,47 @@ static void facility(unsigned char *data, int lgtot)
 			lgad = *data++;
 			lg -= 6;
 			lgaddr = lgad;
-			
+
 			if (fct == 0xCB)
-				strcpy (addstorig, dump_x25_addr(data));
+				strcpy(addstorig, dump_x25_addr(data));
 			else
-				strcpy (addstdest, dump_x25_addr(data));
-				
+				strcpy(addstdest, dump_x25_addr(data));
+
 			data += (lgad + 1) / 2;
 			lg -= (lgad + 1) / 2;
 			lgadind = lgaddcall - (lgad + 1) / 2 - 5;
-			
-			if (fct == 0xCB)
-			{
-				strncpy (indorig, data, lgadind);
+
+			if (fct == 0xCB) {
+				strncpy(indorig, data, lgadind);
 				indorig[lgadind] = '\0';
-			}
-			else
-			{
-				strncpy (inddest, data, lgadind);
+			} else {
+				strncpy(inddest, data, lgadind);
 				inddest[lgadind] = '\0';
 			}
-				
+
 			data += lgadind;
 			lg -= lgadind;
 			break;
 		default:
-			lprintf (T_ROSEHDR, "Unknown Facility Type %2.2X\n", fct);
+			lprintf(T_ROSEHDR, "Unknown Facility Type %2.2X\n",
+				fct);
 			data_dump(factot, lgtot, 1);
 			lg = 0;
 			break;
 		}
 
-		result += strlen (result);
+		result += strlen(result);
 	}
 
-	if (*indorig && *inddest)
-	{
+	if (*indorig && *inddest) {
 		/* Build the displayed string */
-		lprintf (T_ROSEHDR, "fm %-9s @%s", indorig, addstorig);
+		lprintf(T_ROSEHDR, "fm %-9s @%s", indorig, addstorig);
 		if (*digis)
-			lprintf (T_ROSEHDR, " via %s", digis);
-		lprintf (T_ROSEHDR, "\n");
-		lprintf (T_ROSEHDR, "to %-9s @%s", inddest, addstdest);
+			lprintf(T_ROSEHDR, " via %s", digis);
+		lprintf(T_ROSEHDR, "\n");
+		lprintf(T_ROSEHDR, "to %-9s @%s", inddest, addstdest);
 		if (*digid)
-			lprintf (T_ROSEHDR, " via %s", digid);
-		lprintf (T_ROSEHDR, "\n");
+			lprintf(T_ROSEHDR, " via %s", digid);
+		lprintf(T_ROSEHDR, "\n");
 	}
 }

@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/icmpdump.c,v 1.1 2001/04/10 01:58:52 csmall Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/icmpdump.c,v 1.2 2001/09/12 13:18:44 terry Exp $ */
 
 /* ICMP header tracing
  * Copyright 1991 Phil Karn, KA9Q
@@ -29,14 +29,14 @@ void icmp_dump(unsigned char *data, int length, int hexdump)
 	unsigned char *address;
 	int id, seq;
 
-	type    = data[0];
-	code    = data[1];
+	type = data[0];
+	code = data[1];
 	pointer = data[4];
 	address = data + 4;
-	id      = get16(data + 4);
-	seq     = get16(data + 6);
+	id = get16(data + 4);
+	seq = get16(data + 6);
 
-	data   += ICMPLEN;
+	data += ICMPLEN;
 	length -= ICMPLEN;
 
 	lprintf(T_IPHDR, "ICMP: type ");
@@ -119,8 +119,7 @@ void icmp_dump(unsigned char *data, int length, int hexdump)
 			break;
 		}
 		lprintf(T_IPHDR, " new gateway %d.%d.%d.%d",
-				address[0], address[1],
-				address[2], address[3]);
+			address[0], address[1], address[2], address[3]);
 		lprintf(T_IPHDR, "\nReturned ");
 		ip_dump(data, length, hexdump);
 		break;
@@ -168,22 +167,26 @@ void icmp_dump(unsigned char *data, int length, int hexdump)
 		break;
 
 	case ICMP_INFO_RQST:
-		lprintf(T_IPHDR, "Information Request id %d seq %d\n", id, seq);
+		lprintf(T_IPHDR, "Information Request id %d seq %d\n", id,
+			seq);
 		data_dump(data, length, hexdump);
 		break;
 
 	case ICMP_INFO_REPLY:
-		lprintf(T_IPHDR, "Information Reply id %d seq %d\n", id, seq);
+		lprintf(T_IPHDR, "Information Reply id %d seq %d\n", id,
+			seq);
 		data_dump(data, length, hexdump);
 		break;
 
 	case ICMP_TIMESTAMP:
-		lprintf(T_IPHDR, "Timestamp Request id %d seq %d\n", id, seq);
+		lprintf(T_IPHDR, "Timestamp Request id %d seq %d\n", id,
+			seq);
 		data_dump(data, length, hexdump);
 		break;
 
 	case ICMP_TIME_REPLY:
-		lprintf(T_IPHDR, "Timestamp Reply id %d seq %d\n", id, seq);
+		lprintf(T_IPHDR, "Timestamp Reply id %d seq %d\n", id,
+			seq);
 		data_dump(data, length, hexdump);
 		break;
 
@@ -193,4 +196,3 @@ void icmp_dump(unsigned char *data, int length, int hexdump)
 		break;
 	}
 }
-

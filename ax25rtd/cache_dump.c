@@ -1,4 +1,4 @@
-/* $Id: cache_dump.c,v 1.1 2001/04/10 01:58:39 csmall Exp $
+/* $Id: cache_dump.c,v 1.2 2001/09/12 13:18:43 terry Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -17,7 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
- 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -49,12 +49,10 @@ void dump_ip_routes(int fd, int cmd)
 	unsigned long ip;
 	int len;
 
-	for (bp = ip_routes; bp; bp = bp->next)
-	{
+	for (bp = ip_routes; bp; bp = bp->next) {
 		ip = htonl(bp->ip);
 
-		if (cmd)
-		{
+		if (cmd) {
 			len = sprintf(buf, "add ip ");
 			dev = bp->iface;
 		} else {
@@ -66,24 +64,28 @@ void dump_ip_routes(int fd, int cmd)
 				dev = bp->iface;
 		}
 
-		len += sprintf(buf+len, "%d.%d.%d.%d", 
-					(int) ((ip & 0xFF000000) >> 24), 
-					(int) ((ip & 0x00FF0000) >> 16),
-					(int) ((ip & 0x0000FF00) >> 8),
-					(int)  (ip & 0x000000FF));
-		
-		len += sprintf(buf+len, " %-4s %8.8lx %-9s ", dev, bp->timestamp, ax25_ntoa(&bp->call));
+		len += sprintf(buf + len, "%d.%d.%d.%d",
+			       (int) ((ip & 0xFF000000) >> 24),
+			       (int) ((ip & 0x00FF0000) >> 16),
+			       (int) ((ip & 0x0000FF00) >> 8),
+			       (int) (ip & 0x000000FF));
+
+		len +=
+		    sprintf(buf + len, " %-4s %8.8lx %-9s ", dev,
+			    bp->timestamp, ax25_ntoa(&bp->call));
 		if (bp->invalid)
-			len += sprintf(buf+len, "X\n");
+			len += sprintf(buf + len, "X\n");
 		else
-			len += sprintf(buf+len, "%c\n", bp->ipmode? 'v':'d');
+			len +=
+			    sprintf(buf + len, "%c\n",
+				    bp->ipmode ? 'v' : 'd');
 
 		write(fd, buf, len);
 	}
-	
+
 	if (!cmd)
 		write(fd, ".\n", 2);
-	
+
 }
 
 void dump_ax25_routes(int fd, int cmd)
@@ -93,10 +95,8 @@ void dump_ax25_routes(int fd, int cmd)
 	char buf[256], *dev;
 	int k, len;
 
-	for (bp = ax25_routes; bp; bp = bp->next)
-	{
-		if (cmd)
-		{
+	for (bp = ax25_routes; bp; bp = bp->next) {
+		if (cmd) {
 			len = sprintf(buf, "add ax25 ");
 			dev = bp->iface;
 		} else {
@@ -107,15 +107,19 @@ void dump_ax25_routes(int fd, int cmd)
 			else
 				dev = bp->iface;
 		}
-			
-		len += sprintf(buf+len, "%-9s %-4s %8.8lx", ax25_ntoa(&bp->call), dev, bp->timestamp);
-		
+
+		len +=
+		    sprintf(buf + len, "%-9s %-4s %8.8lx",
+			    ax25_ntoa(&bp->call), dev, bp->timestamp);
+
 		for (k = 0; k < bp->ndigi; k++)
-			len += sprintf(buf+len, " %s", ax25_ntoa(&bp->digipeater[k]));
-		len += sprintf(buf+len, "\n");
+			len +=
+			    sprintf(buf + len, " %s",
+				    ax25_ntoa(&bp->digipeater[k]));
+		len += sprintf(buf + len, "\n");
 		write(fd, buf, len);
 	}
-	
+
 	if (!cmd)
 		write(fd, ".\n", 2);
 }
@@ -126,26 +130,38 @@ void dump_config(int fd)
 	int k;
 
 	fprintf(stderr, "config:\n");
-	for (config = Config; config; config = config->next)
-	{
+	for (config = Config; config; config = config->next) {
 		fprintf(stderr, "Device           = %s\n", config->dev);
 		fprintf(stderr, "Port             = %s\n", config->port);
-		fprintf(stderr, "ax25_add_route   = %d\n", config->ax25_add_route);
-		fprintf(stderr, "ax25_for_me      = %d\n", config->ax25_for_me);
-		fprintf(stderr, "ax25_add_default = %d\n", config->ax25_add_default);
-		fprintf(stderr, "ip_add_route     = %d\n", config->ip_add_route);
-		fprintf(stderr, "ip_add_arp       = %d\n", config->ip_add_arp);
-		fprintf(stderr, "ip_adjust_mode   = %d\n", config->ip_adjust_mode);
-		fprintf(stderr, "netmask          = %8.8lx\n", config->netmask);
+		fprintf(stderr, "ax25_add_route   = %d\n",
+			config->ax25_add_route);
+		fprintf(stderr, "ax25_for_me      = %d\n",
+			config->ax25_for_me);
+		fprintf(stderr, "ax25_add_default = %d\n",
+			config->ax25_add_default);
+		fprintf(stderr, "ip_add_route     = %d\n",
+			config->ip_add_route);
+		fprintf(stderr, "ip_add_arp       = %d\n",
+			config->ip_add_arp);
+		fprintf(stderr, "ip_adjust_mode   = %d\n",
+			config->ip_adjust_mode);
+		fprintf(stderr, "netmask          = %8.8lx\n",
+			config->netmask);
 		fprintf(stderr, "ip               = %8.8lx\n", config->ip);
-		fprintf(stderr, "nmycalls         = %d\n", config->nmycalls);
+		fprintf(stderr, "nmycalls         = %d\n",
+			config->nmycalls);
 		fprintf(stderr, "calls            =");
 		for (k = 0; k < config->nmycalls; k++)
-			fprintf(stderr, " %s", ax25_ntoa(&config->mycalls[k]));
+			fprintf(stderr, " %s",
+				ax25_ntoa(&config->mycalls[k]));
 		fprintf(stderr, "\n");
 		fprintf(stderr, "ax25_default_path=");
-		for (k = 0; k < config->ax25_default_path.fsa_ax25.sax25_ndigis; k++)
-			fprintf(stderr, " %s", ax25_ntoa(&config->ax25_default_path.fsa_digipeater[k]));
+		for (k = 0;
+		     k < config->ax25_default_path.fsa_ax25.sax25_ndigis;
+		     k++)
+			fprintf(stderr, " %s",
+				ax25_ntoa(&config->ax25_default_path.
+					  fsa_digipeater[k]));
 		fprintf(stderr, "\n.\n");
 	}
 }
