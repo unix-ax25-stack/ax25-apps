@@ -28,6 +28,5 @@ ax25rtd_SOURCES =	\
 AX25_SYSCONFDIR=$(sysconfdir)/ax25/
 AX25_LOCALSTATEDIR=$(localstatedir)/ax25/
 
-INCLUDES = -DAX25_SYSCONFDIR=\""$(ax25_sysconfdir)"\" \
-	   -DAX25_LOCALSTATEDIR=\""$(localstatedir)/ax25/"\" 
-
+INCLUDES = -DAX25_SYSCONFDIR=\""$(AX25_SYSCONFDIR)"\" \
+	   -DAX25_LOCALSTATEDIR=\""$(AX25_LOCALSTATEDIR)"\" 

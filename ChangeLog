@@ -1,3 +1,12 @@
+ax25-apps 0.0.3
+
+	* Should now compile on libc5 (probably)
+	* Some nice formatting changes to listen
+	* Added Klaus Kudielka's ax25rtd patch
+	* Added some authors to AUTHORS
+
+  - Tue, 10 Aug 1999 10:06:56 +1000 Craig Small <csmall@small.dropbear.id.au>
+
 ax25-apps 0.0.2
 	* Fixed where to find config files
 	* Had another crack at working around broken headers

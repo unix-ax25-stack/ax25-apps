@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.h,v 1.5 1997/06/05 18:54:57 oe1kib Exp oe1kib $
+/* $Id: ax25rtd.h,v 1.6 1997/06/05 18:54:57 oe1kib Exp oe1kib $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *

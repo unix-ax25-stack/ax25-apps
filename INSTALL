@@ -2,8 +2,8 @@ Installation Instructions for AX.25 Tools
 =========================================
 
 To make this library you will need the following:
-        glibc2.1
-        A Modern kernel
+        glibc2.1 (Debian 2.1.1-5 or RedHat glibc-2.1.2-3)
+        A Modern kernel, 2.2.x
         libtool
         libax25 0.0.5 or better
 

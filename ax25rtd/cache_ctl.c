@@ -1,4 +1,4 @@
-/* $Id: cache_ctl.c,v 1.4 1996/10/23 18:27:43 jreuter Exp jreuter $
+/* $Id: cache_ctl.c,v 1.5 1996/10/23 18:27:43 jreuter Exp jreuter $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -22,7 +22,13 @@
 #include <string.h>
 #include <time.h>
 #include <sys/socket.h>
+
+#include <config.h>
+#ifdef HAVE_NETAX25_AX25_H
 #include <netax25/ax25.h>
+#else
+#include <netax25/kernel_ax25.h>
+#endif
 
 #include "ax25rtd.h"
 

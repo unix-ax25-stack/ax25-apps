@@ -5,19 +5,23 @@
 #define T_BPQ		4
 #define T_DATA		5
 #define T_PROTOCOL	6
-#define T_AXHDR		7	
+#define T_AXHDR		7
 #define T_ADDR		8
 #define T_IPHDR		9
 #define T_TCPHDR	10
 #define T_ROSEHDR	11
 #define T_TIMESTAMP	12
-#define T_FLEXNET       3 /* for now */
+#define T_FLEXNET       13
 
 /* In utils.c */
 extern int color;			/* Colorized mode */
 extern int sevenbit;			/* Are we on a 7-bit terminal? */
 extern int ibmhack;			/* IBM mapping? */
 
+extern int timestamp;
+
+void display_timestamp(void);
+	
 void lprintf(int dtype, char *fmt, ...);
 int  initcolor(void);
 char *servname(int port, char *proto);

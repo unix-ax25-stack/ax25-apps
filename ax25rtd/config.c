@@ -1,4 +1,4 @@
-/* $Id: config.c,v 1.7 1997/06/05 18:55:51 oe1kib Exp oe1kib $
+/* $Id: config.c,v 1.8 1998/08/20 01:43:39 kudielka Exp kudielka $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -30,10 +30,24 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <net/if.h>
+#ifdef __GLIBC__
 #include <net/ethernet.h>
+#else
+#include <linux/if_ether.h>
+#endif
 #include <net/if_arp.h>
+
+#include <config.h>
+#ifdef HAVE_NETAX25_AX25_H
 #include <netax25/ax25.h>
+#else
+#include <netax25/kernel_ax25.h>
+#endif
+#ifdef HAVE_NETROSE_ROSE_H
 #include <netrose/rose.h>
+#else
+#include <netax25/kernel_rose.h>
+#endif
 #include <netax25/axlib.h>
 #include <netax25/axconfig.h>
 
@@ -409,7 +423,7 @@ void load_config()
 			if (arg)
 			{
 				int k = atoi(arg);
-
+                                
 				if (k == 0)
 				{
 					invalid_arg(cmd, arg);
@@ -426,7 +440,7 @@ void load_config()
 			if (arg)
 			{
 				int k = atoi(arg);
-
+                                
 				if (k == 0)
 				{
 					invalid_arg(cmd, arg);
@@ -437,19 +451,19 @@ void load_config()
 			} else
 				missing_arg(cmd);
 		} else
-			if (config && !strcmp(cmd, "vc-mtu"))
+		if (config && !strcmp(cmd, "vc-mtu"))
+		{
+		/* vc-mtu <mtu>: MTU for virtual connect mode routes (unused) */
+			if (arg)
 			{
-			/* vc-mtu <mtu>: MTU for virtual connect mode routes (unused) */
-				if (arg)
+				int k = atoi(arg);
+				
+				if (k == 0)
 				{
-					int k = atoi(arg);
-
-					if (k == 0)
-					{
-						invalid_arg(cmd, arg);
-						continue;
-					} else {
-						config->vc_mtu = k;
+					invalid_arg(cmd, arg);
+					continue;
+				} else {
+					config->vc_mtu = k;
 				}
 			} else
 				missing_arg(cmd);
@@ -709,16 +723,16 @@ void load_cache(void)
 	{
 		while(fgets(buf, sizeof(buf), fp) != NULL)
 			interpret_command(2, buf);
+	        fclose(fp);
 	}
-	fclose(fp);
 	
 	fp = fopen(DATA_AX25ROUTED_IPRT_FILE, "r");
 	if (fp != NULL)
 	{
 		while(fgets(buf, sizeof(buf), fp) != NULL)
 			interpret_command(2, buf);
+	        fclose(fp);
 	}
-	fclose(fp);
 }
 
 void save_cache(void)

@@ -81,7 +81,7 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 	}
 	if (data[1] & HDLCAEB) {
 		/* this is a FlexNet compressed header */
-		lprintf(T_PROTOCOL, "AX25: ");
+		lprintf(T_PROTOCOL, " ");
 		tmp[6] = tmp[7] = extseq = 0;
 		tmp[0] = ' ' + (data[2] >> 2);
 		tmp[1] = ' ' + ((data[2] << 4) & 0x30) + (data[3] >> 4);
@@ -106,7 +106,7 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 		
 		if ((data[AXLEN + ALEN] & SSSID_SPARE) == SSSID_SPARE) {
 			extseq = 0;
-			lprintf(T_PROTOCOL, "AX25: ");
+//			lprintf(T_PROTOCOL, " ");
 		} else {
 			extseq = 1;
 			lprintf(T_PROTOCOL, "EAX25: ");
@@ -117,8 +117,10 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 		else
 			dama = DAMA_STRING;
 		
+		lprintf(T_AXHDR, "fm ");					
 		lprintf(T_ADDR, "%s", pax25(tmp, data + AXLEN));
-		lprintf(T_ADDR, "->%s", pax25(tmp, data));
+		lprintf(T_AXHDR, " to ");
+		lprintf(T_ADDR, "%s", pax25(tmp, data));
 		
 		cmdrsp = LAPB_UNKNOWN;
 		
@@ -134,7 +136,7 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 		length -= (AXLEN + AXLEN);
 
 		if (!end) {
-			lprintf(T_AXHDR, " v");
+			lprintf(T_AXHDR, " via");
 			
 			while (!end) {
 				/* Print digi string */
@@ -155,35 +157,66 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 	data   += ctlen;
 	length -= ctlen;
 
-	lprintf(T_AXHDR, " <%s", decode_type(type));
+	lprintf(T_AXHDR, " ctl %s", decode_type(type));
 
+        if ((type & 0x3) != U)   /* I or S frame? */
+             lprintf(T_AXHDR, "%d", nr);
+
+	if (type == I)
+             lprintf(T_AXHDR, "%d", ns);
+	
 	switch (cmdrsp) {
 		case LAPB_COMMAND:
-			lprintf(T_AXHDR, " C");
-			if (pf) lprintf(T_AXHDR, " P");
+			if (pf) lprintf(T_AXHDR, "+");
+			else lprintf(T_AXHDR, "^");
 			break;
 		case LAPB_RESPONSE:
-			lprintf(T_AXHDR, " R");
-			if (pf) lprintf(T_AXHDR, " F");
+			if (pf) lprintf(T_AXHDR, "-");
+			else lprintf(T_AXHDR, "v");
 			break;
 		default:
 			break;
 	}
-
-	if (type == I)
-		lprintf(T_AXHDR, " S%d", ns);
-
-	if ((type & 0x3) != U)   /* I or S frame? */
-		lprintf(T_AXHDR, " R%d", nr);
-
-	lprintf(T_AXHDR, ">");
 
 	if (type == I || type == UI) {
 		/* Decode I field */
 		if (length > 0) {        /* Get pid */
 			pid = *data++;
 			length--;
-		
+
+			lprintf(T_AXHDR," pid=%X",pid);
+
+                        switch (pid) {
+                                case PID_SEGMENT:
+                                        lprintf(T_AXHDR,"(segment)");
+                                        break;
+                                case PID_ARP:
+                                        lprintf(T_AXHDR,"(ARP)");
+                                        break;
+                                case PID_NETROM:
+                                        lprintf(T_AXHDR,"(NET/ROM)");
+                                        break;
+                                case PID_IP:
+                                        lprintf(T_AXHDR,"(IP)");
+                                        break;
+                                case PID_X25:
+                                        lprintf(T_AXHDR, "(X.25)");
+                                        break;
+                                case PID_TEXNET:
+                                        lprintf(T_AXHDR, "(TEXNET)");
+                                        break;
+                                case PID_FLEXNET:
+                                        lprintf(T_AXHDR, "(FLEXNET)");
+                                        break;
+                                case PID_NO_L3:
+                                        lprintf(T_AXHDR, "(Text)");
+                                        break;
+			}
+                	lprintf(T_AXHDR, "%s len %d ",dama,length);
+
+			if(timestamp)
+				display_timestamp();
+
 			if (pid == PID_SEGMENT) {
 				seg = *data++;
 				length--;
@@ -194,42 +227,34 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 					length--;
 				}
 			}
+			lprintf(T_AXHDR, "\n");
 
 			switch (pid) {
 				case PID_SEGMENT:
-					lprintf(T_AXHDR,"%s\n", dama);
 					data_dump(data, length, hexdump);
 					break;
 				case PID_ARP:
-					lprintf(T_AXHDR," pid=ARP%s\n", dama);
 					arp_dump(data, length);
 					break;
 				case PID_NETROM:
-					lprintf(T_AXHDR," pid=NET/ROM%s\n", dama);
 					netrom_dump(data, length, hexdump);
 					break;
 				case PID_IP:
-					lprintf(T_AXHDR," pid=IP%s\n", dama);
 					ip_dump(data, length, hexdump);
 					break;
 				case PID_X25:
-					lprintf(T_AXHDR, " pid=X.25%s\n", dama);
 					rose_dump(data, length, hexdump);
 					break;
 				case PID_TEXNET:
-					lprintf(T_AXHDR, " pid=TEXNET%s\n", dama);
 					data_dump(data, length, hexdump);
 					break;
 				case PID_FLEXNET:
-					lprintf(T_AXHDR, " pid=FLEXNET%s\n", dama);
 					flexnet_dump(data, length, hexdump);
 					break;
 				case PID_NO_L3:
-					lprintf(T_AXHDR, " pid=Text%s\n", dama);
 					data_dump(data, length, hexdump);
 					break;
 				default:
-					lprintf(T_AXHDR, " pid=0x%x%s\n", pid, dama);
 					data_dump(data, length, hexdump);
 					break;
 			}
@@ -250,14 +275,24 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 			lprintf(T_ERROR, " Too-long I-field");
 		if(data[2] & Z)
 			lprintf(T_ERROR, " Invalid seq number");
-		lprintf(T_AXHDR,"%s\n", dama);
+		lprintf(T_AXHDR,"%s ", dama);
+
+		if(timestamp)
+                    display_timestamp();
+		lprintf(T_AXHDR,"\n");
 	} else if ((type == SABM || type == UA) && length >= 2) {
 		/* FlexNet transmits the QSO "handle" for header
 		 * compression in SABM and UA frame data fields 
 		 */
-		lprintf(T_AXHDR," [%d]%s\n", (data[0] << 8) | data[1], dama);
+		lprintf(T_AXHDR," [%d]%s ", (data[0] << 8) | data[1], dama);
+                if(timestamp)
+			display_timestamp();
+                lprintf(T_AXHDR,"\n");	
 	} else {
-		lprintf(T_AXHDR,"%s\n", dama);
+		lprintf(T_AXHDR,"%s ", dama);
+                if(timestamp)
+		        display_timestamp();
+                lprintf(T_AXHDR,"\n");
 	}
 }
 
@@ -267,11 +302,11 @@ static char *decode_type(int type)
 		case I:
 			return "I";
 		case SABM:
-			return "C";
+			return "SABM";
 		case SABME:
-			return "CE";
+			return "SABME";
 		case DISC:
-			return "D";
+			return "DISC";
 		case DM:
 			return "DM";
 		case UA:

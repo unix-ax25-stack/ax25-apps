@@ -1,4 +1,4 @@
-/* $Id: listener.c,v 1.9 1997/06/05 18:56:08 oe1kib Exp oe1kib $
+/* $Id: listener.c,v 1.9 1997/06/05 18:56:08 oe1kib Exp kudielka $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -32,7 +32,13 @@
 #include <net/route.h>
 #include <net/if.h>
 #include <net/if_arp.h>
+
+#include <config.h>
+#ifdef HAVE_NETAX25_AX25_H
 #include <netax25/ax25.h>
+#else
+#include <netax25/kernel_ax25.h>
+#endif
 
 #include "../pathnames.h"
 #include "ax25rtd.h"
@@ -109,14 +115,11 @@ static inline void invert_digipeater_path(ax25_address *digipeater, int ndigi)
 	if (ndigi == 0)
 		return;
 
-	ndigi--;
-
-	memcpy(&fdigi, &digipeater[0], AXLEN);
-
-	for (m = 0,k = ndigi; k > 0; k--, m++)
+	for (m = 0,k = ndigi-1; k > m; k--, m++) {
+		memcpy(&fdigi, &digipeater[m], AXLEN);
 		memcpy(&digipeater[m], &digipeater[k], AXLEN);
-
-	memcpy(&digipeater[ndigi], &fdigi, AXLEN);
+		memcpy(&digipeater[k], &fdigi, AXLEN);
+	}
 }
 
 int set_arp(config *config, long ip, ax25_address *call)
@@ -329,7 +332,7 @@ int set_ipmode(config *config, ax25_address *call, int ipmode)
 	ax25_opt.port_addr = config->mycalls[0];
 	ax25_opt.dest_addr = *call;
 	ax25_opt.cmd       = AX25_SET_RT_IPMODE;
-	ax25_opt.arg       = ipmode? 'V':'C';
+	ax25_opt.arg       = ipmode? 'V':'D';
 	
 	fds = socket(AF_AX25, SOCK_SEQPACKET, 0);
 	
@@ -384,7 +387,7 @@ void ax25_receive(int sock)
 	 * KISS data?
 	 */
 
-	if (*data != 0) 
+	if ((*data & 0x0f) != 0) 
 		return;
 			
 	SKIP(1);

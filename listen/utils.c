@@ -59,7 +59,8 @@ void lprintf(int dtype, char *fmt, ...)
 
 			if ((dtype == T_ADDR) || (dtype == T_PROTOCOL) 
 			    || (dtype == T_AXHDR) || (dtype == T_IPHDR) 
-			    || (dtype == T_ROSEHDR))
+			    || (dtype == T_ROSEHDR) || (dtype == T_PORT)
+			    || (dtype == T_TIMESTAMP))
 			  ch |= A_BOLD;
 
 			ch |= COLOR_PAIR(dtype);
@@ -99,10 +100,12 @@ int initcolor(void)
 	init_pair(T_IPHDR, COLOR_WHITE, COLOR_BLACK);
 	init_pair(T_ADDR, COLOR_GREEN, COLOR_BLACK);
 	init_pair(T_ROSEHDR, COLOR_WHITE, COLOR_BLACK);
-	init_pair(T_TIMESTAMP, COLOR_MAGENTA, COLOR_BLACK);
+	init_pair(T_TIMESTAMP, COLOR_YELLOW, COLOR_BLACK);
 	init_pair(T_KISS, COLOR_MAGENTA, COLOR_BLACK);
 	init_pair(T_BPQ, COLOR_MAGENTA, COLOR_BLACK);
 	init_pair(T_TCPHDR, COLOR_BLUE, COLOR_BLACK);
+        init_pair(T_FLEXNET, COLOR_BLUE, COLOR_BLACK);
+		
 
 	return 1;
 }

@@ -12,12 +12,26 @@
 
 #include <sys/socket.h>
 #include <net/if.h>
+#ifdef __GLIBC__
 #include <net/ethernet.h>
+#else
+#include <linux/if_ether.h>
+#endif
+#ifdef HAVE_NETAX25_AX25_H
 #include <netax25/ax25.h>
+#else
+#include <netax25/kernel_ax25.h>
+#endif
 #include <netax25/axconfig.h>
 
 #include <config.h>
 #include "listen.h"
+
+#ifdef AX25_NEW_DEVIF
+#define ki_dump ax25_dump
+#endif
+
+int timestamp;
 
 static void display_port(char *dev)
 {
@@ -26,20 +40,18 @@ static void display_port(char *dev)
 	if ((port = ax25_config_get_name(dev)) == NULL)
 		port = dev;
 
-	lprintf(T_PORT, "Port %s: ", port);
+	lprintf(T_PORT, "%s: ", port);
 }
 
-static void display_timestamp(void)
+void display_timestamp(void)
 {
-	time_t timenow;
-	char *timestring;
+	time_t timenowx;
+	struct tm* timenow;
 
-	time(&timenow);
+	time(&timenowx);
+	timenow = localtime(&timenowx);
 
-	timestring = ctime(&timenow);	
-	timestring[24] = '\0';
-
-	lprintf(T_TIMESTAMP, "[%s]\n", timestring);
+	lprintf(T_TIMESTAMP, "%02d:%02d:%02d", timenow->tm_hour, timenow->tm_min, timenow->tm_sec);
 }
 
 #define ASCII		0
@@ -51,7 +63,6 @@ static void display_timestamp(void)
 int main(int argc, char **argv)
 {
 	unsigned char buffer[BUFSIZE];
-	int timestamp = 0;
 	int dumpstyle   = ASCII;
 	int size;
 	int s;
@@ -60,6 +71,8 @@ int main(int argc, char **argv)
 	int asize = sizeof(sa);
 	struct ifreq ifr;
 	int proto = ETH_P_AX25;
+
+        timestamp = 0;
 
 	while ((s = getopt(argc, argv, "8achip:rtv")) != -1) {
 		switch (s) {
@@ -139,18 +152,14 @@ int main(int argc, char **argv)
 				perror("GIFADDR");
 
 			if (ifr.ifr_hwaddr.sa_family == AF_AX25) {
-				if (timestamp)
-					display_timestamp();
 				display_port(sa.sa_data);
 				ki_dump(buffer, size, dumpstyle);
-				lprintf(T_DATA, "\n");
+//				lprintf(T_DATA, "\n");
 			}
 		} else {
-			if (timestamp)
-				display_timestamp();
 			display_port(sa.sa_data);
 			ki_dump(buffer, size, dumpstyle);
-			lprintf(T_DATA, "\n");
+//			lprintf(T_DATA, "\n");
 		}
 		if (color)
 			refresh();
