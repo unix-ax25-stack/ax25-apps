@@ -5,7 +5,7 @@ To make this library you will need the following:
         glibc2.1
         A Modern kernel
         libtool
-        ax25-lib 0.0.3 or better
+        libax25 0.0.5 or better
 
 To build it you type:
         ./configure
@@ -14,6 +14,9 @@ To build it you type:
 
 By default, it will install the files in /usr/local.  To change this
 so that binaries go in  /usr and the conf files go in /etc
-type 'make install prefix=/usr'
+type 'make install --prefix=/usr --sysconfdir=/etc --localstatedir=/var'
+
+To install the example configuration files type
+	make installconf
 
   - Craig Small <csmall@small.dropbear.id.au>

@@ -280,11 +280,6 @@ distdir: $(DISTFILES)
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
-call.o: call.c ../config.h ../pathnames.h call.h crc.h menu.h
-crc.o: crc.c
-dostime.o: dostime.c
-menu.o: menu.c menu.h
-yapp.o: yapp.c call.h
 
 info-am:
 info: info-am

@@ -1,19 +1,21 @@
 
 etcfiles = ax25rtd.conf
-etcdir = $(sysconfdir)/ax25
 
 installconf:
-	$(mkinstalldirs) $(DESTDIR)$(etcdir)
+	$(mkinstalldirs) $(DESTDIR)$(AX25_SYSCONFDIR)
 	@list='$(etcfiles)'; for p in $$list; do \
-	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(etcdir)/$$p"; \
-	  $(INSTALL_DATA) $$p $(DESTDIR)$(etcdir)/$$p; \
+	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(AX25_SYSCONFDIR)/$$p"; \
+	  $(INSTALL_DATA) $$p $(DESTDIR)$(AX25_SYSCONFDIR)/$$p; \
 	done
 
 sbin_PROGRAMS = ax25rtd ax25rtctl
 
 LDADD = $(AX25_LIB)
 
-EXTRA_DIST = $(etcfiles)
+EXTRA_DIST = $(etcfiles) $(doc_DATA)
+
+docdir=/usr/doc/ax25-apps
+doc_DATA= TODO.ax25rtd README.ax25rtd
 
 ax25rtd_SOURCES =	\
 	ax25rtd.c	\
@@ -22,4 +24,10 @@ ax25rtd_SOURCES =	\
 	cache_dump.c	\
 	config.c	\
 	listener.c
+
+AX25_SYSCONFDIR=$(sysconfdir)/ax25/
+AX25_LOCALSTATEDIR=$(localstatedir)/ax25/
+
+INCLUDES = -DAX25_SYSCONFDIR=\""$(ax25_sysconfdir)"\" \
+	   -DAX25_LOCALSTATEDIR=\""$(localstatedir)/ax25/"\" 
 

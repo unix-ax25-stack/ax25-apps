@@ -281,20 +281,6 @@ distdir: $(DISTFILES)
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
-arpdump.o: arpdump.c listen.h
-ax25dump.o: ax25dump.c listen.h
-flexnetdump.o: flexnetdump.c listen.h
-icmpdump.o: icmpdump.c listen.h
-ipdump.o: ipdump.c listen.h
-kissdump.o: kissdump.c listen.h
-listen.o: listen.c ../config.h listen.h
-nrdump.o: nrdump.c listen.h
-ripdump.o: ripdump.c listen.h
-rosedump.o: rosedump.c listen.h
-rspfdump.o: rspfdump.c listen.h
-tcpdump.o: tcpdump.c listen.h
-udpdump.o: udpdump.c listen.h
-utils.o: utils.c listen.h
 
 info-am:
 info: info-am

@@ -8,7 +8,7 @@ More specifically, it is recommended that you use a glibc newer than
 2 May 1999, I believe Debian libc6 package 2.1.1-5 will do.
 
 These tools were built on a Debian system, potato release, the libraries
-are libc6 2.1.1-10 and ncurses 4.2-3.2.  Kernel is 2.2.5
+are libc6 2.1.1-12 and ncurses 4.2-3.2.  Kernel is 2.2.10
 
   - Craig Small <csmall@small.dropbear.id.au>
 
