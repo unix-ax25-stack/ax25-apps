@@ -1,7 +1,7 @@
 
 SUBDIRS = ax25ipd ax25rtd call listen ax25mond
 
-EXTRA_DIST = pathnames.h
+EXTRA_DIST = pathnames.h autogen.sh
 
 installconf:
 	@for app in $(SUBDIRS); do $(MAKE) -C $$app installconf; done

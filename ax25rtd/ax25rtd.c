@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.c,v 1.2 2001/09/12 13:18:43 terry Exp $
+/* $Id: ax25rtd.c,v 1.3 2002/03/04 01:43:49 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -28,6 +28,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -46,7 +50,6 @@
 #include <linux/if_ether.h>
 #endif
 
-#include <config.h>
 #ifdef HAVE_NETAX25_AX25_H
 #include <netax25/ax25.h>
 #else
@@ -63,7 +66,7 @@
 #include "../pathnames.h"
 #include "ax25rtd.h"
 
-const char *Version = "ax25rtd $Revision: 1.2 $";
+const char *Version = "ax25rtd $Revision: 1.3 $";
 config *Config = NULL;
 
 int reload = 0;
@@ -128,7 +131,7 @@ void daemon_shutdown(int reason)
 	exit(reason);
 }
 
-#define FD_MAX(fd) {fd_max = (fd > fd_max? fd : fd_max); FD_SET(fd, &fd_set);}
+#define FD_MAX(fd) {fd_max = (fd > fd_max? fd : fd_max); FD_SET(fd, &read_fds);}
 
 int main(int argc, char **argv)
 {
@@ -136,7 +139,7 @@ int main(int argc, char **argv)
 	int size, s;
 	int cntrl_s, cntrl_fd, cntrl_len;
 	struct sockaddr_un cntrl_addr;
-	fd_set fd_set, fd_set2;
+	fd_set read_fds, write_fds;
 	int fd_max;
 
 	if (ax25_config_load_ports() == 0) {
@@ -184,21 +187,21 @@ int main(int argc, char **argv)
 
 	for (;;) {
 		fd_max = 0;
-		FD_ZERO(&fd_set);
-		FD_ZERO(&fd_set2);
+		FD_ZERO(&read_fds);
+		FD_ZERO(&write_fds);
 		FD_MAX(s);
 		if (cntrl_fd > 0) {
 			FD_MAX(cntrl_fd);
-			FD_SET(cntrl_fd, &fd_set2);
+			FD_SET(cntrl_fd, &write_fds);
 		} else {
 			FD_MAX(cntrl_s);
 		}
 
-		if (select(fd_max + 1, &fd_set, NULL, &fd_set2, NULL) < 0) {
+		if (select(fd_max + 1, &read_fds, NULL, &write_fds, NULL) < 0) {
 			if (errno == EINTR)	/* woops! */
 				continue;
 
-			if (!FD_ISSET(cntrl_fd, &fd_set2)) {
+			if (!FD_ISSET(cntrl_fd, &write_fds)) {
 				perror("select");
 				save_cache();
 				daemon_shutdown(1);
@@ -210,7 +213,7 @@ int main(int argc, char **argv)
 		}
 
 		if (cntrl_fd > 0) {
-			if (FD_ISSET(cntrl_fd, &fd_set)) {
+			if (FD_ISSET(cntrl_fd, &read_fds)) {
 				size = read(cntrl_fd, buf, sizeof(buf));
 				if (size > 0) {
 					buf[size] = '\0';
@@ -220,7 +223,7 @@ int main(int argc, char **argv)
 					cntrl_fd = -1;
 				}
 			}
-		} else if (FD_ISSET(cntrl_s, &fd_set)) {
+		} else if (FD_ISSET(cntrl_s, &read_fds)) {
 			if ((cntrl_fd =
 			     accept(cntrl_s,
 				    (struct sockaddr *) &cntrl_addr,
@@ -234,7 +237,7 @@ int main(int argc, char **argv)
 		if (reload)
 			reload_config();
 
-		if (FD_ISSET(s, &fd_set))
+		if (FD_ISSET(s, &read_fds))
 			ax25_receive(s);
 	}
 

@@ -1,4 +1,4 @@
-/* $Id: ax25rtctl.c,v 1.2 2001/09/12 13:18:43 terry Exp $
+/* $Id: ax25rtctl.c,v 1.3 2002/03/04 01:43:49 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -251,7 +251,7 @@ static void Version(void)
 	int sock;
 	char buf[256];
 
-	printf("ax25rtctl $Revision: 1.2 $\n");
+	printf("ax25rtctl $Revision: 1.3 $\n");
 	sock = open_socket();
 	wsock(sock, "version\n");
 	read(sock, buf, sizeof(buf));
@@ -263,31 +263,31 @@ static void debug(void)
 {
 	int sock, n, k;
 	unsigned char buf[256];
-	fd_set fd_set, fd_set2;
+	fd_set read_fds, write_fds;
 	struct timeval tv;
 
 
 	sock = open_socket();
 
 	while (1) {
-		FD_ZERO(&fd_set);
-		FD_SET(0, &fd_set);
-		FD_SET(sock, &fd_set);
+		FD_ZERO(&read_fds);
+		FD_SET(0, &read_fds);
+		FD_SET(sock, &read_fds);
 
-		FD_ZERO(&fd_set2);
-		FD_SET(sock, &fd_set2);
+		FD_ZERO(&write_fds);
+		FD_SET(sock, &write_fds);
 
 		tv.tv_sec = 0;
 		tv.tv_usec = 0;
-		if (select(sock + 1, &fd_set, NULL, &fd_set2, &tv) < 0) {
+		if (select(sock + 1, &read_fds, NULL, &write_fds, &tv) < 0) {
 			perror("socket gone");
 			exit(1);
 		}
 
-		if (FD_ISSET(sock, &fd_set2))
+		if (FD_ISSET(sock, &write_fds))
 			exit(0);
 
-		if (FD_ISSET(0, &fd_set)) {
+		if (FD_ISSET(0, &read_fds)) {
 			n = read(0, buf, sizeof(buf));
 			if (n) {
 				k = write(sock, buf, n);
@@ -296,7 +296,7 @@ static void debug(void)
 			}
 		}
 
-		if (FD_ISSET(sock, &fd_set)) {
+		if (FD_ISSET(sock, &read_fds)) {
 			n = read(sock, buf, sizeof(buf));
 			if (n)
 				write(0, buf, n);

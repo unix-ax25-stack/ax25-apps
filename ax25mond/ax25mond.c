@@ -108,7 +108,7 @@ struct sockaddr *build_sockaddr(const char *name, int *addrlen)
 		addr.si.sin_addr.s_addr = INADDR_ANY;
 	} else if (!strcmp(host_name, "loopback")) {
 		addr.si.sin_addr.s_addr = inet_addr("127.0.0.1");
-	} else if ((addr.si.sin_addr.s_addr = inet_addr(host_name)) == -1L) {
+	} else if ((addr.si.sin_addr.s_addr = inet_addr(host_name)) == -1) {
 		struct hostent *hp = gethostbyname(host_name);
 		endhostent();
 		if (!hp)
