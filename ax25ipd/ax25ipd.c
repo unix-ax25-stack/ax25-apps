@@ -35,12 +35,12 @@ int opt_help = 0;
 char opt_configfile[1024];
 
 struct option options[] = {
-	"version", 0, &opt_version, 1,
-	"loglevel", 1, &opt_loglevel, 1,
-	"help", 0, &opt_help, 1,
-	"configfile", 1, NULL, 0,
-        "nofork", 0, &opt_nofork, 1,
-	0, 0, 0, 0
+	{"version", 0, &opt_version, 1},
+	{"loglevel", 1, &opt_loglevel, 1},
+	{"help", 0, &opt_help, 1},
+	{"configfile", 1, NULL, 0},
+        {"nofork", 0, &opt_nofork, 1},
+	{0, 0, 0, 0}
 };
 
 int main(int argc, char **argv)
