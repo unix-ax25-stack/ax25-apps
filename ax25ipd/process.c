@@ -265,7 +265,7 @@ unsigned char *a, *b;
 		return 0;	/* "S" */
 	if ((*a++ ^ *b++) & 0xfe)
 		return 0;	/* "B" */
-	if (((*b++) & 0x1e) == 0)
+	if (((*b) & 0x1e) == 0)
 		return 1;	/* ssid 0 matches all ssid's */
 	if ((*a++ ^ *b) & 0x1e)
 		return 0;	/* ssid */

@@ -1,7 +1,8 @@
 ax25-apps (0.0.6)
 	* listen can decode INP Packets. Thanks to Jeroen Vreeken
-	* Added \n to flexdump after "Poll". Thanks to Alexandre Fornieles
+	* Added \n to flexdump after "Poll" and "data" - Alexandre Fornieles
 	* ax25ipd bug-fixes - Terry Dawson, Ray Wells, et.al.
+	* ssid correct matches in ax25ipd - Steve Fraser
 
 ax25-apps (0.0.5)
 	* New rosedump.c from Jean-Paul.

@@ -146,7 +146,7 @@ void flexnet_dump(unsigned char *data, int length, int hexdump)
 		cp = memchr(data, '\r', length);
 		if (cp)
 			*cp = 0;
-		lprintf(T_FLEXNET, "  data");
+		lprintf(T_FLEXNET, "  data\n");
 		return;
 	}
 
