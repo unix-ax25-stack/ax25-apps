@@ -92,7 +92,7 @@ void netrom_dump(unsigned char *data, int length, int hexdump)
 		break;
 
 	case NR4OPCONRQ:        /* Connect request */
-		lprintf(T_AXHDR, "         conn rqst: ckt %d/%d", data[0], data[1]);
+		lprintf(T_AXHDR, "         conn rqst: my ckt %02X/%02X", data[0], data[1]);
 		lprintf(T_AXHDR, " wnd %d", data[5]);
 		lprintf(T_ADDR, " %s", pax25(tmp, data + 6));
 		lprintf(T_ADDR, "@%s", pax25(tmp, data + 6 + AXLEN));
@@ -104,28 +104,28 @@ void netrom_dump(unsigned char *data, int length, int hexdump)
 		break;
 
 	case NR4OPCONAK:        /* Connect acknowledgement */
-		lprintf(T_AXHDR,"         conn ack: ur ckt %d/%d my ckt %d/%d", data[0], data[1], data[2], data[3]);
+		lprintf(T_AXHDR,"         conn ack: ur ckt %02X/%02X my ckt %02X/%02X", data[0], data[1], data[2], data[3]);
 		lprintf(T_AXHDR, " wnd %d", data[5]);
 		netrom_flags(data[4]);
 		break;
 
 	case NR4OPDISRQ:        /* Disconnect request */
-		lprintf(T_AXHDR, "         disc: ckt %d/%d\n", data[0], data[1]);
+		lprintf(T_AXHDR, "         disc: ur ckt %02X/%02X\n", data[0], data[1]);
 		break;
 
 	case NR4OPDISAK:        /* Disconnect acknowledgement */
-		lprintf(T_AXHDR, "         disc ack: ckt %d/%d\n", data[0], data[1]);
+		lprintf(T_AXHDR, "         disc ack: ur ckt %02X/%02X\n", data[0], data[1]);
 		break;
 
 	case NR4OPINFO: /* Information (data) */
-		lprintf(T_AXHDR, "         info: ckt %d/%d", data[0], data[1]);
+		lprintf(T_AXHDR, "         info: ur ckt %02X/%02X", data[0], data[1]);
 		lprintf(T_AXHDR, " txseq %d rxseq %d", data[2], data[3]);
 		netrom_flags(data[4]);
 		data_dump(data + 5, length - 5, hexdump);
 		break;
 
 	case NR4OPACK:  /* Information acknowledgement */
-		lprintf(T_AXHDR, "         info ack: ckt %d/%d", data[0], data[1]);
+		lprintf(T_AXHDR, "         info ack: ur ckt %02X/%02X", data[0], data[1]);
 		lprintf(T_AXHDR, " rxseq %d", data[3]);
 		netrom_flags(data[4]);
 		break;

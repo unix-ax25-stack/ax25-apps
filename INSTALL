@@ -1,7 +1,7 @@
 Installation Instructions for AX.25 Tools
 =========================================
 
-To make this library you will need the following:
+To make this package you will need the following:
         glibc2.1 (Debian 2.1.1-5 or RedHat glibc-2.1.2-3)
         A Modern kernel, 2.2.x
         libtool
@@ -14,7 +14,9 @@ To build it you type:
 
 By default, it will install the files in /usr/local.  To change this
 so that binaries go in  /usr and the conf files go in /etc
-type 'make install --prefix=/usr --sysconfdir=/etc --localstatedir=/var'
+	./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+	make
+	make install
 
 To install the example configuration files type
 	make installconf

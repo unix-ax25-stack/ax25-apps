@@ -417,7 +417,7 @@ void dupdstatw(WINDOW * win, char *s, int add)
 {
     static char infostr[80];
     static int y, x;
-    static oldlen;
+    static int oldlen;
     int l, cnt;
 
     if (add) {
@@ -1464,10 +1464,12 @@ int cmd_call(char *call[], int mode)
 		switch (com_num) {
 		case 0:
 		    {
-#ifdef 0			/* FIXME! We should, no: WE MUST be able to turn off  */
-			/* all remote commands to avoid mail bombs generating */
-			/* offensive mails with //e while sucking the BBS     */
-
+#if 0
+			/*
+			  FIXME! We should, no: WE MUST be able to turn off
+			  all remote commands to avoid mail bombs generating
+			  offensive mails with //e while sucking the BBS
+			*/
 			remotecommand(parms, parmsbytes);
 #endif
 		    }

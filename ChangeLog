@@ -1,19 +1,23 @@
-ax25-apps 0.0.3
+ax25-apps 0.0.4 
+	* Added Tomi's patch so it correctly detects broken headers
 
+ -- Craig Small <csmall@small.dropbear.id.au>  Mon, 23 Aug 1999 11:45:46 +1000
+
+ax25-apps 0.0.3
 	* Should now compile on libc5 (probably)
 	* Some nice formatting changes to listen
 	* Added Klaus Kudielka's ax25rtd patch
 	* Added some authors to AUTHORS
 
-  - Tue, 10 Aug 1999 10:06:56 +1000 Craig Small <csmall@small.dropbear.id.au>
+ -- Craig Small <csmall@small.dropbear.id.au>  Tue, 10 Aug 1999 10:06:56 +1000
 
 ax25-apps 0.0.2
 	* Fixed where to find config files
 	* Had another crack at working around broken headers
 
-  - Craig Small <csmall@small.dropbear.id.au> 7 July 1999
+ -- Craig Small <csmall@small.dropbear.id.au> 7 July 1999
 
 ax25-apps 0.0.1
 	* First public release
 
-  - Craig Small <csmall@small.dropbear.id.au>
+ -- Craig Small <csmall@small.dropbear.id.au>
