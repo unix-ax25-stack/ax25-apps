@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 		printf
 		    ("  --loglevel NUM, -l NUM      Set logging level to NUM\n");
 		printf
-		    ("  --configfile FILE, -c FILE  Set confgiuration file to FILE\n");
+		    ("  --configfile FILE, -c FILE  Set configuration file to FILE\n");
 		exit(0);
 	}
 
