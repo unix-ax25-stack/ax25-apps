@@ -8,6 +8,7 @@
 
 #include <curses.h>
 #include <stdlib.h>
+#include <string.h>
 #include "menu.h"
 
 typedef struct

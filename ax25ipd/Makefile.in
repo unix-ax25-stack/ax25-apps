@@ -81,7 +81,7 @@ man_MANS = ax25ipd.8 ax25ipd.conf.5
 
 EXTRA_DIST = $(man_MANS) $(etcfiles) $(doc_DATA)
 
-docdir = /usr/doc/ax25-apps
+docdir = ${datadir}/doc/ax25-apps
 doc_DATA = README.ax25ipd HISTORY.ax25ipd COPYING.ax25ipd
 
 CFLAGS = -DUSE_TERMIO
@@ -339,14 +339,13 @@ distdir: $(DISTFILES)
 	@for file in $(DISTFILES); do \
 	  d=$(srcdir); \
 	  if test -d $$d/$$file; then \
-	    cp -pr $$/$$file $(distdir)/$$file; \
+	    cp -pr $$d/$$file $(distdir)/$$file; \
 	  else \
 	    test -f $(distdir)/$$file \
 	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
-
 info-am:
 info: info-am
 dvi-am:

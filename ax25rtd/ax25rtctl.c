@@ -1,4 +1,4 @@
-/* $Id: ax25rtctl.c,v 1.8 1998/08/20 01:43:28 kudielka Exp $
+/* $Id: ax25rtctl.c,v 1.1 2001/04/10 01:58:38 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -262,7 +262,7 @@ static void Version(void)
 	int sock;
 	char buf[256];
 
-	printf("ax25rtctl $Revision: 1.8 $\n");
+	printf("ax25rtctl $Revision: 1.1 $\n");
 	sock = open_socket();
 	wsock(sock, "version\n");
 	read(sock, buf, sizeof(buf));

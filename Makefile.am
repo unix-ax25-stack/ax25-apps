@@ -1,5 +1,5 @@
 
-SUBDIRS = ax25ipd ax25rtd call listen 
+SUBDIRS = ax25ipd ax25rtd call listen ax25mond
 
 EXTRA_DIST = pathnames.h
 

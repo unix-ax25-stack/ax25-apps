@@ -1,4 +1,4 @@
-/* $Id: config.c,v 1.8 1998/08/20 01:43:39 kudielka Exp kudielka $
+/* $Id: config.c,v 1.1 2001/04/10 01:58:40 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -38,16 +38,8 @@
 #include <net/if_arp.h>
 
 #include <config.h>
-#ifdef HAVE_NETAX25_AX25_H
-#include <netax25/ax25.h>
-#else
 #include <netax25/kernel_ax25.h>
-#endif
-#ifdef HAVE_NETROSE_ROSE_H
-#include <netrose/rose.h>
-#else
 #include <netax25/kernel_rose.h>
-#endif
 #include <netax25/axlib.h>
 #include <netax25/axconfig.h>
 
@@ -233,6 +225,7 @@ void load_listeners(void)
 {
 	config *config;
 	char buf[1024], device[14], call[10], dcall[10];
+	char dummy[1024];
 	int k;
 	FILE *fp;
 	ax25_address *axcall;
@@ -248,14 +241,12 @@ void load_listeners(void)
 	
 	while (fgets(buf, sizeof(buf)-1, fp) != NULL)
 	{
-		k = sscanf(buf, "%s %s %s", dcall, call, device);
-		if (k == 3 && !strcmp(dcall, "*"))
+		k = sscanf(buf, "%s %s %s %s", dummy, device, call, dcall);
+		if (k == 4 && !strcmp(dcall, "*"))
 		{
 			axcall = asc2ax(call);
-			if (!strcmp("???", device))
-			{
-				for (config = Config; config; config = config->next)
-				{
+			if (!strcmp("*", device)) {
+				for (config = Config; config; config = config->next) {
 					if (call_is_mycall(config, axcall) || config->nmycalls > AX25_MAXCALLS)
 						continue;
 					memcpy(&config->mycalls[config->nmycalls++], axcall, AXLEN);
@@ -264,7 +255,7 @@ void load_listeners(void)
 				config = dev_get_config(device);
 				if (config == NULL || call_is_mycall(config, axcall) || config->nmycalls > AX25_MAXCALLS)
 					continue;
-	
+
 				memcpy(&config->mycalls[config->nmycalls++], axcall, AXLEN);
 			}
 		}
@@ -392,8 +383,10 @@ void load_config()
 				while(arg && config->nmycalls < AX25_MAXCALLS)
 				{
 					axcall = asc2ax(arg);
-					if (call_is_mycall(config, axcall))
+					if (call_is_mycall(config, axcall)) {
+						arg = get_next_arg(&p);
 						continue;
+					}
 					memcpy(&config->mycalls[config->nmycalls++], axcall, AXLEN);
 					arg = get_next_arg(&p);
 				}
@@ -451,19 +444,19 @@ void load_config()
 			} else
 				missing_arg(cmd);
 		} else
-		if (config && !strcmp(cmd, "vc-mtu"))
-		{
-		/* vc-mtu <mtu>: MTU for virtual connect mode routes (unused) */
-			if (arg)
+			if (config && !strcmp(cmd, "vc-mtu"))
 			{
-				int k = atoi(arg);
-				
-				if (k == 0)
+			/* vc-mtu <mtu>: MTU for virtual connect mode routes (unused) */
+				if (arg)
 				{
-					invalid_arg(cmd, arg);
-					continue;
-				} else {
-					config->vc_mtu = k;
+					int k = atoi(arg);
+
+					if (k == 0)
+					{
+						invalid_arg(cmd, arg);
+						continue;
+					} else {
+						config->vc_mtu = k;
 				}
 			} else
 				missing_arg(cmd);
@@ -500,6 +493,12 @@ void load_config()
 					config->ip_add_arp = k;
 				}
 			} else
+				missing_arg(cmd);
+		} else
+		if (!strcmp(cmd, "ip-encaps-dev")) {
+			if (arg)
+				strcpy(ip_encaps_dev, arg);
+			else
 				missing_arg(cmd);
 		} else
 		if (!strcmp(cmd, "ax25-maxroutes"))
@@ -638,6 +637,11 @@ void interpret_command(int fd, unsigned char *buf)
 				
 			ipmode = (*arg == 'v');
 
+			if ((config = dev_get_config(ip_encaps_dev)) == NULL) {
+				printf("no config for %s\n", ip_encaps_dev);
+				return;
+			}
+
 			action = update_ip_route(config, ip, ipmode, asc2ax(arg2), stamp);
 
 			if (action & NEW_ROUTE)
@@ -723,16 +727,16 @@ void load_cache(void)
 	{
 		while(fgets(buf, sizeof(buf), fp) != NULL)
 			interpret_command(2, buf);
-	        fclose(fp);
-	}
+		fclose(fp);
+	} else perror("open AX.25 route cache file");
 	
 	fp = fopen(DATA_AX25ROUTED_IPRT_FILE, "r");
 	if (fp != NULL)
 	{
 		while(fgets(buf, sizeof(buf), fp) != NULL)
 			interpret_command(2, buf);
-	        fclose(fp);
-	}
+		fclose(fp);
+	} else perror("open IP route cache file");
 }
 
 void save_cache(void)

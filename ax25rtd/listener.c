@@ -1,4 +1,4 @@
-/* $Id: listener.c,v 1.9 1997/06/05 18:56:08 oe1kib Exp kudielka $
+/* $Id: listener.c,v 1.1 2001/04/10 01:58:42 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -166,6 +166,9 @@ int set_route(config *config, long ip)
 	struct rtentry rt;
 	struct sockaddr_in *isa;
 	char   origdev[16], buf[1024];
+/* modif f5lct */
+	long  gwr;
+/* fin modif f5lct */
 	long ipr;
 	int fds;
 	FILE *fp;
@@ -180,8 +183,11 @@ int set_route(config *config, long ip)
 	fgets(buf, sizeof(buf)-1, fp);	/* discard header */
 	while (fgets(buf, sizeof(buf)-1, fp) != NULL)
 	{
-		sscanf(buf, "%s %lx", origdev, &ipr);
-		if (ipr == ip)
+/* modif f5lct */
+	/*	sscanf(buf, "%s %lx", origdev, &ipr); */
+		sscanf(buf, "%s %lx %lx", origdev, &ipr, &gwr);
+		if (ipr == ip && gwr == 00000000 )
+/* fin modif f5lct */
 		{
 			if (dev_get_config(origdev) == NULL)
 			{
@@ -565,6 +571,9 @@ void ax25_receive(int sock)
 
 	if (ip != 0)
 	{
+                if ((config = dev_get_config(ip_encaps_dev)) == NULL) 
+                  return;
+
 		action = update_ip_route(config, ip, ipmode, &srccall, stamp);
 		
 		if (action & NEW_ROUTE)

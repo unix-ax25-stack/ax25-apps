@@ -1,4 +1,4 @@
-/* $Id: cache_ctl.c,v 1.5 1996/10/23 18:27:43 jreuter Exp jreuter $
+/* $Id: cache_ctl.c,v 1.1 2001/04/10 01:58:39 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -41,7 +41,7 @@ int update_ip_route(config *config, unsigned long ip, int ipmode, ax25_address *
 {
 	ip_rt_entry *bp = ip_routes;
 	ip_rt_entry *bp_prev = ip_routes;
-	char *iface = config->dev;
+	char *iface;
 	int action = 0;
 	
 	if (((ip ^ config->ip) & config->netmask) != 0)
@@ -68,7 +68,7 @@ int update_ip_route(config *config, unsigned long ip, int ipmode, ax25_address *
 				memcpy(&bp->call, call, AXLEN);
 			} 
 
-			if (ipmode && ipmode != bp->ipmode)
+			if (ipmode != bp->ipmode)
 			{
 				action |= NEW_IPMODE;
 				bp->ipmode = ipmode;
@@ -145,18 +145,25 @@ ax25_rt_entry *update_ax25_route(config *config, ax25_address *call, int ndigi, 
 	
 	while (bp)
 	{
-		if (!memcmp(call, &bp->call, AXLEN) && !strcmp(bp->iface, iface))
+		if (!memcmp(call, &bp->call, AXLEN) )
 		{
 			if (bp->timestamp == 0 && timestamp != 0)
 				return NULL;
-			
+
+            		if (strcmp(bp->iface, iface))
+			{
+                   		del_kernel_ax25_route(bp->iface, &bp->call);
+                   		action |= NEW_ROUTE;
+			       	strcpy(bp->iface, iface);
+            		}
+            
 			if (ndigi != bp->ndigi || memcmp(bp->digipeater, digi, bp->ndigi*AXLEN))
 			{
 				action |= NEW_ROUTE;
 				memcpy(bp->digipeater, digi, ndigi*AXLEN);
 				bp->ndigi = ndigi;
 			}
-				
+					
 			bp->timestamp = timestamp;
 
 			if (bp != ax25_routes)

@@ -27,10 +27,6 @@
 #include <config.h>
 #include "listen.h"
 
-#ifdef AX25_NEW_DEVIF
-#define ki_dump ax25_dump
-#endif
-
 int timestamp;
 
 static void display_port(char *dev)
@@ -153,12 +149,20 @@ int main(int argc, char **argv)
 
 			if (ifr.ifr_hwaddr.sa_family == AF_AX25) {
 				display_port(sa.sa_data);
+#ifdef NEW_AX25_STACK
+				ax25_dump(buffer, size, dumpstyle);
+#else
 				ki_dump(buffer, size, dumpstyle);
+#endif
 //				lprintf(T_DATA, "\n");
 			}
 		} else {
 			display_port(sa.sa_data);
-			ki_dump(buffer, size, dumpstyle);
+#ifdef NEW_AX25_STACK
+			ax25_dump(buffer, size, dumpstyle);
+#else
+ 			ki_dump(buffer, size, dumpstyle);
+#endif
 //			lprintf(T_DATA, "\n");
 		}
 		if (color)

@@ -1,4 +1,4 @@
-/* @(#) $Header: ax25dump.c,v 1.5 91/02/24 20:16:33 deyke Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.1 2001/04/10 01:58:51 csmall Exp $ */
 
 /* AX25 header tracing
  * Copyright 1991 Phil Karn, KA9Q

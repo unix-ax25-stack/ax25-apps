@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.h,v 1.6 1997/06/05 18:54:57 oe1kib Exp oe1kib $
+/* $Id: ax25rtd.h,v 1.1 2001/04/10 01:58:39 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -119,6 +119,7 @@ extern ax25_rt_entry * ax25_routes;
 extern int ax25_routes_cnt;
 extern int ax25_maxroutes;
 
+extern char ip_encaps_dev[];
 
 /* config.c */
 

@@ -17,6 +17,7 @@
 
 #include <netax25/daemon.h>
 #include <config.h>
+#include <getopt.h>
 
 #include "../pathnames.h"
 #include "ax25ipd.h"
@@ -25,6 +26,18 @@ jmp_buf restart_env;
 
 /* Prototypes */
 void hupper(int);
+
+int opt_version = 0;
+int opt_loglevel = 0;
+int opt_help = 0;
+char opt_configfile[1024];
+
+struct option options[] = {
+    "version", 0, &opt_version, 1,
+    "loglevel", 1, &opt_loglevel, 1,
+    "help", 0, &opt_help, 1,
+    "configfile", 1, NULL, 0,
+    0,0,0,0 };
 
 int
 main(int argc, char **argv)
@@ -38,14 +51,58 @@ main(int argc, char **argv)
 	signal(SIGINT, int_handler);
 	signal(SIGTERM, term_handler);
 
-	/* Say hello to the world */
-	greet_world();
+        while(1) {
+            int option_index = 0;
+            int c;
 
-	/* Test arguments */
-	if(argc>2){
-		fprintf(stderr,"Usage: %s [<configuration-file>]\n",argv[0]);
-		exit(1);
-	}
+            c = getopt_long(argc, argv, "c:hl:v", options, &option_index);
+            if (c == -1)
+                break;
+
+            switch (c) {
+                case 0:
+                    break;
+                    switch(option_index) {
+                        case 0: case 2:
+                            break;
+                        case 1:
+                            opt_loglevel = atoi(optarg);
+                            break;
+                        case 3:
+                            strncpy(opt_configfile, optarg, 1023);
+                            break;
+
+                    }
+                    break;
+                case 'c' :
+                    strncpy(opt_configfile, optarg, 1023);
+                    break;
+                case 'v':
+                    opt_version = 1;
+                    break;
+                case 'l':
+                    opt_loglevel = atoi(optarg);
+                    break;
+            }
+        }
+
+        if (optind < argc) { printf ("config %s\n", argv[optind++]); }
+        
+        if (opt_version == 1) {
+            greet_world();
+            exit(0);
+        }
+        if (opt_help == 1) {
+            greet_world();
+            printf ("Usage:\n");
+            printf ("%s [flags]\n",argv[0]);
+            printf ("\nFlags:\n");
+            printf ("  --version, -v               Print version of program\n");
+            printf ("  --help, -h                  This help screen\n");
+            printf ("  --loglevel NUM, -l NUM      Set logging level to NUM\n");
+            printf ("  --configfile FILE, -c FILE  Set confgiuration file to FILE\n");
+            exit(0);
+        }
 
 	/* Initialize all routines */
 	config_init();
@@ -55,7 +112,7 @@ main(int argc, char **argv)
 	io_init();
 
 	/* read config file */
-	config_read(argv[1]);
+	config_read(opt_configfile);
 
 	/* print the current config and route info */
 	dump_config();
@@ -67,7 +124,7 @@ main(int argc, char **argv)
 
 	/* if we get this far without error, let's fork off ! :-) */
 	if (!daemon_start(TRUE)) {
-		fprintf(stderr, "ax25ipd: cannot become a daemon\n");
+		syslog(stderr, "ax25ipd: cannot become a daemon\n");
 		return 1;
 	}
 

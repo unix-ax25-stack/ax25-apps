@@ -1,3 +1,41 @@
+ax25rtd with DG2FEF/DG1KJD Linux-AX.25 Kernel NOTES:
+
+- Here is an example ax25rtd.conf file:
+
+ax25-maxroutes 256
+ip-maxroutes 256
+ip-encaps-dev ipax0
+
+[sp0]
+ax25-learn-routes yes
+ax25-learn-only-mine yes
+ip-adjust-mode no
+ip-learn-routes no
+arp-add yes
+
+[ipax0]
+arp-add yes
+ip-learn-routes yes
+
+- ax25-learn-only-mine has to be on for now, since ax25rtd is not able to
+  recognize digipeater paths yet when this node is part of it.
+
+- ax25rtd will be replaced as soon as possible by something reasonable, so
+  this is only a temporary solution
+
+- ipax0 must be up when ax25rtd is startet
+
+- all other listeners (ax25d et al) must be registrated at this point of
+  time, too
+
+- There must be an entry for ipax0 in /etc/axports, here is an example:
+
+ipax0 dg1kjd-10 76800 256 7 IP-encap device
+
+----
+   Jens
+
+
 *****************************************************************
 * Please send all comments and suggestions regarding ax25rtd to *
 * Klaus Kudielka (klaus.kudielka@ieee.org).                     *

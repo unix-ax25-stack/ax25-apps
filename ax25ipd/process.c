@@ -122,6 +122,9 @@ int l;
 		/* Warning - assuming buffer has room for 2 bytes */
 		add_crc(buf, l); l+=2;
 		send_ip(buf, l, ipaddr);
+		if (is_call_bcast(a)) {
+			send_broadcast(buf, l);
+		}
 	}
 }
 

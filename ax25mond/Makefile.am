@@ -1,28 +1,17 @@
 
-sbin_PROGRAMS = ax25ipd
+sbin_PROGRAMS = ax25mond
 
-man_MANS = ax25ipd.8 ax25ipd.conf.5
+man_MANS = ax25mond.8 ax25mond.conf.5
 
-EXTRA_DIST = $(man_MANS) $(etcfiles) $(doc_DATA)
+EXTRA_DIST = $(man_MANS) $(etcfiles)
 
-docdir = ${datadir}/doc/ax25-apps
-doc_DATA = README.ax25ipd HISTORY.ax25ipd COPYING.ax25ipd
+ax25mond_LDADD = $(AX25_LIB)
 
-CFLAGS = -DUSE_TERMIO
-ax25ipd_LDADD = $(AX25_LIB)
-
-ax25ipd_SOURCES =	\
-	config.c	\
-	crc.c		\
-	io.c		\
-	kiss.c		\
-	ax25ipd.c	\
-	ax25ipd.h	\
-	process.c	\
-	routing.c	
+ax25mond_SOURCES =	\
+	ax25mond.c
 
 # Needed so that install is optional
-etcfiles = ax25ipd.conf
+etcfiles = ax25mond.conf
 installconf:
 	$(mkinstalldirs) $(DESTDIR)$(AX25_SYSCONFDIR)
 	@list='$(etcfiles)'; for p in $$list; do \

@@ -229,6 +229,11 @@ static int connect_to(char *address[])
 	    return (-1);
 	}
 	ax25_aton(ax25_config_get_addr(port), &sockaddr.ax25);
+	if (sockaddr.ax25.fsa_ax25.sax25_ndigis == 0) {
+		ax25_aton_entry(ax25_config_get_addr(port),
+		        sockaddr.ax25.fsa_digipeater[0].ax25_call);
+		sockaddr.ax25.fsa_ax25.sax25_ndigis = 1;
+	}
 	sockaddr.ax25.fsa_ax25.sax25_family = AF_AX25;
 	addrlen = sizeof(struct full_sockaddr_ax25);
 

@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.c,v 1.7 1996/10/23 18:27:43 jreuter Exp jreuter $
+/* $Id: ax25rtd.c,v 1.1 2001/04/10 01:58:38 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -28,10 +28,12 @@
  *
  */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <syslog.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -61,7 +63,7 @@
 #include "../pathnames.h"
 #include "ax25rtd.h"
 
-const char *Version = "ax25rtd $Revision: 1.7 $";
+const char *Version = "ax25rtd $Revision: 1.1 $";
 config *Config = NULL;
 
 int reload = 0;
@@ -74,6 +76,7 @@ ax25_rt_entry * ax25_routes = NULL;
 int ax25_routes_cnt	= 0;
 int ax25_maxroutes	= AX25_MAXROUTES;
 
+char ip_encaps_dev[32]  = "";
 
 config *dev_get_config(char *dev)
 {

@@ -1,9 +1,10 @@
-/* @(#) $Header: nrdump.c,v 1.2 91/02/24 20:17:28 deyke Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/nrdump.c,v 1.1 2001/04/10 01:58:54 csmall Exp $ */
 
 /* NET/ROM header tracing routines
  * Copyright 1991 Phil Karn, KA9Q
  */
 #include <stdio.h>
+#include <string.h>
 #include "listen.h"
 
 #define	AXLEN		7

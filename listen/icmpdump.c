@@ -1,4 +1,4 @@
-/* @(#) $Header: icmpdump.c,v 1.4 91/02/24 20:16:55 deyke Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/icmpdump.c,v 1.1 2001/04/10 01:58:52 csmall Exp $ */
 
 /* ICMP header tracing
  * Copyright 1991 Phil Karn, KA9Q
