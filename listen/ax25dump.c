@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.2 2001/09/12 13:18:43 terry Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.3 2001/11/27 04:57:43 csmall Exp $ */
 
 /* AX25 header tracing
  * Copyright 1991 Phil Karn, KA9Q
@@ -241,33 +241,33 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 			lprintf(T_AXHDR, "\n");
 
 			switch (pid) {
-			case PID_SEGMENT:
-				data_dump(data, length, hexdump);
-				break;
-			case PID_ARP:
-				arp_dump(data, length);
-				break;
-			case PID_NETROM:
-				netrom_dump(data, length, hexdump);
-				break;
-			case PID_IP:
-				ip_dump(data, length, hexdump);
-				break;
-			case PID_X25:
-				rose_dump(data, length, hexdump);
-				break;
-			case PID_TEXNET:
-				data_dump(data, length, hexdump);
-				break;
-			case PID_FLEXNET:
-				flexnet_dump(data, length, hexdump);
-				break;
-			case PID_NO_L3:
-				data_dump(data, length, hexdump);
-				break;
-			default:
-				data_dump(data, length, hexdump);
-				break;
+				case PID_SEGMENT:
+					data_dump(data, length, hexdump);
+					break;
+				case PID_ARP:
+					arp_dump(data, length);
+					break;
+				case PID_NETROM:
+					netrom_dump(data, length, hexdump, type);
+					break;
+				case PID_IP:
+					ip_dump(data, length, hexdump);
+					break;
+				case PID_X25:
+					rose_dump(data, length, hexdump);
+					break;
+				case PID_TEXNET:
+					data_dump(data, length, hexdump);
+					break;
+				case PID_FLEXNET:
+					flexnet_dump(data, length, hexdump);
+					break;
+				case PID_NO_L3:
+					data_dump(data, length, hexdump);
+					break;
+				default:
+					data_dump(data, length, hexdump);
+					break;
 			}
 		}
 	} else if (type == FRMR && length >= 3) {

@@ -1,4 +1,4 @@
-/* $Id: listener.c,v 1.2 2001/09/12 13:18:43 terry Exp $
+/* $Id: listener.c,v 1.3 2001/11/27 04:57:43 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -21,19 +21,24 @@
  /* TODO: Should add partial path to ax25_route if we are one of the
   *       digipeaters.
   */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/ioctl.h>
+#ifdef TIME_WITH_SYS_TIME
+#include <time.h>
+#endif
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <net/route.h>
 #include <net/if.h>
 #include <net/if_arp.h>
 
-#include <config.h>
 #ifdef HAVE_NETAX25_AX25_H
 #include <netax25/ax25.h>
 #else

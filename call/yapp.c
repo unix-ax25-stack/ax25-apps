@@ -15,6 +15,9 @@
 /*
  * Yapp C and Resume support added by S N Henson.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -26,6 +29,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>

@@ -39,7 +39,7 @@ void ax25_dump(unsigned char *, int, int);
 char *pax25(char *, unsigned char *);
 
 /* In nrdump.c */
-void netrom_dump(unsigned char *, int, int);
+void netrom_dump(unsigned char *, int, int, int);
 
 /* In arpdump.c */
 void arp_dump(unsigned char *, int);

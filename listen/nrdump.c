@@ -1,8 +1,11 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/nrdump.c,v 1.2 2001/09/12 13:18:44 terry Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/nrdump.c,v 1.3 2001/11/27 04:57:43 csmall Exp $ */
 
 /* NET/ROM header tracing routines
  * Copyright 1991 Phil Karn, KA9Q
+ *
+ * Added decoding of INP route information frames, Jeroen (PE1RXQ)
  */
+
 #include <stdio.h>
 #include <string.h>
 #include "listen.h"
@@ -28,16 +31,58 @@
 #define	NR3NODESIG	0xFF
 #define	NR3POLLSIG	0xFE
 
+#define UI		0x03
+
 static void netrom_flags(int);
 
+/* Display INP route information frames */
+static void netrom_inp_dump(unsigned char *data, int length)
+{
+	char node[10];
+	char alias[7];
+	int hops;
+	int tt;
+	int alen;
+	int i;
+	
+	if (data[0]==0xff) {
+		lprintf(T_AXHDR, "INP Route Information Frame:\n");
+		i=1;
+		while (i<length-10) {
+			pax25(node, data+i);
+			i+=7;
+			hops=data[i++];
+			tt=data[i++]*256;
+			tt+=data[i++];
+			alias[0]=0;
+			while (i<length-data[i] && data[i]) {
+				if (data[i+1]==0x00) {
+					alen=data[i]-2;
+					alen=alen < 7 ? alen : 6;
+					memcpy(alias, data+i+2, alen);
+					alias[alen]=0;
+				}
+				i+=data[i];
+			}
+			i++;
+			lprintf(T_DATA, "        %12s  %-6s   %6u %6u\n", node, alias, hops, tt);
+		}
+	}
+}
+
 /* Display NET/ROM network and transport headers */
-void netrom_dump(unsigned char *data, int length, int hexdump)
+void netrom_dump(unsigned char *data, int length, int hexdump, int type)
 {
 	char tmp[15];
 	register int i;
 
 	/* See if it is a routing broadcast */
 	if (data[0] == NR3NODESIG) {
+		/* Filter out INP routing frames */
+		if (type!=UI) {
+			netrom_inp_dump(data, length);
+			return;
+		}
 		memcpy(tmp, data + 1, ALEN);
 		tmp[ALEN] = '\0';
 		lprintf(T_AXHDR, "NET/ROM Routing: %s\n", tmp);
@@ -48,7 +93,6 @@ void netrom_dump(unsigned char *data, int length, int hexdump)
 		for (i = 0; i < NRDESTPERPACK; i++) {
 			if (length < AXLEN)
 				break;
-
 			lprintf(T_DATA, "        %12s", pax25(tmp, data));
 
 			memcpy(tmp, data + AXLEN, ALEN);

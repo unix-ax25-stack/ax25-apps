@@ -1,4 +1,9 @@
-ax25-apps 0.0.5 
+ax25-apps (0.0.6)
+	* listen can decode INP Packets. Thanks to Jeroen Vreeken
+
+ -- Craig Small <csmall@small.dropbear.id.au> 
+
+ax25-apps (0.0.5)
 	* New rosedump.c from Jean-Paul.
 	* Changes to ax25rtd from Hubert F5LCT for problems with
 	  kernel 2.2.13.
