@@ -122,7 +122,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if ((s = socket(AF_PACKET, SOCK_PACKET, htons(proto))) == -1) {
+	if ((s = socket(PF_PACKET, SOCK_PACKET, htons(proto))) == -1) {
 		perror("socket");
 		return 1;
 	}

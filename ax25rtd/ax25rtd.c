@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.c,v 1.3 2002/03/04 01:43:49 csmall Exp $
+/* $Id: ax25rtd.c,v 1.4 2002/11/03 19:51:08 mctaylor Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -66,7 +66,7 @@
 #include "../pathnames.h"
 #include "ax25rtd.h"
 
-const char *Version = "ax25rtd $Revision: 1.3 $";
+const char *Version = "ax25rtd $Revision: 1.4 $";
 config *Config = NULL;
 
 int reload = 0;
@@ -153,7 +153,7 @@ int main(int argc, char **argv)
 	if (fork())
 		return 0;
 
-	if ((s = socket(AF_INET, SOCK_PACKET, htons(ETH_P_AX25))) == -1) {
+	if ((s = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_AX25))) == -1) {
 		perror("AX.25 socket");
 		return 1;
 	}
