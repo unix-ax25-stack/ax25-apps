@@ -1,8 +1,8 @@
-.TH AX25IPD 1 "2 February 1997" Linux "Linux Programmer's Manual"
+.TH AX25IPD 1 "12 September 2001" Linux "Linux Programmer's Manual"
 .SH NAME
 ax25ipd \- AX.25 into IP Encapsulator
 .SH SYNOPSIS
-.B ax25ipd [config-file]
+.B ax25ipd [options]
 .SH DESCRIPTION
 .LP
 .B ax25ipd
@@ -12,8 +12,7 @@ neccessary to send and receive AX.25 traffic across an IP transport.
 Normally invoked as part of the boot order network initialisation,
 .B ax25ipd
 is capable of talking directly to a serial port connected tnc, or over
-a pipe to a linux AX.25 port. KAM DE Dual Port Kiss is also supported 
-in this release.
+a pipe to a linux AX.25 port. KAM DE Dual Port Kiss is also supported.
 .LP
 .B ax25ipd
 can be run as a pure encapsulator, or as a digital repeater with a
@@ -23,12 +22,21 @@ hardcoded map of callsign/IP Address pairs.
 .B ax25ipd
 defaults to using
 .B /etc/ax25/ax25ipd.conf
-as it's config file ...
+as its config file.
 .LP
 .SH OPTIONS
 .TP 10
-.BI \-v
-Display the version. (yet to be implemented ...)
+.BI \-v,--version
+Display the version.
+.TP 10
+.BI \-h,--help
+Display a summary of the command line options.
+.TP 10
+.BI \-l,--loglevel NUM
+Set the logging level to NUM.
+.TP 10
+.BI \-c,--configfile FILE
+Use the configuration file named by FILE instead of the default.
 .SH FILES
 /etc/ax25/ax25ipd.conf
 .SH "SEE ALSO"
@@ -59,6 +67,6 @@ D. Jeff Dionne VE3DJF <Jeff@lnx_rpi.ee.ryerson.ca>
 .br
 Rob Mayfield VK5XXX/VK5ZEU <mayfieldrob@mail.dec.com>
 .br
-Terry Dawson VK2KTJ <terry@perf.no.itg.telstra.com.au>
+Terry Dawson VK2KTJ <terry@animats.net>
 .br
 .fi
