@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.c,v 1.1 2001/04/10 01:58:38 csmall Exp $
+/* $Id: ax25rtd.c,v 1.1.1.1 2001/04/10 01:58:38 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -63,7 +63,7 @@
 #include "../pathnames.h"
 #include "ax25rtd.h"
 
-const char *Version = "ax25rtd $Revision: 1.1 $";
+const char *Version = "ax25rtd $Revision: 1.1.1.1 $";
 config *Config = NULL;
 
 int reload = 0;

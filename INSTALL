@@ -5,7 +5,7 @@ To make this package you will need the following:
         glibc2.1 (Debian 2.1.1-5 or RedHat glibc-2.1.2-3)
         A Modern kernel, 2.2.x with optional new-AX25-patch (DG2FEF / DG1KJD)
         libtool
-        libax25 0.0.5 or better
+        libax25 0.0.5 or better Best to use 0.0.7
 
 To build it you type:
         ./configure

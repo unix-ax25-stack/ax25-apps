@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.h,v 1.1 2001/04/10 01:58:39 csmall Exp $
+/* $Id: ax25rtd.h,v 1.1.1.1 2001/04/10 01:58:39 csmall Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *

@@ -276,6 +276,13 @@ distdir: $(DISTFILES)
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
+ax25rtctl.o: ax25rtctl.c ../config.h ../pathnames.h
+ax25rtd.o: ax25rtd.c ../config.h ../pathnames.h ax25rtd.h
+cache_ctl.o: cache_ctl.c ../config.h ax25rtd.h
+cache_dump.o: cache_dump.c ../config.h ax25rtd.h
+config.o: config.c ../config.h ../pathnames.h ax25rtd.h
+listener.o: listener.c ../config.h ../pathnames.h ax25rtd.h
+
 info-am:
 info: info-am
 dvi-am:

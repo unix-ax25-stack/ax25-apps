@@ -16,6 +16,7 @@
               message (VK2KTJ) */
 /* 02.02.1997 removed NETROM_PACLEN setting to match Jonathon removing it
               from kernel (VK2KTJ) */
+#include <config.h>
 
 #include <sys/types.h>
 #include <utime.h>
@@ -28,6 +29,9 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef TM_IN_SYS_TIME
+#include <time.h>
+#endif
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -57,7 +61,6 @@
 #include <netax25/nrconfig.h>
 #include <netax25/rsconfig.h>
 
-#include <config.h>
 
 #include "../pathnames.h"
 

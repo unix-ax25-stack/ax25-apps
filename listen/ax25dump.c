@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.1 2001/04/10 01:58:51 csmall Exp $ */
+/* @(#) $Header: /cvsroot/ax25/ax25-apps/listen/ax25dump.c,v 1.1.1.1 2001/04/10 01:58:51 csmall Exp $ */
 
 /* AX25 header tracing
  * Copyright 1991 Phil Karn, KA9Q

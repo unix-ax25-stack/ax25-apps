@@ -346,6 +346,14 @@ distdir: $(DISTFILES)
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
+ax25ipd.o: ax25ipd.c ../config.h ../pathnames.h ax25ipd.h
+config.o: config.c ax25ipd.h ../pathnames.h
+crc.o: crc.c ax25ipd.h ../pathnames.h
+io.o: io.c ax25ipd.h ../pathnames.h
+kiss.o: kiss.c ax25ipd.h ../pathnames.h
+process.o: process.c ax25ipd.h ../pathnames.h
+routing.o: routing.c ax25ipd.h ../pathnames.h
+
 info-am:
 info: info-am
 dvi-am:
