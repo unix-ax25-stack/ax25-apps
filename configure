@@ -1153,7 +1153,7 @@ fi
 PATH_SEPARATOR="$ac_path_separator"
 rm -f conftest.sh
 
-VERSION=0.0.6cvs
+VERSION=0.0.6
 PACKAGE=ax25-apps
 ac_aux_dir=
 for ac_dir in $srcdir $srcdir/.. $srcdir/../..; do
