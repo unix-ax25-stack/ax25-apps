@@ -1,10 +1,7 @@
-ax25-apps (0.0.7)
-	* ax25ipd bug-fixes - Terry Dawson, Ray Wells, et.al.
-
 ax25-apps (0.0.6)
 	* listen can decode INP Packets. Thanks to Jeroen Vreeken
-
- -- Craig Small <csmall@small.dropbear.id.au> 
+	* Added \n to flexdump after "Poll". Thanks to Alexandre Fornieles
+	* ax25ipd bug-fixes - Terry Dawson, Ray Wells, et.al.
 
 ax25-apps (0.0.5)
 	* New rosedump.c from Jean-Paul.

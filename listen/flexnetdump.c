@@ -88,7 +88,7 @@ void flexnet_dump(unsigned char *data, int length, int hexdump)
 		return;
 
 	case FLEX_POLL:
-		lprintf(T_FLEXNET, " Poll");
+		lprintf(T_FLEXNET, " Poll\n");
 		return;
 
 	case FLEX_ROUT:
