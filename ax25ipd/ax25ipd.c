@@ -55,8 +55,7 @@ int main(int argc, char **argv)
 		int option_index = 0;
 		int c;
 
-		c = getopt_long(argc, argv, "c:hl:v", options,
-				&option_index);
+		c = getopt_long(argc, argv, "c:hl:v", options, &option_index);
 		if (c == -1)
 			break;
 
@@ -65,15 +64,15 @@ int main(int argc, char **argv)
 			break;
 			switch (option_index) {
 			case 0:
-			case 2:
 				break;
 			case 1:
 				opt_loglevel = atoi(optarg);
 				break;
+			case 2:
+				break;
 			case 3:
 				strncpy(opt_configfile, optarg, 1023);
 				break;
-
 			}
 			break;
 		case 'c':

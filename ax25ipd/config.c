@@ -76,10 +76,10 @@ char *f;
 	int errflag, e, lineno;
 	char *fname;
 
-	if (f)
-		fname = f;
+	if (f==NULL || strlen(f) == 0)
+		fname=CONF_AX25IPD_FILE;
 	else
-		fname = CONF_AX25IPD_FILE;
+		fname=f;
 
 	if ((cf = fopen(fname, "r")) == NULL) {
 		fprintf(stderr,
