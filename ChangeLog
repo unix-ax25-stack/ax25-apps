@@ -1,3 +1,6 @@
+ax25-apps (0.0.7)
+
+
 ax25-apps (0.0.6)
 	* listen can decode INP Packets. Thanks to Jeroen Vreeken
 	* Added \n to flexdump after "Poll" and "data" - Alexandre Fornieles
