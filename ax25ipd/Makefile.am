@@ -8,7 +8,7 @@ EXTRA_DIST = $(man_MANS) $(etcfiles) $(doc_DATA)
 docdir = ${datadir}/doc/ax25-apps
 doc_DATA = README.ax25ipd HISTORY.ax25ipd COPYING.ax25ipd
 
-CFLAGS = -DUSE_TERMIO
+AM_CFLAGS = -DUSE_TERMIO
 ax25ipd_LDADD = $(AX25_LIB)
 
 ax25ipd_SOURCES =	\
