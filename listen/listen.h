@@ -12,6 +12,7 @@
 #define T_ROSEHDR	11
 #define T_TIMESTAMP	12
 #define T_FLEXNET       13
+#define T_OPENTRAC	14
 
 /* In utils.c */
 extern int color;			/* Colorized mode */
@@ -67,3 +68,6 @@ void rose_dump(unsigned char *, int, int);
 
 /* In flexnetdump.c */
 void flexnet_dump(unsigned char *, int, int);
+
+/* In opentracdump.c */
+void opentrac_dump(unsigned char *, int, int);

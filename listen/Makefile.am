@@ -24,4 +24,5 @@ listen_SOURCES = 	\
 	ripdump.c	\
 	rosedump.c	\
 	flexnetdump.c	\
+	opentracdump.c \
 	utils.c

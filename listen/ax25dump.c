@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.3 2001/11/27 04:57:43 csmall Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.4 2004/02/04 10:48:28 csmall Exp $ */
 
 /* AX25 header tracing
  * Copyright 1991 Phil Karn, KA9Q
@@ -22,6 +22,7 @@
 #define	PID_X25		0x01
 #define	PID_TEXNET	0xC3
 #define	PID_FLEXNET	0xCE
+#define	PID_OPENTRAC	0x77
 #define	PID_NO_L3	0xF0
 
 #define	I		0x00
@@ -217,6 +218,9 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 			case PID_FLEXNET:
 				lprintf(T_AXHDR, "(FLEXNET)");
 				break;
+			case PID_OPENTRAC:
+				lprintf(T_AXHDR, "(OPENTRAC)");
+				break;
 			case PID_NO_L3:
 				lprintf(T_AXHDR, "(Text)");
 				break;
@@ -261,6 +265,9 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 					break;
 				case PID_FLEXNET:
 					flexnet_dump(data, length, hexdump);
+					break;
+				case PID_OPENTRAC:
+					opentrac_dump(data, length, hexdump);
 					break;
 				case PID_NO_L3:
 					data_dump(data, length, hexdump);

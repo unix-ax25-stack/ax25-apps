@@ -1,4 +1,6 @@
 ax25-apps (0.0.7)
+	* Added opentrac to listen, Thanks to Scott Miller
+	* More autobreak nightmares
 
 
 ax25-apps (0.0.6)
