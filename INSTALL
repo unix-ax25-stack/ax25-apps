@@ -1,0 +1,19 @@
+Installation Instructions for AX.25 Tools
+=========================================
+
+To make this library you will need the following:
+        glibc2.1
+        A Modern kernel
+        libtool
+        ax25-lib 0.0.3 or better
+
+To build it you type:
+        ./configure
+        make
+        make install
+
+By default, it will install the files in /usr/local.  To change this
+so that binaries go in  /usr and the conf files go in /etc
+type 'make install prefix=/usr'
+
+  - Craig Small <csmall@small.dropbear.id.au>
