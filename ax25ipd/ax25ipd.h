@@ -109,10 +109,10 @@ struct {
 
 #define MAX_FRAME 2048
 
-#define LOGL1 if(loglevel>0)(void)printf
-#define LOGL2 if(loglevel>1)(void)printf
-#define LOGL3 if(loglevel>2)(void)printf
-#define LOGL4 if(loglevel>3)(void)printf
+#define LOGL1(arg...) if(loglevel>0)syslog(LOG_DAEMON | LOG_WARNING, ##arg)
+#define LOGL2(arg...) if(loglevel>1)syslog(LOG_DAEMON | LOG_WARNING, ##arg)
+#define LOGL3(arg...) if(loglevel>2)syslog(LOG_DAEMON | LOG_WARNING, ##arg)
+#define LOGL4(arg...) if(loglevel>3)(void)syslog(LOG_DAEMON | LOG_DEBUG, ##arg)
 
 #define	AXRT_BCAST	1
 #define	AXRT_DEFAULT	2

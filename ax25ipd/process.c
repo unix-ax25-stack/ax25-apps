@@ -14,6 +14,7 @@
 
 #include "ax25ipd.h"
 #include <stdio.h>
+#include <syslog.h>
 /* if dual port the upper nibble will have a value of 1 (not 0) */
 #define FROM_PORT2(p)   (((*(p+1))&0x10)!=0)
 #define FOR_PORT2(p)    (addrmatch(p,mycallsign2) || addrmatch(p,myalias2))

@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <memory.h>
+#include <syslog.h>
 
 /* The routing table structure is not visible outside this module. */
 
@@ -94,7 +95,7 @@ unsigned int flags;
 		route_tbl = rn;
 
 	/* Log this entry ... */
-	LOGL4("added route: %s\t%s\t%s\t%d\t%d\n",
+	LOGL4("added route: %s %s %s %d %d\n",
 	      call_to_a(rn->callsign),
 	      (char *) inet_ntoa(*(struct in_addr *) rn->ip_addr),
 	      rn->udp_port ? "udp" : "ip", ntohs(rn->udp_port), flags);

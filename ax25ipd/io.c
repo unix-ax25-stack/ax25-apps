@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <syslog.h>
 
 #ifdef __bsdi__
 #define USE_TERMIOS

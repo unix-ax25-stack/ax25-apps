@@ -20,6 +20,7 @@
 #include <ctype.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <syslog.h>
 #include "ax25ipd.h"
 
 /* Initialize the config table */

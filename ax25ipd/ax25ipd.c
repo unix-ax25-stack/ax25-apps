@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <setjmp.h>
+#include <syslog.h>
 
 #include <netax25/daemon.h>
 #include <config.h>
@@ -29,6 +30,7 @@ void hupper(int);
 
 int opt_version = 0;
 int opt_loglevel = 0;
+int opt_nofork = 0;
 int opt_help = 0;
 char opt_configfile[1024];
 
@@ -37,6 +39,7 @@ struct option options[] = {
 	"loglevel", 1, &opt_loglevel, 1,
 	"help", 0, &opt_help, 1,
 	"configfile", 1, NULL, 0,
+        "nofork", 0, &opt_nofork, 1,
 	0, 0, 0, 0
 };
 
@@ -55,7 +58,7 @@ int main(int argc, char **argv)
 		int option_index = 0;
 		int c;
 
-		c = getopt_long(argc, argv, "c:hl:v", options, &option_index);
+		c = getopt_long(argc, argv, "c:fhl:v", options, &option_index);
 		if (c == -1)
 			break;
 
@@ -78,6 +81,8 @@ int main(int argc, char **argv)
 		case 'c':
 			strncpy(opt_configfile, optarg, 1023);
 			break;
+                case 'f':
+                        opt_nofork = 1;
 		case 'v':
 			opt_version = 1;
 			break;
@@ -107,6 +112,8 @@ int main(int argc, char **argv)
 		    ("  --loglevel NUM, -l NUM      Set logging level to NUM\n");
 		printf
 		    ("  --configfile FILE, -c FILE  Set configuration file to FILE\n");
+                printf
+                    ("  --nofork, -f                Do not put daemon in background\n");
 		exit(0);
 	}
 
@@ -129,10 +136,12 @@ int main(int argc, char **argv)
 	io_open();
 
 	/* if we get this far without error, let's fork off ! :-) */
-	if (!daemon_start(TRUE)) {
-		syslog(stderr, "ax25ipd: cannot become a daemon\n");
-		return 1;
-	}
+        if (opt_nofork == 0) {
+	    if (!daemon_start(TRUE)) {
+	    	    syslog(LOG_DAEMON | LOG_CRIT, "ax25ipd: cannot become a daemon\n");
+		    return 1;
+	    }
+        }
 
 	/* and let the games begin */
 	io_start();

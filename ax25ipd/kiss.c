@@ -13,6 +13,7 @@
  */
 
 #include <stdio.h>
+#include <syslog.h>
 #include "ax25ipd.h"
 
 #define FEND  0xc0
