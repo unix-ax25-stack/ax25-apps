@@ -1,4 +1,4 @@
-/* $Id: listener.c,v 1.3 2001/11/27 04:57:43 csmall Exp $
+/* $Id: listener.c,v 1.4 2005/10/27 13:25:28 dl9sau Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -565,7 +565,7 @@ void ax25_receive(int sock)
 	ipmode = (ctl == LAPB_I);
 
 	if (ip != 0) {
-		if ((config = dev_get_config(ip_encaps_dev)) == NULL)
+		if (*ip_encaps_dev && (config = dev_get_config(ip_encaps_dev)) == NULL)
 			return;
 
 		action =

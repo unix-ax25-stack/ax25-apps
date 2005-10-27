@@ -1,4 +1,4 @@
-/* $Id: config.c,v 1.2 2001/09/12 13:18:43 terry Exp $
+/* $Id: config.c,v 1.3 2005/10/27 13:25:28 dl9sau Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -477,7 +477,7 @@ void load_config()
 				missing_arg(cmd);
 		} else if (!strcmp(cmd, "ip-maxroutes")) {
 			if (arg)
-				ax25_maxroutes = atoi(arg);
+				ip_maxroutes = atoi(arg);
 			else
 				missing_arg(cmd);
 
@@ -601,7 +601,7 @@ void interpret_command(int fd, unsigned char *buf)
 
 			ipmode = (*arg == 'v');
 
-			if ((config =
+			if (*ip_encaps_dev && (config =
 			     dev_get_config(ip_encaps_dev)) == NULL) {
 				printf("no config for %s\n",
 				       ip_encaps_dev);
