@@ -46,4 +46,11 @@
  *      July97  Added support for broadcast addresses and routes.
  *              Converted route array to a linked list and removed the
  *              maximum route limitations. (vk2ktj)
+ *
+ *	2005-10-26 - dl9sau:
+ *		added a new fast and efficient link to the linux kernel ax25
+ *              stack, via the ethertap interface.
+ *		ax25 goes directly to the bpqether interface in the kernel via
+ *		ethertap/tuntap interfaces, which is a much better way than
+ *              traditional kissattach to a ttyp/ptyp pair.
  */

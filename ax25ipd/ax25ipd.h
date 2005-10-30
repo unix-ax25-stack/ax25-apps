@@ -180,6 +180,15 @@ void usr1_handler(int);
 void int_handler(int);
 void term_handler(int);
 
+/* io.c */
+extern int ttyfd_bpq;
+
+/* bpqether.c */
+int send_bpq(unsigned char *buf, int len);
+int receive_bpq(unsigned char *buf, int l);
+int open_ethertap(char *ifname);
+int set_bpq_dev_call_and_up(char *ethertap_name);
+
 /*
  * end
  */

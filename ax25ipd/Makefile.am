@@ -19,7 +19,8 @@ ax25ipd_SOURCES =	\
 	ax25ipd.c	\
 	ax25ipd.h	\
 	process.c	\
-	routing.c	
+	routing.c	\
+	bpqether.c
 
 # Needed so that install is optional
 etcfiles = ax25ipd.conf
