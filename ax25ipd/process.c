@@ -198,7 +198,11 @@ int l;
 		}
 #endif
 	}			/* end of tnc mode */
-	send_kiss(port, buf, l);
+	if (!ttyfd_bpq)
+		send_kiss(port, buf, l);
+	else {
+		send_bpq(buf, l);
+	}
 }
 
 /*
@@ -240,7 +244,11 @@ void do_beacon()
 	if (loglevel > 2)
 		dump_ax25frame("do_beacon: ", bcbuf, bclen);
 	stats.kiss_beacon_outs++;
-	send_kiss(0, bcbuf, bclen);
+	if (!ttyfd_bpq)
+		send_kiss(0, bcbuf, bclen);
+	else {
+		send_bpq(bcbuf, bclen);
+	}
 }
 
 /*

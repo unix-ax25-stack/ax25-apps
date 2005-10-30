@@ -69,6 +69,8 @@ int fromlen;
 
 time_t last_bc_time;
 
+int ttyfd_bpq = 0;
+
 /*
  * I/O modes for the io_error routine
  */
@@ -187,7 +189,7 @@ void io_open()
 		}
 	}
 
-	ttyfd = open(ttydevice, O_RDWR, 0);
+	ttyfd = ((ttyfd_bpq = (strchr(ttydevice, '/') ? 0 : 1)) ? open_ethertap(ttydevice) : open(ttydevice, O_RDWR, 0));
 	if (ttyfd < 0) {
 		perror("opening tty device");
 		exit(1);
@@ -195,6 +197,10 @@ void io_open()
 	if (fcntl(ttyfd, F_SETFL, FNDELAY) < 0) {
 		perror("setting non-blocking I/O on tty device");
 		exit(1);
+	}
+	if (ttyfd_bpq) {
+		set_bpq_dev_call_and_up(ttydevice);
+		goto behind_normal_tty;
 	}
 #ifdef USE_TERMIOS
 	if (ioctl(ttyfd, TCGETS, &nterm) < 0) {
@@ -287,6 +293,8 @@ void io_open()
 	if (digi)
 		send_params();
 
+behind_normal_tty:
+
 	last_bc_time = 0;	/* force immediate id */
 }
 
@@ -354,14 +362,24 @@ void io_start() {
 			}
 			while (io_error(n, buf, n, READ_MSG, TTY_MODE));
 			LOGL4("ttydata l=%d\n", n);
-			if (n > 0)
-				assemble_kiss(buf, n);
+			if (n > 0) {
+				if (!ttyfd_bpq) {
+					assemble_kiss(buf, n);
+				} else {
+					// no crc on bpqether. but a MAC header
+					if (receive_bpq(buf, n) < 0) {
+						goto out_ttyfd;
+					}
+				}
+			}
+
 /*
  * If we are in "beacon after" mode, reset the "last_bc_time" each time
  * we hear something on the channel.
  */
 			if (!bc_every)
 				last_bc_time = time(NULL);
+out_ttyfd:
 		}
 
 		if (udp_mode) {

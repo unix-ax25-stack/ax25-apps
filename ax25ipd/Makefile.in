@@ -108,7 +108,8 @@ ax25ipd_SOURCES = \
 	ax25ipd.c	\
 	ax25ipd.h	\
 	process.c	\
-	routing.c	
+	routing.c	\
+	bpqether.c
 
 
 # Needed so that install is optional
@@ -129,7 +130,7 @@ PROGRAMS = $(sbin_PROGRAMS)
 
 am_ax25ipd_OBJECTS = config.$(OBJEXT) crc.$(OBJEXT) io.$(OBJEXT) \
 	kiss.$(OBJEXT) ax25ipd.$(OBJEXT) process.$(OBJEXT) \
-	routing.$(OBJEXT)
+	routing.$(OBJEXT) bpqether.$(OBJEXT)
 ax25ipd_OBJECTS = $(am_ax25ipd_OBJECTS)
 ax25ipd_DEPENDENCIES =
 ax25ipd_LDFLAGS =

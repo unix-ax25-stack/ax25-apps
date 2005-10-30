@@ -148,6 +148,7 @@ char *f;
 			exit(1);
 		}
 	}
+	fclose(cf);
 }
 
 /* Process each line from the config file.  The return value is encoded. */
