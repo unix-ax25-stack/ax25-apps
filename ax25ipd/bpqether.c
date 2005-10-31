@@ -1,4 +1,4 @@
-/* @(#) $Id: bpqether.c,v 1.1 2005/10/30 10:31:40 dl9sau Exp $ */
+/* @(#) $Id: bpqether.c,v 1.2 2005/10/31 02:54:27 dl9sau Exp $ */
 
 extern int ttyfd;
 /*
@@ -101,8 +101,8 @@ p module) */
 int receive_bpq(unsigned char *buf, int l)
 {
   if ((l -= ethertap_header_len) <= 0 ||
-      buf[ethertap_header_len-2] & 0xff != 0x08 ||
-      buf[ethertap_header_len-1] & 0xff != 0xff) {
+      (buf[ethertap_header_len-2] & 0xff) != 0x08 ||
+      (buf[ethertap_header_len-1] & 0xff) != 0xff) {
     // not a bpqether packet.
     // drop silently - ethernet.ax25 is not the only protocol spokenon ethernet ;)
     return -1;
@@ -261,10 +261,8 @@ int set_bpq_dev_call_and_up(char *ifname)
   char bpq_name[IFNAMSIZ];
   char dev_name[IFNAMSIZ];
   struct ifreq ifr;
-  struct sockaddr *sa;
   int drop;
   int skfd;
-  int len;
   int err = -1;
 
   // 1. find correspondent bpqether device in /proc (i.e. bpq0 for tap0)
