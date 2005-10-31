@@ -186,7 +186,7 @@ do
   -*)
     $echo "$modename: unrecognized option \`$arg'" 1>&2
     $echo "$help" 1>&2
-    exit 1
+    #exit 1
     ;;
 
   *)
