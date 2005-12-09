@@ -379,8 +379,8 @@ void io_start() {
  */
 			if (!bc_every)
 				last_bc_time = time(NULL);
-out_ttyfd:
 		}
+out_ttyfd:
 
 		if (udp_mode) {
 			if (FD_ISSET(udpsock, &readfds)) {
