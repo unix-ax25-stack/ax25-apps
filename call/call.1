@@ -4,7 +4,7 @@ call \- make an AX.25, NET/ROM or Rose connection.
 .SH SYNOPSIS
 For AX.25
 .br
-.B call [-b l|e] [-d] [-h] [-m s|e] [-p paclen] [-r] [-t] [-v] [-w window] port callsign [[via] digipeaters.....]
+.B call [-b l|e] [-d] [-h] [-m s|e] [-p paclen] [-s mycall] [-r] [-t] [-v] [-w window] port callsign [[via] digipeaters.....]
 .sp 1
 For NET/ROM
 .br
@@ -67,6 +67,9 @@ for extended (modulus 128) AX.25 operation.
 .TP 10
 .BI "\-p paclen"
 Specify a specific maximum amount of data to be sent in each AX.25 packet. 
+.TP 10
+.BI "\-s mycall"
+Connect using the specified source call (you may need to be root).
 .TP 10
 .BI \-r
 Selects Raw mode.
