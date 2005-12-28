@@ -86,6 +86,7 @@ static int debug = FALSE;
 static int af_mode = AF_AX25;
 static int window = 0;
 static char *port = NULL;
+static char *mycall = NULL;
 
 int interrupted = FALSE;
 int paclen = 0;
@@ -113,6 +114,12 @@ typedef struct {
 #define TALKMODE	001	/* two windows (outgoing and incoming) with menu */
 #define SLAVEMODE	002	/* Menu mode */
 #define RAWMODE         004	/* mode used by earlier versions */
+
+void usage(void)
+{
+	fprintf(stderr, "usage: call [-b l|e] [-d] [-h] [-m s|e] [-p paclen] [-r] [-s mycall] [-t] [-v] [-w window] port callsign [[via] digipeaters...]\n");
+	exit(1);
+}
 
 WINDOW *win;
 const char *key_words[] = { "//",
@@ -242,6 +249,8 @@ static int connect_to(char *address[])
 			sockaddr.ax25.fsa_ax25.sax25_ndigis = 1;
 		}
 		sockaddr.ax25.fsa_ax25.sax25_family = AF_AX25;
+		if (mycall)
+			ax25_aton_entry(mycall, sockaddr.ax25.fsa_ax25.sax25_call.ax25_call);
 		addrlen = sizeof(struct full_sockaddr_ax25);
 
 		if (setsockopt
@@ -2053,7 +2062,7 @@ int main(int argc, char **argv)
 	int p;
 	int mode = TALKMODE;
 
-	while ((p = getopt(argc, argv, "b:dhm:p:rtvw:")) != -1) {
+	while ((p = getopt(argc, argv, "b:dhm:p:rs:tvw:")) != -1) {
 		switch (p) {
 		case 'b':
 			if (*optarg != 'e' && *optarg != 'l') {
@@ -2092,6 +2101,8 @@ int main(int argc, char **argv)
 		case 'r':
 			mode = RAWMODE;
 			break;
+		case 's':
+			mycall = strdup(optarg);
 		case 't':
 			mode = TALKMODE;
 			break;
@@ -2120,16 +2131,12 @@ int main(int argc, char **argv)
 			break;
 		case '?':
 		case ':':
-			fprintf(stderr,
-				"usage: call [-b l|e] [-d] [-h] [-m s|e] [-p paclen] [-r] [-t] [-v] [-w window] port callsign [[via] digipeaters...]\n");
-			return 1;
+			usage();
 		}
 	}
 
 	if (optind == argc || optind == argc - 1) {
-		fprintf(stderr,
-			"usage: call [-b l|e] [-d] [-h] [-m s|e] [-p paclen] [-r] [-t] [-v] [-w window] port callsign [[via] digipeaters...]\n");
-		return 1;
+		usage();
 	}
 	port = argv[optind];
 
