@@ -360,7 +360,7 @@ void io_start() {
 			do {
 				n = read(ttyfd, buf, MAX_FRAME);
 			}
-			while (io_error(n, buf, n, READ_MSG, TTY_MODE));
+			while (io_error(n, buf, n, READ_MSG, TTY_MODE, __LINE__));
 			LOGL4("ttydata l=%d\n", n);
 			if (n > 0) {
 				if (!ttyfd_bpq) {
@@ -388,7 +388,7 @@ out_ttyfd:
 					fromlen = sizeof from;
 					n = recvfrom(udpsock, buf, MAX_FRAME, 0, (struct sockaddr *) &from, &fromlen);
 				}
-				while (io_error(n, buf, n, READ_MSG, UDP_MODE));
+				while (io_error(n, buf, n, READ_MSG, UDP_MODE, __LINE__));
 				LOGL4("udpdata from=%s port=%d l=%d\n", (char *) inet_ntoa(from.  sin_addr), ntohs(from.  sin_port), n);
 				stats.udp_in++;
 				if (n > 0)
@@ -402,7 +402,7 @@ out_ttyfd:
 					fromlen = sizeof from;
 					n = recvfrom(sock, buf, MAX_FRAME, 0, (struct sockaddr *) &from, &fromlen);
 				}
-				while (io_error(n, buf, n, READ_MSG, IP_MODE));
+				while (io_error(n, buf, n, READ_MSG, IP_MODE, __LINE__));
 				ipptr = (struct iphdr *) buf;
 				hdr_len = 4 * ipptr-> ihl;
 				LOGL4("ipdata from=%s l=%d, hl=%d\n", (char *) inet_ntoa(from.  sin_addr), n, hdr_len);
@@ -416,7 +416,7 @@ out_ttyfd:
 					fromlen = sizeof from;
 					n = recvfrom(icmpsock, buf, MAX_FRAME, 0, (struct sockaddr *) &from, &fromlen);
 				}
-				while (io_error(n, buf, n, READ_MSG, ICMP_MODE));
+				while (io_error(n, buf, n, READ_MSG, ICMP_MODE, __LINE__));
 				ipptr = (struct iphdr *) buf;
 				hdr_len = 4 * ipptr-> ihl;
 				LOGL4("icmpdata from=%s l=%d, hl=%d\n", (char *) inet_ntoa(from.  sin_addr), n, hdr_len);
@@ -449,7 +449,7 @@ unsigned char *targetip;
 			do {
 				n = sendto(udpsock, buf, l, 0, (struct sockaddr *) &to, sizeof to);
 			}
-			while (io_error(n, buf, l, SEND_MSG, UDP_MODE));
+			while (io_error(n, buf, l, SEND_MSG, UDP_MODE, __LINE__));
 		}
 	} else {
 		if (ip_mode) {
@@ -457,7 +457,7 @@ unsigned char *targetip;
 			do {
 				n = sendto(sock, buf, l, 0, (struct sockaddr *) &to, sizeof to);
 			}
-			while (io_error(n, buf, l, SEND_MSG, IP_MODE));
+			while (io_error(n, buf, l, SEND_MSG, IP_MODE, __LINE__));
 		}
 	}
 }
@@ -505,28 +505,52 @@ int l;
 			}
 		}
 	}
-	while (((n > 0) && (n < nc)) || (io_error(n, p, nc, SEND_MSG, TTY_MODE)));
+	while (((n > 0) && (n < nc)) || (io_error(n, p, nc, SEND_MSG, TTY_MODE, __LINE__)));
 }
 
 /* process an I/O error; return true if a retry is needed */
-int io_error(oops, buf, bufsize, dir, mode)
+int io_error(oops, buf, bufsize, dir, mode, where)
 int oops;	/* the error flag; < 0 indicates a problem */
 unsigned char *buf;	/* the data in question */
 int bufsize;	/* the size of the data buffer */
 int dir;	/* the direction; input or output */
 int mode;	/* the fd on which we got the error */
+int where;	/* line in the code where this function was called */
 {
 
-	if (oops >= 0)
-		return 0;	/* do we have an error ? */
+	/* if (oops >= 0)
+		return 0; */	/* do we have an error ? */
+	/* dl9sau: nobody has set fd's to O_NONBLOCK.
+         * thus EAGAIN (below) or EWOULDBLOCK are never be set.
+         * Has someone removed this behaviour previously?
+         * Anyway, in the current implementation, with blocking
+         * read/writes, a read or write of 0 bytes means EOF,
+         * for e.g. if the attached tty is closed.
+         * We have to exit then. We've currentlsy no mechanism
+         * for regulary reconnects.
+         */
+	if (oops > 0)
+                return 0;       /* do we have an error ? */
+
+        if (oops == 0) {
+                if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
+                        return 0;
+                fprintf(stderr, "Close event on mode 0x%2.2x (during %s). LINE %d. Terminating normaly.\n", mode, (dir == READ_MSG ? "READ" : "WRITE"), where);
+                exit(1);
+        }
 
 #ifdef EAGAIN
-	if (errno == EAGAIN) {
-		perror("System 5 I/O error!");
-		fprintf(stderr, "A System 5 style I/O error was detected.  This program requires BSD 4.2\n");
-		fprintf(stderr, "behaviour.  This is probably a result of compile-time environment.\n");
-		exit(3);
-	}
+        if (errno == EAGAIN) {
+                /* select() said that data is available, but recvfrom sais
+                 * EAGAIN - i really do not know what's the sense in this.. */
+                 if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
+                        return 0;
+                perror("System 5 I/O error!");
+                fprintf(stderr, "A System 5 style I/O error was detected.  This rogram requires BSD 4.2\n");
+                fprintf(stderr, "behaviour.  This is probably a result of compile-time environment.\n");
+                fprintf(stderr, "Mode 0x%2.2x, LINE: %d. During %s\n", mode, where, (dir == READ_MSG ? "READ" : "WRITE"));
+                exit(3);
+        }
 #endif
 
 	if (dir == READ_MSG) {
