@@ -1,11 +1,17 @@
 
 etcfiles = ax25rtd.conf
+varfiles = ax25_route ip_route
 
 installconf:
 	$(mkinstalldirs) $(DESTDIR)$(AX25_SYSCONFDIR)
 	@list='$(etcfiles)'; for p in $$list; do \
 	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(AX25_SYSCONFDIR)/$$p"; \
 	  $(INSTALL_DATA) $$p $(DESTDIR)$(AX25_SYSCONFDIR)/$$p; \
+	done
+	$(mkinstalldirs) $(DESTDIR)$(AX25_LOCALSTATEDIR)/ax25rtd
+	@list='$(varfiles)'; for p in $$list; do \
+	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(AX25_LOCALSTATEDIR)/ax25rtd/$$p"; \
+	  $(INSTALL_DATA) $$p $(DESTDIR)$(AX25_LOCALSTATEDIR)/ax25rtd/$$p; \
 	done
 
 sbin_PROGRAMS = ax25rtd ax25rtctl
