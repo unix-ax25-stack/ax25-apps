@@ -83,6 +83,7 @@ int main(int argc, char **argv)
 			break;
                 case 'f':
                         opt_nofork = 1;
+			break;
 		case 'v':
 			opt_version = 1;
 			break;
