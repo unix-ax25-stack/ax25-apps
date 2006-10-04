@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.h,v 1.1 2001/04/10 01:58:39 csmall Exp $
+/* $Id: ax25rtd.h,v 1.2 2006/10/04 11:38:22 dl9sau Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -20,8 +20,8 @@
  
 /* Defines for defaults */
  
-#define IP_MAXROUTES	256
-#define AX25_MAXROUTES	256
+#define IP_MAXROUTES	4096
+#define AX25_MAXROUTES	4096
 #define AX25_MAXCALLS	32
 
 /* Some AX.25 stuff */
