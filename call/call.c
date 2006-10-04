@@ -72,7 +72,7 @@
 #define	MAX_BUFLEN	2*MAX_PACKETLEN
 #define	MAX_CMPSTRLEN	MAX_PACKETLEN
 
-#define	STD_DWN_DIR	"/var/spool/ax25/"
+#define	STD_DWN_DIR	"/var/ax25/"
 
 #define	FLAG_RECONNECT	0x01
 
