@@ -1,4 +1,4 @@
-/* $Id: config.c,v 1.3 2005/10/27 13:25:28 dl9sau Exp $
+/* $Id: config.c,v 1.4 2006/10/05 11:50:39 dl9sau Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -480,7 +480,11 @@ void load_config()
 				ip_maxroutes = atoi(arg);
 			else
 				missing_arg(cmd);
-
+		} else if (!strcmp(cmd, "iproute2-table")) {
+			if (arg)
+				strcpy(iproute2_table, arg);
+			else
+				missing_arg(cmd);
 		} else
 			fprintf(stderr, "invalid command %s\n", cmd);
 	}

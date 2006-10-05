@@ -2,6 +2,8 @@
 etcfiles = ax25rtd.conf
 varfiles = ax25_route ip_route
 
+man_MANS = ax25rtd.8 ax25rtctl.8 ax25rtd.conf.5
+
 installconf:
 	$(mkinstalldirs) $(DESTDIR)$(AX25_SYSCONFDIR)
 	@list='$(etcfiles)'; for p in $$list; do \
