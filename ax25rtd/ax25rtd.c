@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.c,v 1.4 2002/11/03 19:51:08 mctaylor Exp $
+/* $Id: ax25rtd.c,v 1.5 2006/10/05 11:50:39 dl9sau Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -66,7 +66,7 @@
 #include "../pathnames.h"
 #include "ax25rtd.h"
 
-const char *Version = "ax25rtd $Revision: 1.4 $";
+const char *Version = "ax25rtd $Revision: 1.5 $";
 config *Config = NULL;
 
 int reload = 0;
@@ -80,6 +80,7 @@ int ax25_routes_cnt = 0;
 int ax25_maxroutes = AX25_MAXROUTES;
 
 char ip_encaps_dev[32] = "";
+char iproute2_table[32] = "";
 
 config *dev_get_config(char *dev)
 {

@@ -1,4 +1,4 @@
-/* $Id: listener.c,v 1.4 2005/10/27 13:25:28 dl9sau Exp $
+/* $Id: listener.c,v 1.5 2006/10/05 11:50:39 dl9sau Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -47,6 +47,8 @@
 
 #include "../pathnames.h"
 #include "ax25rtd.h"
+
+#include <stdlib.h>
 
 
 /* FIXME */
@@ -167,6 +169,30 @@ int set_arp(config * config, long ip, ax25_address * call)
 	return 0;
 }
 
+/* dl9sau: use iproute2 for advanced routing. 
+ * Anyone likes to implement this directly, without system()?
+ */
+#define	RT_DEL		0
+#define	RT_ADD		1
+int iproute2(long ip, char *dev, int what)
+{
+	char buffer[256];
+	char ipa[32];
+	int ret;
+
+	sprintf(ipa, "%d.%d.%d.%d",
+		(int) (ip & 0x000000FF),
+		(int) ((ip & 0x0000FF00) >> 8),
+                (int) ((ip & 0x00FF0000) >> 16),
+		(int) ((ip & 0xFF000000) >> 24));
+	
+	/* ip rule add  table 44 */
+	sprintf(buffer, "/sbin/ip route %s %s dev %s table %s proto ax25rtd", (what ? "add" : "del"), ipa, dev, iproute2_table);
+
+	ret = system(buffer);
+	return ret;
+}
+
 int set_route(config * config, long ip)
 {
 	struct rtentry rt;
@@ -208,6 +234,9 @@ int set_route(config * config, long ip)
 	if (!config->ip_add_route)
 		return 0;
 
+	if (iproute2_table && *iproute2_table)
+		return iproute2(ip, config->dev, RT_ADD);
+
 	fds = socket(AF_INET, SOCK_DGRAM, 0);
 
 	memset((char *) &rt, 0, sizeof(rt));
@@ -236,6 +265,7 @@ int set_route(config * config, long ip)
 		return 1;
 	}
 	close(fds);
+
 	return 0;
 }
 
@@ -249,6 +279,9 @@ int del_kernel_ip_route(char *dev, long ip)
 	config = dev_get_config(dev);
 	if (config == NULL || !config->ip_add_route)
 		return 0;
+
+	if (iproute2_table && *iproute2_table)
+		return iproute2(ip, dev, RT_DEL);
 
 	fds = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -268,6 +301,7 @@ int del_kernel_ip_route(char *dev, long ip)
 		return 1;
 	}
 	close(fds);
+
 	return 0;
 }
 
