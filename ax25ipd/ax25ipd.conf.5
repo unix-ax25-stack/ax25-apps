@@ -68,7 +68,41 @@ mode tnc
 .br
 # Serial port, ethertap interface, or pipe connected to a kissattach in my case
 .br
-#
+# alternatively, if you have the kernel module bpqether:
+.br
+# if you use tun/tap or ethertap instead of kissattach you may say, without
+.br
+# leading slashes (!! - that's how ax25ipd consideres using the tty kiss
+.br
+# driver or tun/tap or ethertap):
+.br
+#   with tun/tap:
+.br
+#     device foobar
+.br
+#   with ethertap (obsolete):
+.br
+#     device tap0
+.br
+# make sure you set a mycall above, or say axparms foobar -setcall te1st
+.br
+# note: the device will be up when you assign an ip address
+.br
+# _after_ starting ax25rtd (which initializes the device), start ax25d
+.br
+# with bpqether or pty, you do not need to care abt the speed
+.br
+# tun/tap: as descriped in /usr/src/linux/Documentatioa/networking/tuntap.txt,
+.br
+# make a device # like this:
+.br
+#   crw-r--r--    1 root     root      10, 200 Nov 26 13:32 tun
+.br
+# with the command mknod /dev/net/tun c 10 200
+.br
+# 
+.br
+#device ampr
 .br
 device /dev/ttyp0
 .br
