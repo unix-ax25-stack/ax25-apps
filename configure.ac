@@ -1,10 +1,7 @@
-dnl Process this file with autoconf to produce a configure script.
-AC_INIT(ax25ipd/config.c)
-
-dnl For automake
-VERSION=0.0.7cvs
-PACKAGE=ax25-apps
-AM_INIT_AUTOMAKE($PACKAGE,$VERSION)
+AC_PREREQ(2.59)
+AC_INIT(libax25, 0.0.7, linux-hams@vger.kernel.org)
+AC_CONFIG_SRCDIR(ax25ipd/config.c)
+AM_INIT_AUTOMAKE
 
 AM_CONFIG_HEADER(config.h)
 
