@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.4 2004/02/04 10:48:28 csmall Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.5 2007/01/23 13:40:04 ralf Exp $ */
 
 /* AX25 header tracing
  * Copyright 1991 Phil Karn, KA9Q
@@ -109,7 +109,7 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 
 		if ((data[AXLEN + ALEN] & SSSID_SPARE) == SSSID_SPARE) {
 			extseq = 0;
-//                      lprintf(T_PROTOCOL, " ");
+/*                      lprintf(T_PROTOCOL, " ");  */
 		} else {
 			extseq = 1;
 			lprintf(T_PROTOCOL, "EAX25: ");

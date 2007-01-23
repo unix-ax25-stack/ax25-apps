@@ -47,7 +47,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-// For older kernels
+/* For older kernels  */
 #ifndef PF_PACKET
 #define PF_PACKET PF_INET
 #endif
@@ -247,16 +247,16 @@ int main(int argc, char *argv[])
 			exit(0);
 		}
 	}
-	// At first, read the configuration file
+	/* At first, read the configuration file  */
 	if (!(conffile = fopen(CONFFILE, "r"))) {
 		fprintf(stderr, "Unable to open " CONFFILE ".\n");
 		exit(1);
 	}
 	while (fgets(confline, 100, conffile)) {
-		if (confline[0] == '#')	// Comment
+		if (confline[0] == '#')	/* Comment  */
 			continue;
 
-		confline[strlen(confline) - 1] = 0;	// Cut the LF
+		confline[strlen(confline) - 1] = 0;	/* Cut the LF  */
 
 		if (!(sockname = strchr(confline, ' '))) {
 			fprintf(stderr,
@@ -283,22 +283,22 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "FATAL: No usable socket found\n");
 		exit(1);
 	}
-	// Fork into background
+	/* Fork into background  */
 	if (fork())
 		exit(0);
 
-	// Close stdout, stderr and stdin
+	/* Close stdout, stderr and stdin  */
 	fclose(stdout);
 	fclose(stderr);
 	fclose(stdin);
 
-	// Set some signal handlers
+	/* Set some signal handlers  */
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGTERM, quit_handler);
 
 	openlog("ax25mond", LOG_PID, LOG_DAEMON);
 
-	// Open AX.25 socket for monitoring RX traffic only
+	/* Open AX.25 socket for monitoring RX traffic only  */
 	if ((monrx_fd =
 	     socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_AX25))) < 0) {
 		syslog(LOG_ERR, "Error opening monitor socket: %s\n",
@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
 	}
 	fcntl(monrx_fd, F_SETFL, O_NONBLOCK);
 
-	// Open AX.25 socket for monitoring RX and TX traffic
+	/* Open AX.25 socket for monitoring RX and TX traffic  */
 	if ((monrxtx_fd =
 	     socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ALL))) < 0) {
 		syslog(LOG_ERR, "Error opening monitor socket: %s\n",
@@ -317,8 +317,7 @@ int main(int argc, char *argv[])
 	fcntl(monrxtx_fd, F_SETFL, O_NONBLOCK);
 
 	while (!end) {
-
-		// Look for incoming connects on all open sockets
+		/* Look for incoming connects on all open sockets  */
 		FD_ZERO(&conn_request);
 		for (i = 0; i < sock_num; i++)
 			FD_SET(sock_list[i], &conn_request);
@@ -335,7 +334,7 @@ int main(int argc, char *argv[])
 				conn_monmode[conn_num] = sock_monmode[i];
 				conn_num++;
 			}
-		// Check if there is new data on the RX-only monitor socket
+		/* Check if there is new data on the RX-only monitor socket  */
 		FD_ZERO(&monavail);
 		FD_SET(monrx_fd, &monavail);
 		tv.tv_sec = 0;
@@ -346,7 +345,7 @@ int main(int argc, char *argv[])
 			size =
 			    recvfrom(monrx_fd, buf, sizeof(buf), 0,
 				     &monfrom, &monfromlen);
-			// Send the packet to all connected sockets
+			/* Send the packet to all connected sockets  */
 			for (i = 0; i < conn_num; i++) {
 				if (conn_monmode[i] == 0)
 					if (send
@@ -366,7 +365,7 @@ int main(int argc, char *argv[])
 						}
 			}
 		}
-		// Check if there is new data on the RX+TX monitor socket
+		/* Check if there is new data on the RX+TX monitor socket  */
 		FD_ZERO(&monavail);
 		FD_SET(monrxtx_fd, &monavail);
 		tv.tv_sec = 0;
@@ -377,11 +376,11 @@ int main(int argc, char *argv[])
 			size =
 			    recvfrom(monrxtx_fd, buf, sizeof(buf), 0,
 				     &monfrom, &monfromlen);
-			// Check, if we have received a AX.25-packet
+			/* Check, if we have received a AX.25-packet  */
 			strcpy(ifr.ifr_name, monfrom.sa_data);
 			ioctl(monrxtx_fd, SIOCGIFHWADDR, &ifr);
 			if (ifr.ifr_hwaddr.sa_family == AF_AX25)
-				// Send the packet to all connected sockets
+				/* Send the packet to all connected sockets  */
 				for (i = 0; i < conn_num; i++) {
 					if (conn_monmode[i] == 1)
 						if (send
