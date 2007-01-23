@@ -366,7 +366,7 @@ void io_start() {
 				if (!ttyfd_bpq) {
 					assemble_kiss(buf, n);
 				} else {
-					// no crc on bpqether. but a MAC header
+					/* no crc but MAC header on bpqether */
 					if (receive_bpq(buf, n) < 0) {
 						goto out_ttyfd;
 					}

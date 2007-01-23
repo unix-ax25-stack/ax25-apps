@@ -18,9 +18,9 @@ const char *units[]={"Volts","Amperes","Watts","Kelvins","Meters","Seconds",
 		"Pascal Seconds","Kilograms/Meter^3","Radians/Second^2","Coulombs",
 		"Farads","Siemens","Count"};
 		
-unsigned char origin_call[7]; // Who's talking
+unsigned char origin_call[7]; /* Who's talking  */
 unsigned char origin_ssid;
-unsigned char entity_call[7]; // What they're talking about
+unsigned char entity_call[7]; /* What they're talking about  */
 unsigned char entity_ssid;
 unsigned int  entity_serial;
 unsigned int  entity_sequence;
@@ -28,7 +28,7 @@ unsigned int  entity_sequence;
 
 
 int extract_ssid(unsigned char *call) {
-	// Strip the SSID from the callsign and return it
+	/* Strip the SSID from the callsign and return it  */
 	int c, ssid;
 
    for (c=ssid=0;c<6;c++) {
@@ -42,10 +42,10 @@ int extract_ssid(unsigned char *call) {
 int decode_units(unsigned int unitnum, unsigned char *element, int element_len);
 
 
-// Return values: 0 = OK, -1 = Couldn't Decode, -2 = Invalid Data
+/* Return values: 0 = OK, -1 = Couldn't Decode, -2 = Invalid Data  */
 
 int decode_sequence(unsigned char *element, int element_len) {
-	// 0x00 Sequence number - 16 bit integer
+	/* 0x00 Sequence number - 16 bit integer  */
 	if (element_len != 2 && element_len != 0) return -1;
 
 	if (!element_len) {
@@ -61,7 +61,7 @@ int decode_sequence(unsigned char *element, int element_len) {
 }
 
 int decode_origination(unsigned char *element, int element_len) {
-	// 0x01 Originating Station - Callsign, SSID, and Sequence
+	/* 0x01 Originating Station - Callsign, SSID, and Sequence  */
 	memcpy(origin_call, element, 6);
 	origin_call[6]=0;
 	origin_ssid = extract_ssid(origin_call);
@@ -76,7 +76,7 @@ int decode_origination(unsigned char *element, int element_len) {
 }
 
 int decode_entityid(unsigned char *element, int element_len) {
-	// 0x02 Entity ID
+	/* 0x02 Entity ID  */
 	if (element_len > 5) {
    		memcpy(entity_call, element, 6);
 		entity_call[6]=0;
@@ -120,8 +120,10 @@ int decode_entityid(unsigned char *element, int element_len) {
 }
 
 int decode_position(unsigned char *element, int element_len) {
-	// 0x10 Position Report - Lat/Lon/<Alt>
-	// Lat/Lon is WGS84, 180/2^31 degrees,  Alt is 1/100 meter
+	/*
+	 * 0x10 Position Report - Lat/Lon/<Alt>
+	 * Lat/Lon is WGS84, 180/2^31 degrees,  Alt is 1/100 meter
+	 */
 	const double semicircles = 11930464.71111111111;
 	double lat, lon;
 	float alt = 0;
@@ -142,7 +144,7 @@ int decode_position(unsigned char *element, int element_len) {
 }
 
 int decode_timestamp(unsigned char *element, int element_len) {
-	// 0x11 Timestamp - Unix format time (unsigned)
+	/* 0x11 Timestamp - Unix format time (unsigned)  */
 	long rawtime = 0;
 
 	rawtime = get32(element);
@@ -151,7 +153,7 @@ int decode_timestamp(unsigned char *element, int element_len) {
 }
 
 int decode_comment(unsigned char *element, int element_len) {
-	// 0x12 Freeform Comment - ASCII text
+	/* 0x12 Freeform Comment - ASCII text  */
 	char comment[127];
 
 	strncpy(comment, element, element_len);
@@ -162,14 +164,14 @@ int decode_comment(unsigned char *element, int element_len) {
 }
 
 int decode_courseandspeed(unsigned char *element, int element_len) {
-	// 0x13 Course and Speed - Course in degrees, speed in 1/50 m/s
+	/* 0x13 Course and Speed - Course in degrees, speed in 1/50 m/s  */
 	unsigned int course;
 	unsigned int rawspeed;
 	float speed;
 
 	course = (*element<<1) | ((*(element+1)&0x80) >> 7);
 	rawspeed = get16(element+1) & 0x7fff;
-	speed = (float)rawspeed*0.072; // kph
+	speed = (float)rawspeed*0.072; /* km/h  */
 	if (course >= 360) return -2;
 	lprintf(T_OPENTRAC, "Course: %d Speed: %f kph\r\n", course, speed);
 
@@ -177,7 +179,7 @@ int decode_courseandspeed(unsigned char *element, int element_len) {
 }
 
 int decode_ambiguity(unsigned char *element, int element_len) {
-	// 0x14 Positional Ambiguity - 16 bits, in meters
+	/* 0x14 Positional Ambiguity - 16 bits, in meters  */
 	int ambiguity;
 
 	ambiguity = get16(element);
@@ -186,7 +188,7 @@ int decode_ambiguity(unsigned char *element, int element_len) {
 }
 
 int decode_country(unsigned char *element, int element_len) {
-	// 0x15 Country Code - ISO 3166-1 and optionally -2
+	/* 0x15 Country Code - ISO 3166-1 and optionally -2  */
 	char country[3];
 	char subdivision[4];
 
@@ -204,8 +206,7 @@ int decode_country(unsigned char *element, int element_len) {
 }
 
 int decode_displayname(unsigned char *element, int element_len) {
-// 0x16 - Display Name (UTF-8 text)  
-     char displayname[31];        
+     char displayname[31];	/* 0x16 - Display Name (UTF-8 text)    */
 
      strncpy(displayname, element, element_len);
      displayname[element_len] = 0;
@@ -215,8 +216,7 @@ int decode_displayname(unsigned char *element, int element_len) {
 }
 
 int decode_waypoint(unsigned char *element, int element_len) {
-// 0x17 - Waypoint Name (up to 6 chars, uppercase)
-	char waypoint[7];
+	char waypoint[7]; /* 0x17 - Waypoint Name (up to 6 chars, uppercase)  */
 
 	strncpy(waypoint, element, element_len);
 	waypoint[element_len] = 0;
@@ -226,8 +226,7 @@ int decode_waypoint(unsigned char *element, int element_len) {
 }
 
 int decode_symbol(unsigned char *element, int element_len) {
-	// 0x18 Map Symbol - Packed 4-bit integers
-	int c;
+	int c;		/* 0x18 Map Symbol - Packed 4-bit integers */
 
 	lprintf(T_OPENTRAC, "Symbol: ");
 	for (c=0;c<element_len;c++) {
@@ -241,11 +240,10 @@ int decode_symbol(unsigned char *element, int element_len) {
 }
 
 int decode_pathtrace(unsigned char *element, int element_len) {
-	// 0x20 Path Trace - Call/SSID, Network
-	char callsign[7];
+	char callsign[7];	/* 0x20 Path Trace - Call/SSID, Network  */
 	int ssid, c, network;
 
-	if (element_len % 7) return -1; // Must be multiple of 7 octets
+	if (element_len % 7) return -1; /* Must be multiple of 7 octets  */
 	if (!element_len) {
 		lprintf(T_OPENTRAC, "Empty Path\r\n");
 		return 0;
@@ -264,8 +262,7 @@ int decode_pathtrace(unsigned char *element, int element_len) {
 }
 
 int decode_heardby(unsigned char *element, int element_len) {
-	// 0x21 Heard-By List
-	int c;
+	int c;		/* 0x21 Heard-By List  */
 
 	lprintf(T_OPENTRAC, "Heard By:");
 	for (c=0; c<element_len; c++) {
@@ -277,8 +274,7 @@ int decode_heardby(unsigned char *element, int element_len) {
 }
 
 int decode_availablenets(unsigned char *element, int element_len) {
-     // 0x22 Available Networks
-     int c;
+     int c;	/* 0x22 Available Networks  */
 
      lprintf(T_OPENTRAC, "Available Networks:");
      for (c=0; c<element_len; c++) {
@@ -290,7 +286,7 @@ int decode_availablenets(unsigned char *element, int element_len) {
 }
 
 int decode_gpsquality(unsigned char *element, int element_len) {
-	// 0x34 GPS Data Quality - Fix, Validity, Sats, PDOP, HDOP, VDOP
+	/* 0x34 GPS Data Quality - Fix, Validity, Sats, PDOP, HDOP, VDOP  */
 	int fixtype, validity, sats;
 	const char *fixstr[] = {"Unknown Fix", "No Fix", "2D Fix", "3D Fix"};
 	const char *validstr[] = {"Invalid", "Valid SPS", "Valid DGPS",
@@ -314,8 +310,7 @@ int decode_gpsquality(unsigned char *element, int element_len) {
 
 
 int decode_acreg(unsigned char *element, int element_len) {
-	// 0x35 Aircraft Registration - ASCII text
-	char nnumber[9];
+	char nnumber[9];	/* 0x35 Aircraft Registration - ASCII text  */
 
 	strncpy(nnumber, element, element_len);
 	nnumber[element_len]=0;
@@ -325,9 +320,8 @@ int decode_acreg(unsigned char *element, int element_len) {
 }
 
 int decode_rivergauge(unsigned char *element, int element_len) {
-	// 0x42 River Flow Gauge - 1/64 m^3/sec, centimeters
-	unsigned int flow;
-	unsigned int height;
+	unsigned int flow;	/* 0x42 River Flow Gauge - 1/64 m^3/sec	 */
+	unsigned int height;	/* centimeters				 */
 	float flowm;
 	float heightm;
 
@@ -343,16 +337,18 @@ int decode_rivergauge(unsigned char *element, int element_len) {
 
 
 int decode_units(unsigned int unitnum, unsigned char *element, int element_len) {
-	// 0x0500 to 0x05ff Generic Measurement Elements
-	// Values may be 8-bit int, 16-bit int, single float, or double float
+	/*
+	 * 0x0500 to 0x05ff Generic Measurement Elements
+	 * Values may be 8-bit int, 16-bit int, single float, or double float
+	 */
 	union measurement {
 		char c;
 		float f;
 		double d;
 	} *mval;
-	int ival; // too much variation in byte order and size for union
+	int ival; /* too much variation in byte order and size for union */
 	
-	if (unitnum > MAX_UNIT_INDEX) return -2; // Invalid unit name
+	if (unitnum > MAX_UNIT_INDEX) return -2; /* Invalid unit name  */
 	mval = (void *)element;
 	switch (element_len) {
 		case 1:
@@ -376,19 +372,19 @@ int decode_units(unsigned int unitnum, unsigned char *element, int element_len) 
 }
 
 int flag_emergency(unsigned char *element, int element_len) {
-	// 0x0100 - Emergency / Distress Call
+	/* 0x0100 - Emergency / Distress Call */
 	lprintf(T_ERROR, "* * * EMERGENCY * * *\r\n");
 	return 0;
 }
 
 int flag_attention(unsigned char *element, int element_len) {
-	// 0x0101 - Attention / Ident
+	/* 0x0101 - Attention / Ident */
 	lprintf(T_PROTOCOL, " - ATTENTION - \r\n");
 	return 0;
 }
 
 int decode_hazmat(unsigned char *element, int element_len) {
-// 0x0300 - HAZMAT (UN ID in lower 14 bits)
+	/* 0x0300 - HAZMAT (UN ID in lower 14 bits)  */
 	int un_id;
 
 	if (element_len < 2) {
@@ -402,7 +398,7 @@ int decode_hazmat(unsigned char *element, int element_len) {
 }
 
 int decode_maidenhead(unsigned char *element, int element_len) {
-// 0x32 - Maidenhead Locator (4 or 6 chars)
+   /* 0x32 - Maidenhead Locator (4 or 6 chars)  */
    char maidenhead[7];
 
    if (element_len > 6 || !element_len) return -1;
@@ -453,22 +449,22 @@ void opentrac_dump(unsigned char *data, int length, int hexdump)
 	int decoded = 0;
 	
 	lprintf(T_PROTOCOL, "OpenTRAC decode (%d bytes):\r\n", length);
-	strcpy(origin_call, "SENDER"); // Listen doesn't tell us the sender
+	strcpy(origin_call, "SENDER"); /* Listen doesn't tell us the sender  */
 	origin_ssid = 0;
 	entity_serial = 0;
 	entity_sequence = 0;
 	while (decoded < length) {
 		elen = (int)*data;
 		decoded += (elen & 0x7f)+1;
-		if (elen & 0x80) { // See if it's got a 16-bit ID
-			elen = (elen & 0x7f) - 2; // Strip the extid flag
+		if (elen & 0x80) {  /* See if it's got a 16-bit ID  */
+			elen = (elen & 0x7f) - 2; /* Strip the extid flag  */
 			etype = get16(++data);
 		}
 		else {
-			elen--; // Don't count the type byte
+			elen--; /* Don't count the type byte  */
 			etype = (int)*(data+1);
 		}
-		data+=2; // Skip to the body
+		data+=2; /* Skip to the body  */
 		lprintf(T_OPENTRAC, "EID 0x%0x len %d: ", etype, elen);
 		for (element_decode_ptr = element_decode; element_decode_ptr->pDecode != NULL; element_decode_ptr++) {
 			if (etype == element_decode_ptr->element_id) {

@@ -1,4 +1,4 @@
-/* @(#) $Id: bpqether.c,v 1.2 2005/10/31 02:54:27 dl9sau Exp $ */
+/* @(#) $Id: bpqether.c,v 1.3 2007/01/23 13:40:04 ralf Exp $ */
 
 extern int ttyfd;
 /*
@@ -91,7 +91,7 @@ p module) */
   ethertap_packet.data[1] = (l + 5) / 256;
   l += 2;
 
-  //send_tty(addr + offset, l + sizeof(ethertap_packet.ethernet_header) - offset);
+  /*send_tty(addr + offset, l + sizeof(ethertap_packet.ethernet_header) - offset);*/
   write(ttyfd, addr + offset, l + sizeof(ethertap_packet.ethernet_header) - offset);
   return l;
 }
@@ -103,13 +103,15 @@ int receive_bpq(unsigned char *buf, int l)
   if ((l -= ethertap_header_len) <= 0 ||
       (buf[ethertap_header_len-2] & 0xff) != 0x08 ||
       (buf[ethertap_header_len-1] & 0xff) != 0xff) {
-    // not a bpqether packet.
-    // drop silently - ethernet.ax25 is not the only protocol spokenon ethernet ;)
+    /* not a bpqether packet.
+     * drop silently - ethernet.ax25 is not the only protocol spoken
+     * on ethernet ;)
+     */
     return -1;
   }
   l -= 2;
   if (l <= 0 && buf[ethertap_header_len] + buf[ethertap_header_len] * 256 - 5 != l) {
-    // length error in bpqether packet
+    /* length error in bpqether packet  */
     return 0;
   }
 
@@ -149,12 +151,16 @@ static int tun_alloc(char *dev)
   strcpy(dev, ifr.ifr_name);
 
   /* persist mode */
-  //if (ioctl(fd, TUNSETPERSIST, 1) < 0)
-    //perror("TUNSETPERSIST");
+#if 0
+  if (ioctl(fd, TUNSETPERSIST, 1) < 0)
+     perror("TUNSETPERSIST");
+#endif
 
   /* don't checksum */
-  //if (ioctl(fd, TUNSETNOCSUM, 1) < 0)
-    //perror("TUNSETNOCSUM");
+#if 0
+  if (ioctl(fd, TUNSETNOCSUM, 1) < 0)
+      perror("TUNSETNOCSUM");
+#endif
 
   return fd;
 }              
@@ -177,7 +183,7 @@ int open_ethertap(char *ifname)
   strncpy(devname + 5, ifname, sizeof(devname) - 5 -1);
   devname[sizeof(devname) -1] = 0;
 
-  // tuntap == 0: original ethertap. works on a real character device
+  /* tuntap == 0: original ethertap. works on a real character device  */
   if (!stat(devname, &statbuf)) {
     fd = open(devname, O_RDWR);
     if (fd < 0) {
@@ -265,24 +271,28 @@ int set_bpq_dev_call_and_up(char *ifname)
   int skfd;
   int err = -1;
 
-  // 1. find correspondent bpqether device in /proc (i.e. bpq0 for tap0)
-  // 2. set the ax25 call of bpq0 (in this example)
-  // 3. ifup bpq0
+  /*
+   * 1. find correspondent bpqether device in /proc (i.e. bpq0 for tap0)
+   * 2. set the ax25 call of bpq0 (in this example)
+   * 3. ifup bpq0
+   */
 
   if (!(fp = fopen("/proc/net/bpqether", "r"))) {
     perror("/proc/net/bpqether");
     return -1;
   }
 
-  // look up bpqether devce in /proc:
-  //   dev   ether      destination        accept from
-  //   bpq0  tap0       FF:FF:FF:FF:FF:FF  *
+  /*
+   * look up bpqether devce in /proc:
+   *   dev   ether      destination        accept from
+   *   bpq0  tap0       FF:FF:FF:FF:FF:FF  *
+   */
 
   drop = 1;
   *bpq_name = *dev_name = 0;
   while (fgets(buf, sizeof(buf), fp)) {
     if (drop) {
-      // header line
+      /* header line  */
       drop = 0;
       continue;
     }

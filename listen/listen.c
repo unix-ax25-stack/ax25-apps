@@ -160,7 +160,7 @@ int main(int argc, char **argv)
 #else
 				ki_dump(buffer, size, dumpstyle);
 #endif
-//                              lprintf(T_DATA, "\n");
+/*                              lprintf(T_DATA, "\n");  */
 			}
 		} else {
 			display_port(sa.sa_data);
@@ -169,7 +169,7 @@ int main(int argc, char **argv)
 #else
 			ki_dump(buffer, size, dumpstyle);
 #endif
-//                      lprintf(T_DATA, "\n");
+/*                      lprintf(T_DATA, "\n");  */
 		}
 		if (color)
 			refresh();
