@@ -88,6 +88,8 @@ static int window = 0;
 static char *port = NULL;
 static char *mycall = NULL;
 
+static int stdin_is_tty = 1;
+
 int interrupted = FALSE;
 int paclen = 0;
 int fd;
@@ -1521,6 +1523,12 @@ int cmd_call(char *call[], int mode)
 		}
 		if (FD_ISSET(fd, &sock_read)) {
 			bytes = read(fd, buf, 511);
+			if (bytes == 0) {
+				/* read EOF on stdin */
+				/* cause program to terminate */
+				flags &= ~FLAG_RECONNECT;
+				break;
+			}
 			if (bytes == -1 && errno != EWOULDBLOCK
 			    && errno != EAGAIN) {
 				if (errno != ENOTCONN)
@@ -1667,7 +1675,7 @@ int cmd_call(char *call[], int mode)
 			if (bytes > 0)
 				statline(mode, "");
 
-			if (bytes > 1 && *buf == '~') {
+			if (bytes > 1 && *buf == '~' && stdin_is_tty) {
 				buf[bytes] = 0;
 
 				switch (buf[1]) {
@@ -2062,6 +2070,11 @@ int main(int argc, char **argv)
 	int p;
 	int mode = TALKMODE;
 
+	if (!isatty(STDIN_FILENO))
+		stdin_is_tty = 0;
+
+ 	setlinebuf(stdin);
+
 	while ((p = getopt(argc, argv, "b:dhm:p:rs:tvw:")) != -1) {
 		switch (p) {
 		case 'b':
@@ -2182,7 +2195,6 @@ int main(int argc, char **argv)
 	}
 
 	printf("GW4PTS AX.25 Connect v1.11\n");
-
 	while (cmd_call(argv + optind + 1, mode)) {
 		printf("Wait 60 sec before reconnect\n");
 		sleep(60);
