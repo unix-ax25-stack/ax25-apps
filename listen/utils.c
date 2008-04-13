@@ -1,8 +1,8 @@
 /*
- * Copyright 1996, 1997 Heikki Hannikainen OH7LZB <hessu@pspt.fi>
+ * Copyright 1996, 1997 Heikki Hannikainen OH7LZB <oh7lzb@sral.fi>
  *
  * Portions and ideas (like the ibm character mapping) from
- *	Tomi Manninen OH2BNS <Tomi.Manninen@hut.fi>
+ *	Tomi Manninen OH2BNS <oh2bns@sral.fi>
  */
 
 #include <stdio.h>
