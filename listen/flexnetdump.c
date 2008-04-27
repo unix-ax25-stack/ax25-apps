@@ -8,7 +8,7 @@
 #include "listen.h"
 
 /*
- * This was hacked by Thomas Sailer, sailer@ife.ee.ethz.ch, HB9JNX/AE4WA, with
+ * This was hacked by Thomas Sailer, t.sailer@alumni.ethz.ch, HB9JNX/AE4WA, with
  * some bits stolen from Dieter Deyke (Wampes), such as these defines :-)
  */
 
