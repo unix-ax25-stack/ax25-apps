@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.5 2007/01/23 13:40:04 ralf Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/ax25dump.c,v 1.6 2008/04/27 17:00:21 dl9sau Exp $ */
 
 /* AX25 header tracing
  * Copyright 1991 Phil Karn, KA9Q
@@ -65,7 +65,7 @@ static char *decode_type(int);
 #define DAMA_STRING " [DAMA]"
 
 
-/* FlexNet header compression display by Thomas Sailer sailer@ife.ee.ethz.ch */
+/* FlexNet header compression display by Thomas Sailer t.sailer@alumni.ethz.ch */
 
 /* Dump an AX.25 packet header */
 void ax25_dump(unsigned char *data, int length, int hexdump)
