@@ -85,6 +85,7 @@ static int ax25mode = -1;
 static int debug = FALSE;
 static int af_mode = AF_AX25;
 static int window = 0;
+static int be_silent = 0;
 static char *port = NULL;
 static char *mycall = NULL;
 
@@ -363,8 +364,10 @@ static int connect_to(char *address[])
 		break;
 	}
 
-	printf("Trying...\r");
-	fflush(stdout);
+	if (!be_silent) {
+		printf("Trying...\r");
+		fflush(stdout);
+	}
 
 	if (connect(fd, (struct sockaddr *) &sockaddr, addrlen)) {
 		printf("\n");
@@ -372,7 +375,9 @@ static int connect_to(char *address[])
 		close(fd);
 		return (-1);
 	}
-	printf("*** Connected to %s\n", address[0]);
+	if (!be_silent) {
+		printf("*** Connected to %s\n", address[0]);
+	}
 
 	return (fd);
 }
@@ -1501,7 +1506,9 @@ int cmd_call(char *call[], int mode)
 		start_slave_mode(&wintab, &win_in, &win_out);
 		break;
 	case RAWMODE:
-		printf("Rawmode\n");
+		if (!be_silent) {
+			printf("Rawmode\n");
+		}
 	}
 
 	while (TRUE) {
@@ -1522,7 +1529,8 @@ int cmd_call(char *call[], int mode)
 			break;
 		}
 		if (FD_ISSET(fd, &sock_read)) {
-			bytes = read(fd, buf, 511);
+			/* bytes = read(fd, buf, 511); */
+			bytes = read(fd, buf, paclen);
 			if (bytes == 0) {
 				/* read EOF on stdin */
 				/* cause program to terminate */
@@ -1658,9 +1666,10 @@ int cmd_call(char *call[], int mode)
 			while (restbytes != 0);
 		}
 		if (FD_ISSET(STDIN_FILENO, &sock_read)) {
-			if ((mode & RAWMODE) == RAWMODE)
-				bytes = read(STDIN_FILENO, buf, 511);
-			else {
+			if ((mode & RAWMODE) == RAWMODE) {
+				/* bytes = read(STDIN_FILENO, buf, 511); */
+				bytes = read(STDIN_FILENO, buf, paclen);
+			} else {
 				bytes =
 				    readoutg(&win_out, &wintab, top, buf,
 					     0x1d);
@@ -2055,7 +2064,8 @@ int cmd_call(char *call[], int mode)
 	if (mode != RAWMODE)
 		endwin();
 
-	printf("*** Cleared\n");
+	if (!be_silent)
+		printf("*** Cleared\n");
 
 	if (flags & FLAG_RECONNECT) {
 		return TRUE;
@@ -2075,7 +2085,7 @@ int main(int argc, char **argv)
 
  	setlinebuf(stdin);
 
-	while ((p = getopt(argc, argv, "b:dhm:p:rs:tvw:")) != -1) {
+	while ((p = getopt(argc, argv, "b:dhm:p:rs:Stvw:")) != -1) {
 		switch (p) {
 		case 'b':
 			if (*optarg != 'e' && *optarg != 'l') {
@@ -2116,6 +2126,10 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			mycall = strdup(optarg);
+			break;
+		case 'S':
+			be_silent = 1;
+			break;
 		case 't':
 			mode = TALKMODE;
 			break;
@@ -2194,9 +2208,12 @@ int main(int argc, char **argv)
 		break;
 	}
 
-	printf("GW4PTS AX.25 Connect v1.11\n");
+	
+	if (!be_silent)
+		printf("GW4PTS AX.25 Connect v1.11\n");
 	while (cmd_call(argv + optind + 1, mode)) {
-		printf("Wait 60 sec before reconnect\n");
+		if (!be_silent)
+			printf("Wait 60 sec before reconnect\n");
 		sleep(60);
 	}
 
