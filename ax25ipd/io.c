@@ -143,6 +143,9 @@ void io_init()
 void io_open()
 {
 	int baudrate;
+	int i_am_unix98_pty_master = 0; /* unix98 ptmx support */
+	char *namepts = NULL;           /* name of the unix98 pts slave, which
+					 * the client has to use */
 
 	if (ip_mode) {
 		sock = socket(AF_INET, SOCK_RAW, IPPROTO_AX25);
@@ -189,6 +192,9 @@ void io_open()
 		}
 	}
 
+	if (!strcmp("/dev/ptmx", ttydevice))
+		i_am_unix98_pty_master = 1;
+
 	ttyfd = ((ttyfd_bpq = (strchr(ttydevice, '/') ? 0 : 1)) ? open_ethertap(ttydevice) : open(ttydevice, O_RDWR, 0));
 	if (ttyfd < 0) {
 		perror("opening tty device");
@@ -198,6 +204,20 @@ void io_open()
 		perror("setting non-blocking I/O on tty device");
 		exit(1);
 	}
+	
+	if (i_am_unix98_pty_master) {
+		/* get name of pts-device */
+		if ((namepts = ptsname(ttyfd)) == NULL) {
+			perror("Cannot get name of pts-device.");
+			exit(1);
+		}
+		/* unlock pts-device */
+		if (unlockpt(ttyfd) == -1) {
+			perror("Cannot unlock pts-device.");
+			exit(1);
+		}
+	}
+
 	if (ttyfd_bpq) {
 		set_bpq_dev_call_and_up(ttydevice);
 		goto behind_normal_tty;
@@ -292,6 +312,12 @@ void io_open()
 
 	if (digi)
 		send_params();
+
+	if (i_am_unix98_pty_master) {
+		/* Users await the slave pty to be referenced in the last line */
+		printf("Awaiting client connects on\n%s\n", namepts);
+		syslog(LOG_INFO, "Bound to master pty /dev/ptmx with slave pty %s\n", namepts);
+	}
 
 behind_normal_tty:
 
