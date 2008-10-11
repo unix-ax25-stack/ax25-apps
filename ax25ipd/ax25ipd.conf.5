@@ -90,7 +90,7 @@ mode tnc
 .br
 # _after_ starting ax25rtd (which initializes the device), start ax25d
 .br
-# with bpqether or pty, you do not need to care abt the speed
+# with bpqether or pty, you do not need to care about the speed
 .br
 # tun/tap: as descriped in /usr/src/linux/Documentatioa/networking/tuntap.txt,
 .br
@@ -100,7 +100,19 @@ mode tnc
 .br
 # with the command mknod /dev/net/tun c 10 200
 .br
-# 
+# As serial port, you could assign physical ports like ttyS0 or ptys.
+.br
+# ax25ipd supports BSD-style pseudo-terminals as well as the Unix98 pty's.
+.br
+# If the tty argument is "/dev/ptmx", then Unix98 behaviour
+.br
+# will automaticaly take effekt. With Unix98 pty's, the slave tty name
+.br
+# could not be forseen. That's why kissattach will print the corresponding
+.br
+# slave pty name as a separate line on stdout.
+.br
+#
 .br
 #device ampr
 .br
