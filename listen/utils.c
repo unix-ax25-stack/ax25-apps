@@ -71,8 +71,10 @@ void lprintf(int dtype, char *fmt, ...)
 			if ((*p < 32 && *p != '\n')
 			    || (*p > 126 && *p < 160 && sevenbit))
 				*p = '.';
-		fputs(str, stdout);
-		fflush(stdout);
+		if (fputs(str, stdout) == -1)
+			exit(1);
+		if (fflush(stdout) == -1)
+			exit(1);
 	}
 }
 
