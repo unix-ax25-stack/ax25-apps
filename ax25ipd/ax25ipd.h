@@ -8,7 +8,7 @@
 
 /* 
  * Modifications added for dual port kiss TNC 
- * by Michael Durrant and D. Jeff Dionne Feb 4, 1995
+ * by Michael Durrant VE3PNX and D. Jeff Dionne Feb 4, 1995
  */
 
 /*
