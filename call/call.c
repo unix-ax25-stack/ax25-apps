@@ -1512,6 +1512,10 @@ int cmd_call(char *call[], int mode)
 	}
 
 	while (TRUE) {
+		struct timeval tv;
+		tv.tv_sec = 0;
+		tv.tv_usec = 10;
+
 		FD_ZERO(&sock_read);
 		FD_SET(STDIN_FILENO, &sock_read);
 		FD_SET(fd, &sock_read);
@@ -1520,7 +1524,7 @@ int cmd_call(char *call[], int mode)
 		if (uploadfile != -1)
 			FD_SET(fd, &sock_write);
 
-		if (select(fd + 1, &sock_read, &sock_write, NULL, NULL) ==
+		if (select(fd + 1, &sock_read, &sock_write, NULL, (uploadfile == -1 ? NULL : &tv)) ==
 		    -1) {
 			if (!interrupted && errno == EAGAIN)
 				continue;
@@ -1735,8 +1739,23 @@ int cmd_call(char *call[], int mode)
 				case '?':
 				case 'h':
 				case 'H':
-					printf
-					    ("\n\rTilde escapes:\n\r.  close\n\r!  shell\n\rZ  suspend\n\rs Stop upload\n\ro  Open log\n\rc  Close log\n\ru  Upload\n\ryd  YAPP Download\n\ryu  YAPP Upload\n\r");
+					printf("\nTilde escapes:\n");
+					printf(".   close\n");
+					printf("~   send ~\n");
+					printf("r   reconnect\n");
+					printf("!   shell\n");
+					printf("Z   suspend program. Resume with \"fg\"\n");
+					printf("s   Stop upload\n");
+					printf("o   Open log\n");
+					printf("c   Close log\n");
+					printf("0   Switch GUI to \"RAW\" (line) mode - already here ;)\n");
+					printf("1   Switch GUI to \"Slave\" mode\n");
+					printf("2   Switch GUI to \"Talk\" (split) mode\n");
+					printf("u   Upload\n");
+					printf("a   Upload (autobin protocol)\n");
+					printf("b   Upload binary data (crlf conversion)\n");
+					printf("yd  YAPP Download\n");
+					printf("yu  YAPP Upload\n");
 					continue;
 				case 'S':
 				case 's':
@@ -1962,6 +1981,7 @@ int cmd_call(char *call[], int mode)
 				break;
 			}
 			if (bytes > 0) {
+				int offset = 0;
 				sevenplus = FALSE;
 				if (uploadfile != -1) {
 					statline(mode,
@@ -1970,79 +1990,86 @@ int cmd_call(char *call[], int mode)
 				}
 				convert_lf_cr(buf, bytes);
 
-				if (write(fd, buf, bytes) == -1) {
-					perror("write");
-					break;
+				while (bytes > 0) {
+					int ret = write(fd, buf + offset, bytes);
+					if (ret == -1) {
+						perror("write");
+						break;
+					}
+					offset += bytes;
+					bytes -= ret;
 				}
 			}
-			if (uploadfile != -1) {
-				if (uplsize == 0) {
+		}
+		if (uploadfile != -1) {
+			if (uplsize == 0) {
+				close(uploadfile);
+				uploadfile = -1;
+				delwin(swin);
+				winclose(&wintab);
+				statline(mode,
+					 "Upload complete: 0 bytes");
+				continue;
+			}
+			if (upldp == -1) {
+				upllen =
+				    read(uploadfile, uplbuf, 128);
+
+				if (upllen == 0) {
 					close(uploadfile);
 					uploadfile = -1;
 					delwin(swin);
 					winclose(&wintab);
-					statline(mode,
-						 "Upload complete: 0 bytes");
+					sprintf(s,
+						"Upload complete: %ld bytes",
+						uplpos);
+					statline(mode, s);
 					continue;
 				}
-				if (upldp == -1) {
-					upllen =
-					    read(uploadfile, uplbuf, 128);
-
-					if (upllen == 0) {
-						close(uploadfile);
-						uploadfile = -1;
-						delwin(swin);
-						winclose(&wintab);
-						sprintf(s,
-							"Upload complete: %ld bytes",
-							uplpos);
-						statline(mode, s);
-						continue;
-					}
-					if (upllen == -1) {
-						close(uploadfile);
-						uploadfile = -1;
-						delwin(swin);
-						winclose(&wintab);
-						sprintf(s,
-							"Error reading upload file: upload aborted at %ld bytes",
-							uplpos);
-						statline(mode, s);
-						continue;
-					}
-					if (!binup)
-						convert_lf_cr(uplbuf,
-							      upllen);
-
-					upldp = 0;
-				}
-				bytes =
-				    write(fd, uplbuf + upldp,
-					  upllen - upldp);
-
-				if ((bytes == 0 || bytes == -1)
-				    && errno != EWOULDBLOCK
-				    && errno != EAGAIN) {
+				if (upllen == -1) {
+					close(uploadfile);
+					uploadfile = -1;
+					delwin(swin);
+					winclose(&wintab);
 					sprintf(s,
-						"Write error during upload. Connection lost");
+						"Error reading upload file: upload aborted at %ld bytes",
+						uplpos);
+					statline(mode, s);
+					continue;
+				}
+				if (!binup)
+					convert_lf_cr(uplbuf,
+						      upllen);
+
+				upldp = 0;
+			}
+			bytes =
+			    write(fd, uplbuf + upldp,
+				  upllen - upldp);
+
+			if (bytes == 0)
+				continue;
+			if (bytes == -1) {
+				if (errno != EWOULDBLOCK && errno != EAGAIN) {
+					sprintf(s, "Write error during upload. Connection lost");
 					statline(mode, s);
 					perror("write");
 					break;
-				}
+			  	}
+				usleep(100000);
+				continue;
+			}
 /*                      if (uplpos / 1024 != (uplpos + bytes) / 1024)
-   { */
-				/*      printf("\r%ld bytes sent    ", uplpos + bytes); */
+                           { */ /*      printf("\r%ld bytes sent    ", uplpos + bytes); */
 				sprintf(s, "%ld", uplpos + bytes);
 				dupdstatw(swin, s, FALSE);
 /*                      } */
 
-				uplpos += bytes;
-				upldp += bytes;
+			uplpos += bytes;
+			upldp += bytes;
 
-				if (upldp >= upllen)
-					upldp = -1;
-			}
+			if (upldp >= upllen)
+				upldp = -1;
 		}
 	}
 
