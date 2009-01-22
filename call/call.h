@@ -16,5 +16,6 @@ extern void convert_lfcr(char *, int);
 extern void cmd_yapp(char *, int);
 
 /* In dostime.c */
+extern void date_unix2dos(time_t, unsigned short*, unsigned short*);
 extern int yapp2unix(char *);
 extern void unix2yapp( int, char *);

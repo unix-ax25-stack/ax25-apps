@@ -40,7 +40,7 @@ int date_dos2unix(unsigned short time, unsigned short date)
 
 /* Convert linear UNIX date to a MS-DOS time/date pair. */
 
-void date_unix2dos(int unix_date, unsigned short *time,
+void date_unix2dos(time_t unix_date, unsigned short *time,
 		   unsigned short *date)
 {
 	int day, year, nl_day, month;
@@ -84,7 +84,7 @@ int yapp2unix(char *ytime)
 
 /* Convert unix time to 8 character yapp hex format */
 
-void unix2yapp(int unix_date, char *buffer)
+void unix2yapp(time_t unix_date, char *buffer)
 {
 	unsigned short time, date;
 	date_unix2dos(unix_date, &time, &date);
