@@ -159,6 +159,20 @@ void convert_upper_lower(char *buf, int len)
 	}
 }
 
+
+/* Convert linear UNIX date to a MS-DOS time/date pair. */
+
+static char * unix_to_sfbin_date_string(time_t gmt)
+{
+
+  static char buf[9];
+  unsigned short s_time, s_date;
+
+  date_unix2dos(((gmt == -1) ? time(0) : gmt), &s_time, &s_date);
+  sprintf(buf, "%X", ((s_date << 16) + s_time));
+  return buf;
+}
+
 static int nr_convert_call(char *address, struct full_sockaddr_ax25 *addr)
 {
 	char buffer[100], *call, *alias;
@@ -1833,8 +1847,15 @@ int cmd_call(char *call[], int mode)
 					case 'a':
 					case 'A':
 						{
+		 					struct stat statbuf;
+							time_t file_time = 0L;
 							binup = TRUE;
 							crc = 0;
+							if (!fstat(uploadfile, &statbuf))
+								file_time =  statbuf.st_mtime;
+							else
+								file_time = time(0);
+
 
 							do {
 								upllen =
@@ -1874,9 +1895,11 @@ int cmd_call(char *call[], int mode)
 							      0L,
 							      SEEK_SET);
 							sprintf(s,
-								"#BIN#%ld#$%u#|000000#%s\r",
+								"#BIN#%ld#|%u#$%s#%s\r",
 								uplsize,
-								crc, t);
+								crc,
+								unix_to_sfbin_date_string(file_time),
+								t);
 							write(fd, s,
 							      strlen(s));
 							uplpos = 0;
