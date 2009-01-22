@@ -97,7 +97,7 @@ int fd;
 
 typedef struct {
 	char file_name[255];
-	long dwn_cnt;
+	unsigned long dwn_cnt;
 	int dwn_file;
 	int file_crc;
 	int calc_crc;
@@ -110,7 +110,7 @@ typedef struct {
 	int max_y;
 	int max_x;
 	char string[MAX_BUFLEN];
-	int bytes;
+	unsigned long bytes;
 	int curs_pos;
 } t_win;
 
@@ -519,7 +519,7 @@ void dupdstatw(WINDOW * win, char *s, int add)
 }
 
 int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
-		      char parms[], int parmsbytes, char buf[], int bytes,
+		      char parms[], int parmsbytes, char buf[], unsigned long bytes,
 		      t_gp * gp, char *address[])
 {
 	int crcst;		/* startposition crc-field  */
@@ -546,16 +546,16 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		date >>= 5;
 		ft.tm_min = date & 0x3F;
 		date >>= 6;
-		ft.tm_hour = date & 0x1F;
+		ft.tm_hour = date & 0x0F;
 		date >>= 5;
 		ft.tm_mday = date & 0x1F;
 		date >>= 5;
-		ft.tm_mon = date & 0x0F;
+		ft.tm_mon = (date & 0x0F) -1;
 		date >>= 4;
-		ft.tm_year = (date & 0x7F) + 70;
-		ft.tm_isdst = 0;
-		ft.tm_yday = 0;
-		ft.tm_wday = 0;
+		ft.tm_year = (date & 0x7F) + 80;
+		ft.tm_isdst = -1;
+		ft.tm_yday = -1;
+		ft.tm_wday = -1;
 		gp->ut.actime = mktime(&ft);
 		gp->ut.modtime = gp->ut.actime;
 
@@ -594,13 +594,13 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		gp->file_name[strlen(gp->file_name) + parmsbytes - namest -
 			      cnt - 1] = 0;
 
-		sprintf(s, "size of file    : %u",
-			(unsigned int) gp->dwn_cnt);
+		sprintf(s, "size of file    : %lu",
+			(unsigned long) gp->dwn_cnt);
 		wrdstatw(*swin, s);
 		sprintf(s, "filename        : %s", gp->file_name);
 		wrdstatw(*swin, s);
 		sprintf(s, "last mod. date  : %02i.%02i.%04i", ft.tm_mday,
-			ft.tm_mon, ft.tm_year + 1900);
+			ft.tm_mon+1 , ft.tm_year + 1900);
 		wrdstatw(*swin, s);
 		sprintf(s, "last mod. time  : %02i:%02i:%02i", ft.tm_hour,
 			ft.tm_min, ft.tm_sec);
@@ -637,7 +637,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 	return 0;
 }
 
-int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], int *bytes,
+int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], unsigned long *bytes,
 	    t_gp * gp)
 {
 	int extrach = 0;
@@ -1246,8 +1246,8 @@ int eol(char c)
 		return FALSE;
 }
 
-int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
-		      char restbuf[], int *restbytes)
+int searche_key_words(char buf[], unsigned long *bytes, char *parms, int *parmsbytes,
+		      char restbuf[], unsigned long *restbytes)
 {
 	static char cmpstr[MAX_CMPSTRLEN];
 	static int cmpstrbyte = 0;
@@ -1470,16 +1470,17 @@ int cmd_call(char *call[], int mode)
 	char parms[256];
 	int sevenplus = FALSE;
 	int sevenplcnt = 0;
-	int bytes;
-	int restbytes;
+	unsigned long bytes;
+	unsigned long restbytes;
 	int parmsbytes;
 	int com_num;
 	int logfile = -1;
 	int uploadfile = -1;
 	int downloadfile = -1;
 	int binup = FALSE;
-	long uplsize = 0;
-	long uplpos = 0;
+	int bindwn = FALSE;
+	unsigned long uplsize = 0;
+	unsigned long uplpos = 0;
 	char uplbuf[128];	/* Upload buffer */
 	int upldp = 0;
 	int upllen = 0;
@@ -1538,8 +1539,7 @@ int cmd_call(char *call[], int mode)
 		if (uploadfile != -1)
 			FD_SET(fd, &sock_write);
 
-		if (select(fd + 1, &sock_read, &sock_write, NULL, (uploadfile == -1 ? NULL : &tv)) ==
-		    -1) {
+		if (select(fd + 1, &sock_read, &sock_write, NULL, (uploadfile == -1 && downloadfile == 0 ? NULL : &tv)) == -1) {
 			if (!interrupted && errno == EAGAIN)
 				continue;
 			if (!interrupted)
@@ -1555,10 +1555,13 @@ int cmd_call(char *call[], int mode)
 				flags &= ~FLAG_RECONNECT;
 				break;
 			}
-			if (bytes == -1 && errno != EWOULDBLOCK
-			    && errno != EAGAIN) {
+			if (bytes == -1) {
+			    	if (errno == EWOULDBLOCK || errno == EAGAIN) {
+				 	usleep(100000);
+					continue;
+				}
 				if (errno != ENOTCONN)
-					perror("read");
+			 		perror("read");
 				break;
 			}
 			if (gp.dwn_cnt != 0) {
@@ -1568,13 +1571,12 @@ int cmd_call(char *call[], int mode)
 					continue;
 			}
 			do {
-				com_num =
-				    searche_key_words(buf, &bytes, parms,
-						      &parmsbytes, restbuf,
-						      &restbytes);
+				if (!bindwn)
+					com_num = searche_key_words(buf, &bytes, parms, &parmsbytes, restbuf, &restbytes);
 
 				if (bytes != 0) {
-					convert_cr_lf(buf, bytes);
+					if (!bindwn)
+						convert_cr_lf(buf, bytes);
 					if (!sevenplus) {
 
 						writeincom(mode, &win_in,
@@ -1596,6 +1598,8 @@ int cmd_call(char *call[], int mode)
 							statline(mode,
 								 "Error while writing file. Downloadfile closed.");
 						}
+						if (bindwn)
+							continue;
 					} else if (logfile != -1) {
 						if (write
 						    (logfile, buf,
@@ -1634,6 +1638,7 @@ int cmd_call(char *call[], int mode)
 								  call);
 						restbytes = 0;
 						extrach = 0;
+						bindwn=TRUE;
 					}
 					break;
 				case 2:
@@ -1682,6 +1687,7 @@ int cmd_call(char *call[], int mode)
 				bytes = restbytes;
 			}
 			while (restbytes != 0);
+			bindwn = FALSE;
 		}
 		if (FD_ISSET(STDIN_FILENO, &sock_read)) {
 			if ((mode & RAWMODE) == RAWMODE) {
