@@ -566,7 +566,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		gp->ut.modtime = 0;
 	}
 
-	gp->dwn_cnt = atol(parms);
+	gp->dwn_cnt = (unsigned long ) atol(parms);
 	strcpy(gp->file_name, STD_DWN_DIR);
 
 	if (crcst == parmsbytes - 1 || datest - crcst > 7
@@ -589,7 +589,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		     cnt--);
 		strncpy(s, &parms[namest + cnt],
 			parmsbytes - namest - cnt);
-		convert_upper_lower(s, parmsbytes - namest - cnt);
+		/* convert_upper_lower(s, parmsbytes - namest - cnt); */
 		strncat(gp->file_name, s, parmsbytes - namest - cnt);
 		gp->file_name[strlen(gp->file_name) + parmsbytes - namest -
 			      cnt - 1] = 0;
@@ -629,9 +629,17 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		}
 		gp->calc_crc = 0;
 	} else {
-		write(gp->dwn_file, buf, bytes);
-		gp->calc_crc = calc_crc(buf, bytes, 0);
-		gp->dwn_cnt -= bytes;
+		int offset = 0;
+		while (bytes > 0) {
+			int ret = write(gp->dwn_file, buf, bytes);
+			if (ret == -1)
+				continue;
+			if (ret == 0)
+				break;
+		  	gp->calc_crc = calc_crc(buf, ret, 0);
+		  	gp->dwn_cnt -= ret;
+		  	bytes -= ret;
+		}
 	}
 
 	return 0;
@@ -640,7 +648,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], unsigned long *bytes,
 	    t_gp * gp)
 {
-	int extrach = 0;
+	unsigned long extrach = 0;
 	char s[80];
 
 	if (strncmp(buf, "#ABORT#\r", 8) == 0 && *bytes == 8) {
@@ -1478,7 +1486,6 @@ int cmd_call(char *call[], int mode)
 	int uploadfile = -1;
 	int downloadfile = -1;
 	int binup = FALSE;
-	int bindwn = FALSE;
 	unsigned long uplsize = 0;
 	unsigned long uplpos = 0;
 	char uplbuf[128];	/* Upload buffer */
@@ -1571,12 +1578,10 @@ int cmd_call(char *call[], int mode)
 					continue;
 			}
 			do {
-				if (!bindwn)
-					com_num = searche_key_words(buf, &bytes, parms, &parmsbytes, restbuf, &restbytes);
+				com_num = searche_key_words(buf, &bytes, parms, &parmsbytes, restbuf, &restbytes);
 
 				if (bytes != 0) {
-					if (!bindwn)
-						convert_cr_lf(buf, bytes);
+					convert_cr_lf(buf, bytes);
 					if (!sevenplus) {
 
 						writeincom(mode, &win_in,
@@ -1598,8 +1603,6 @@ int cmd_call(char *call[], int mode)
 							statline(mode,
 								 "Error while writing file. Downloadfile closed.");
 						}
-						if (bindwn)
-							continue;
 					} else if (logfile != -1) {
 						if (write
 						    (logfile, buf,
@@ -1638,7 +1641,6 @@ int cmd_call(char *call[], int mode)
 								  call);
 						restbytes = 0;
 						extrach = 0;
-						bindwn=TRUE;
 					}
 					break;
 				case 2:
@@ -1687,7 +1689,6 @@ int cmd_call(char *call[], int mode)
 				bytes = restbytes;
 			}
 			while (restbytes != 0);
-			bindwn = FALSE;
 		}
 		if (FD_ISSET(STDIN_FILENO, &sock_read)) {
 			if ((mode & RAWMODE) == RAWMODE) {
