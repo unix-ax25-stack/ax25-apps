@@ -1546,7 +1546,7 @@ int cmd_call(char *call[], int mode)
 		if (uploadfile != -1)
 			FD_SET(fd, &sock_write);
 
-		if (select(fd + 1, &sock_read, &sock_write, NULL, (uploadfile == -1 && downloadfile == 0 ? NULL : &tv)) == -1) {
+		if (select(fd + 1, &sock_read, &sock_write, NULL, (uploadfile == -1 && downloadfile == -1) ? NULL : &tv) == -1) {
 			if (!interrupted && errno == EAGAIN)
 				continue;
 			if (!interrupted)
@@ -1567,8 +1567,9 @@ int cmd_call(char *call[], int mode)
 				 	usleep(100000);
 					continue;
 				}
-				if (errno != ENOTCONN)
-			 		perror("read");
+				if (errno == ENOTCONN)
+					goto out_fd;
+			 	perror("read");
 				break;
 			}
 			if (gp.dwn_cnt != 0) {
@@ -1690,6 +1691,7 @@ int cmd_call(char *call[], int mode)
 			}
 			while (restbytes != 0);
 		}
+out_fd:
 		if (FD_ISSET(STDIN_FILENO, &sock_read)) {
 			if ((mode & RAWMODE) == RAWMODE) {
 				/* bytes = read(STDIN_FILENO, buf, 511); */
