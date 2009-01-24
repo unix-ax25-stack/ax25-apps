@@ -1583,18 +1583,12 @@ int cmd_call(char *call[], int mode)
 			break;
 		}
 		if (FD_ISSET(fd, &sock_read)) {
-			static int last_line_was_cr = 1;
-			int this_line_has_cr = 0;
-			char buf2[MAX_BUFLEN];
-			int buf2_len = 0L;
-			int i;
 			/* bytes = read(fd, buf, 511); */
 			bytes = read(fd, buf, sizeof(buf));
 			if (bytes == 0) {
 				/* read EOF on stdin */
 				/* cause program to terminate */
 				flags &= ~FLAG_RECONNECT;
-				last_line_was_cr = 1;
 				break;
 			}
 			if (bytes == -1) {
@@ -1610,21 +1604,7 @@ int cmd_call(char *call[], int mode)
 				ab_down(mode, swin, &wintab, buf, &bytes,
 					&gp);
 				if (bytes == 0) {
-					last_line_was_cr = 1;
 					continue;
-				}
-			}
-
-next_read_line_from_fd:
-			this_line_has_cr = 0;
-			for (i = 1; i <= bytes; i++) {
-				if (buf[i-1] == '\r') {
-					if ((buf2_len = bytes-i) > 0) {
-						memcpy(buf2, buf+i, buf2_len);
-						bytes = i;
-					}
-					this_line_has_cr = 1;
-					break;
 				}
 			}
 			do {
@@ -1633,12 +1613,7 @@ next_read_line_from_fd:
 				 * then searche_key_words misinterprets " go_7+. "
 				 * as start of a line.
 				 */
-				if (last_line_was_cr && this_line_has_cr) {
-					com_num = searche_key_words(buf, &bytes, parms, &parmsbytes, restbuf, &restbytes);
-				} else {
-				        com_num = -1;
-				}
-				last_line_was_cr = this_line_has_cr;
+				com_num = searche_key_words(buf, &bytes, parms, &parmsbytes, restbuf, &restbytes);
 				if (bytes != 0) {
 					convert_cr_lf(buf, bytes);
 					if (!sevenplus) {
@@ -1748,13 +1723,6 @@ next_read_line_from_fd:
 				bytes = restbytes;
 			}
 			while (restbytes != 0);
-			if (buf2_len > 0) {
-				memcpy(buf, buf2, buf2_len);
-				bytes = buf2_len;
-				buf2_len = 0;
-				goto next_read_line_from_fd;
-			}
-				
 		}
 		if (FD_ISSET(STDIN_FILENO, &sock_read)) {
 			if ((mode & RAWMODE) == RAWMODE) {
