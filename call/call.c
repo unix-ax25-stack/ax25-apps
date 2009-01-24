@@ -95,8 +95,9 @@ int interrupted = FALSE;
 int paclen = 0;
 int fd;
 
+#define GP_FILENAME_SIZE	255
 typedef struct {
-	char file_name[255];
+	char file_name[GP_FILENAME_SIZE];
 	unsigned long dwn_cnt;
 	int dwn_file;
 	int file_crc;
@@ -483,7 +484,8 @@ void dupdstatw(WINDOW * win, char *s, int add)
 
 	if (add) {
 		oldlen = 0;
-		strcpy(infostr, s);
+		memcpy(infostr, s, sizeof(infostr)-1);
+		infostr[sizeof(infostr)-1] = 0;
 
 		if (win == NULL) {
 			printf("  %s", s);
@@ -567,7 +569,9 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 	}
 
 	gp->dwn_cnt = (unsigned long ) atol(parms);
-	strcpy(gp->file_name, STD_DWN_DIR);
+	strncpy(gp->file_name, STD_DWN_DIR, GP_FILENAME_SIZE-1);
+	gp->file_name[GP_FILENAME_SIZE-1] = 0;
+
 
 	if (crcst == parmsbytes - 1 || datest - crcst > 7
 	    || namest - datest > 10) {
@@ -576,23 +580,39 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 			     "Remote starts AutoBin transfer", 6, 52);
 		gp->new_header = FALSE;
 		wrdstatw(*swin, "old styled Header (no filename)");
-		strcat(gp->file_name, address[0]);
-		strcat(gp->file_name, ".dwnfile");
+		if (strlen(gp->file_name) + strlen(address[0]) < GP_FILENAME_SIZE -1)
+		  strcat(gp->file_name, address[0]);
+		else
+		  return -1;
+		if (strlen(gp->file_name) + strlen(".dwnfile") < GP_FILENAME_SIZE -1)
+		  strcat(gp->file_name, address[0]);
+		else
+		  return -1;
 	} else {
+		int len;
+		gp->new_header = TRUE;
+		for (cnt = parmsbytes - namest;
+		     cnt > 0 && !(parms[cnt + namest - 1] == '\\'
+		       || parms[cnt + namest - 1] == '/');
+		     cnt--);
+		len = parmsbytes - namest - cnt;
+		if (len < 1)
+			return -1;
+		if (len > sizeof(s) -1)
+			len = sizeof(s) -1;
+		strncpy(s, &parms[namest + cnt], len);
+		s[len] = 0;
+		if (*s == '\r')
+			return -1;
+		/* convert_upper_lower(s, len); */
+		if (strlen(gp->file_name) + len < GP_FILENAME_SIZE - 1)
+		  strcat(gp->file_name, s);
+		else
+		  return -1;
+
 		*swin =
 		    opnstatw(mode, wintab,
 			     "Remote starts AutoBin transfer", 10, 52);
-		gp->new_header = TRUE;
-		for (cnt = parmsbytes - namest;
-		     !(parms[cnt + namest - 1] == '\\'
-		       || parms[cnt + namest - 1] == '/') && cnt > 0;
-		     cnt--);
-		strncpy(s, &parms[namest + cnt],
-			parmsbytes - namest - cnt);
-		/* convert_upper_lower(s, parmsbytes - namest - cnt); */
-		strncat(gp->file_name, s, parmsbytes - namest - cnt);
-		gp->file_name[strlen(gp->file_name) + parmsbytes - namest -
-			      cnt - 1] = 0;
 
 		sprintf(s, "size of file    : %lu",
 			(unsigned long) gp->dwn_cnt);
@@ -629,7 +649,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		}
 		gp->calc_crc = 0;
 	} else {
-		unsigned long int offset = 0L;
+		unsigned long offset = 0L;
 		while (offset != bytes) {
 			int ret = write(gp->dwn_file, buf+offset, bytes-offset);
 			if (ret == -1)
@@ -651,7 +671,7 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], unsigned long *b
 	unsigned long extrach = 0;
 	char s[80];
 
-	if (strncmp(buf, "#ABORT#\r", 8) == 0 && *bytes == 8) {
+	if (*bytes == 8 && strncmp(buf, "#ABORT#\r", 8) == 0) {
 		gp->dwn_cnt = 0;
 		close(gp->dwn_file);
 		statline(mode, "Remote aborts AutoBin transfer!");
@@ -1341,8 +1361,8 @@ int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
 	int nrparts;
 	int lines;
 	char orgn[13];
-	char prtn[13];
-	char strn[255];
+	char prtn[13+3];
+	char strn[PATH_MAX];
 	char v[20];
 	char s[80];
 	if (parmsbytes >= 40)
@@ -1360,7 +1380,10 @@ int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
 
 	strncpy(orgn, &parms[11], 12);
 	convert_upper_lower(orgn, 12);
-	for (cnt = 11; orgn[cnt] == ' '; cnt--);
+	for (cnt = 11; orgn[cnt] == ' '; cnt--) {
+		if (cnt == 0)
+			break;
+	}
 	orgn[cnt + 1] = 0;
 	if (orgn[cnt - 3] == '.') {
 		strncpy(prtn, orgn, cnt - 2);
@@ -1379,20 +1402,21 @@ int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
 	strcpy(strn, STD_DWN_DIR);
 	strcat(strn, prtn);
 
-	for (cnt = 0; parms[cnt + 41] != ')' && cnt + 41 != parmsbytes;
-	     cnt++);
+	for (cnt = 0; cnt + 41 < parmsbytes && parms[cnt + 41] != ')'; cnt++) ;
 	if (parms[cnt + 41] != ')') {
 		return -1;
 	}
+	if (cnt > sizeof(v)-2)
+		cnt = sizeof(v)-2;
 	strncpy(v, &parms[41], cnt + 1);
 	v[cnt + 1] = 0;
 	*swin =
 	    opnstatw(mode, wintab, "Remote starts 7+ Download", 11, 55);
-	sprintf(s, "7plus version        : %s", v);
+	sprintf(s, "7plus version        : %-.55s", v);
 	wrdstatw(*swin, s);
-	sprintf(s, "Name of decoded file : %s", orgn);
+	sprintf(s, "Name of decoded file : %-.55s", orgn);
 	wrdstatw(*swin, s);
-	sprintf(s, "Storagename          : %s", strn);
+	sprintf(s, "Storagename          : %-.55s", strn);
 	wrdstatw(*swin, s);
 	sprintf(s, "Parts                : %i", nrparts);
 	wrdstatw(*swin, s);
@@ -1474,12 +1498,14 @@ int cmd_call(char *call[], int mode)
 	fd_set sock_read;
 	fd_set sock_write;
 	char buf[MAX_BUFLEN];
-	char restbuf[MAX_PACKETLEN];
-	char parms[256];
+	/* char restbuf[MAX_PACKETLEN]; */
+	char restbuf[MAX_BUFLEN];
+	/* char parms[256]; */
+	char parms[MAX_BUFLEN];
 	int sevenplus = FALSE;
 	int sevenplcnt = 0;
 	unsigned long bytes;
-	unsigned long restbytes;
+	unsigned long restbytes = 0L;
 	int parmsbytes;
 	int com_num;
 	int logfile = -1;
@@ -1503,6 +1529,9 @@ int cmd_call(char *call[], int mode)
 	int flags = 0;
 
 	init_crc();
+
+	if (paclen > sizeof(buf))
+		paclen = sizeof(buf);
 
 	gp.dwn_cnt = 0;
 	wintab.next = 0;
@@ -1554,12 +1583,18 @@ int cmd_call(char *call[], int mode)
 			break;
 		}
 		if (FD_ISSET(fd, &sock_read)) {
+			static int last_line_was_cr = 1;
+			int this_line_has_cr = 0;
+			char buf2[MAX_BUFLEN];
+			unsigned long buf2_len = 0L;
+			int i;
 			/* bytes = read(fd, buf, 511); */
 			bytes = read(fd, buf, paclen);
 			if (bytes == 0) {
 				/* read EOF on stdin */
 				/* cause program to terminate */
 				flags &= ~FLAG_RECONNECT;
+				last_line_was_cr = 1;
 				break;
 			}
 			if (bytes == -1) {
@@ -1567,20 +1602,43 @@ int cmd_call(char *call[], int mode)
 				 	usleep(100000);
 					continue;
 				}
-				if (errno == ENOTCONN)
-					goto out_fd;
-			 	perror("read");
+				if (errno != ENOTCONN)
+			 		perror("read");
 				break;
 			}
 			if (gp.dwn_cnt != 0) {
 				ab_down(mode, swin, &wintab, buf, &bytes,
 					&gp);
-				if (bytes == 0)
+				if (bytes == 0) {
+					last_line_was_cr = 1;
 					continue;
+				}
+			}
+
+next_read_line_from_fd:
+			this_line_has_cr = 0;
+			for (i = 1; i <= bytes; i++) {
+				if (buf[i-1] == '\r') {
+					if ((buf2_len = bytes-i) > 0) {
+						memcpy(buf2, buf+i, buf2_len);
+						bytes = i;
+					}
+					this_line_has_cr = 1;
+					break;
+				}
 			}
 			do {
-				com_num = searche_key_words(buf, &bytes, parms, &parmsbytes, restbuf, &restbytes);
-
+				/* imagine one line ("bar go_7+") was split into
+				 * two packets: 1. "...foo\nbar" 2. " go_7+. ..."
+				 * then searche_key_words misinterprets " go_7+. "
+				 * as start of a line.
+				 */
+				if (last_line_was_cr) {
+					com_num = searche_key_words(buf, &bytes, parms, &parmsbytes, restbuf, &restbytes);
+				} else {
+				        com_num = -1;
+				}
+				last_line_was_cr = this_line_has_cr;
 				if (bytes != 0) {
 					convert_cr_lf(buf, bytes);
 					if (!sevenplus) {
@@ -1686,12 +1744,18 @@ int cmd_call(char *call[], int mode)
 					break;
 				}
 
-				strncpy(buf, restbuf, restbytes);
+				memcpy(buf, restbuf, restbytes);
 				bytes = restbytes;
 			}
 			while (restbytes != 0);
+			if (buf2_len > 0) {
+				memcpy(buf, buf2, buf2_len);
+				bytes = buf2_len;
+				buf2_len = 0;
+				goto next_read_line_from_fd;
+			}
+				
 		}
-out_fd:
 		if (FD_ISSET(STDIN_FILENO, &sock_read)) {
 			if ((mode & RAWMODE) == RAWMODE) {
 				/* bytes = read(STDIN_FILENO, buf, 511); */
