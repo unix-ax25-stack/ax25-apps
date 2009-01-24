@@ -629,16 +629,16 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		}
 		gp->calc_crc = 0;
 	} else {
-		int offset = 0;
-		while (bytes > 0) {
-			int ret = write(gp->dwn_file, buf, bytes);
+		unsigned long int offset = 0L;
+		while (offset != bytes) {
+			int ret = write(gp->dwn_file, buf+offset, bytes-offset);
 			if (ret == -1)
 				continue;
 			if (ret == 0)
 				break;
 		  	gp->calc_crc = calc_crc(buf, ret, 0);
 		  	gp->dwn_cnt -= ret;
-		  	bytes -= ret;
+		  	offset += ret;
 		}
 	}
 
@@ -2013,7 +2013,7 @@ out_fd:
 				break;
 			}
 			if (bytes > 0) {
-				int offset = 0;
+				unsigned long offset = 0L;
 				sevenplus = FALSE;
 				if (uploadfile != -1) {
 					statline(mode,
@@ -2022,14 +2022,13 @@ out_fd:
 				}
 				convert_lf_cr(buf, bytes);
 
-				while (bytes > 0) {
-					int ret = write(fd, buf + offset, bytes);
+				while (offset != bytes) {
+					int ret = write(fd, buf+offset, bytes-offset);
 					if (ret == -1) {
 						perror("write");
 						break;
 					}
-					offset += bytes;
-					bytes -= ret;
+					offset += ret;
 				}
 			}
 		}
