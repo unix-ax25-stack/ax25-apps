@@ -1586,10 +1586,10 @@ int cmd_call(char *call[], int mode)
 			static int last_line_was_cr = 1;
 			int this_line_has_cr = 0;
 			char buf2[MAX_BUFLEN];
-			unsigned long buf2_len = 0L;
+			int buf2_len = 0L;
 			int i;
 			/* bytes = read(fd, buf, 511); */
-			bytes = read(fd, buf, paclen);
+			bytes = read(fd, buf, sizeof(buf));
 			if (bytes == 0) {
 				/* read EOF on stdin */
 				/* cause program to terminate */
@@ -1633,7 +1633,7 @@ next_read_line_from_fd:
 				 * then searche_key_words misinterprets " go_7+. "
 				 * as start of a line.
 				 */
-				if (last_line_was_cr) {
+				if (last_line_was_cr && this_line_has_cr) {
 					com_num = searche_key_words(buf, &bytes, parms, &parmsbytes, restbuf, &restbytes);
 				} else {
 				        com_num = -1;
@@ -2079,6 +2079,7 @@ next_read_line_from_fd:
 			if (bytes > 0) {
 				unsigned long offset = 0L;
 				sevenplus = FALSE;
+				int err = 0;
 				if (uploadfile != -1) {
 					statline(mode,
 						 "Ignored. Type ~s to stop upload");
@@ -2087,15 +2088,20 @@ next_read_line_from_fd:
 				convert_lf_cr(buf, bytes);
 
 				while (offset != bytes) {
-					int ret = write(fd, buf+offset, bytes-offset);
+					int len = (bytes-offset > paclen) ? paclen : bytes-offset;
+					int ret = write(fd, buf+offset, len);
 					if (ret == -1) {
+			    			if (errno == EWOULDBLOCK || errno == EAGAIN) {
+				 			usleep(100000);
+							continue;
+						}
 						perror("write");
-						offset=-1;
+						err = 1;
 						break;
 					}
 					offset += ret;
 				}
-				if (offset == -1)
+				if (err)
 					break;
 			}
 		}
