@@ -2026,10 +2026,13 @@ out_fd:
 					int ret = write(fd, buf+offset, bytes-offset);
 					if (ret == -1) {
 						perror("write");
+						offset=-1;
 						break;
 					}
 					offset += ret;
 				}
+				if (offset == -1)
+					break;
 			}
 		}
 		if (uploadfile != -1) {
