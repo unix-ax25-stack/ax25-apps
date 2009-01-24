@@ -546,7 +546,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		date >>= 5;
 		ft.tm_min = date & 0x3F;
 		date >>= 6;
-		ft.tm_hour = date & 0x0F;
+		ft.tm_hour = date & 0x1F;
 		date >>= 5;
 		ft.tm_mday = date & 0x1F;
 		date >>= 5;
