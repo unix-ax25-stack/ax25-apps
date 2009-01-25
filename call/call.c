@@ -531,41 +531,52 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 	int date = 0;
 	struct tm ft;
 	char s[80];
+	int time_set = 0;
 
-	for (crcst = 2; (!(parms[crcst - 2] == '#'
-			   && parms[crcst - 1] == '|')
-			 && crcst < parmsbytes - 1); crcst++);
+	for (crcst = 2; crcst < parmsbytes - 1 &&
+		(!(parms[crcst - 2] == '#' && parms[crcst - 1] == '|')); crcst++);
 
 	if (crcst < parmsbytes - 1) {
+fprintf(stderr, "foo\n");
 		gp->file_crc = atoi(parms + crcst);
 
-		for (datest = crcst; (!(parms[datest - 2] == '#'
-					&& parms[datest - 1] == '$'));
+		for (datest = crcst; datest < parmsbytes - 1 &&
+			(!(parms[datest - 2] == '#' && parms[datest - 1] == '$'));
 		     datest++);
 
-		date = (int) strtol(parms + datest, NULL, 16);
-		ft.tm_sec = (date & 0x1F) * 2;
-		date >>= 5;
-		ft.tm_min = date & 0x3F;
-		date >>= 6;
-		ft.tm_hour = date & 0x1F;
-		date >>= 5;
-		ft.tm_mday = date & 0x1F;
-		date >>= 5;
-		ft.tm_mon = (date & 0x0F) -1;
-		date >>= 4;
-		ft.tm_year = (date & 0x7F) + 80;
-		ft.tm_isdst = -1;
-		ft.tm_yday = -1;
-		ft.tm_wday = -1;
-		gp->ut.actime = mktime(&ft);
-		gp->ut.modtime = gp->ut.actime;
+		if (datest < parmsbytes -1) {
+fprintf(stderr, "xxx %d %d\n", datest, parmsbytes);
+		  date = (int) strtol(parms + datest, NULL, 16);
+		  ft.tm_sec = (date & 0x1F) * 2;
+		  date >>= 5;
+		  ft.tm_min = date & 0x3F;
+		  date >>= 6;
+		  ft.tm_hour = date & 0x1F;
+		  date >>= 5;
+		  ft.tm_mday = date & 0x1F;
+		  date >>= 5;
+		  ft.tm_mon = (date & 0x0F) -1;
+		  date >>= 4;
+		  ft.tm_year = (date & 0x7F) + 80;
+		  ft.tm_isdst = -1;
+		  ft.tm_yday = -1;
+		  ft.tm_wday = -1;
+		  gp->ut.actime = mktime(&ft);
+		  gp->ut.modtime = gp->ut.actime;
+		  time_set = 1;
+		} else {
+		  datest = crcst + 1;
+		}
 
-		for (namest = datest; (parms[namest - 1] != '#' &&
-				       namest < parmsbytes - 1); namest++);
-	} else {
-		gp->ut.actime = 0;
-		gp->ut.modtime = 0;
+		for (namest = datest; namest < parmsbytes - 1 &&
+			(parms[namest - 1] != '#'); namest++);
+	}
+	
+	if (!time_set) {
+		time_t t = time(0);
+		memcpy(&ft, localtime(&t), sizeof(struct tm));
+		gp->ut.actime = mktime(localtime(&t));
+		gp->ut.modtime = gp->ut.actime;
 	}
 
 	gp->dwn_cnt = (unsigned long ) atol(parms);
@@ -585,7 +596,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		else
 		  return -1;
 		if (strlen(gp->file_name) + strlen(".dwnfile") < GP_FILENAME_SIZE -1)
-		  strcat(gp->file_name, address[0]);
+		  strcat(gp->file_name, ".dwnfile");
 		else
 		  return -1;
 	} else {
