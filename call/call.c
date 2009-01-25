@@ -537,7 +537,6 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		(!(parms[crcst - 2] == '#' && parms[crcst - 1] == '|')); crcst++);
 
 	if (crcst < parmsbytes - 1) {
-fprintf(stderr, "foo\n");
 		gp->file_crc = atoi(parms + crcst);
 
 		for (datest = crcst; datest < parmsbytes - 1 &&
@@ -545,7 +544,6 @@ fprintf(stderr, "foo\n");
 		     datest++);
 
 		if (datest < parmsbytes -1) {
-fprintf(stderr, "xxx %d %d\n", datest, parmsbytes);
 		  date = (int) strtol(parms + datest, NULL, 16);
 		  ft.tm_sec = (date & 0x1F) * 2;
 		  date >>= 5;
