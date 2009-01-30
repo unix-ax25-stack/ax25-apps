@@ -9,7 +9,7 @@
  */
 
 /*
- * Dual port additions by M.Durrant and D.J.Dionne Feb 4, 1995
+ * Dual port additions by M.Durrant VE3PNX and D.J.Dionne Feb 4, 1995
  */
 
 #include "ax25ipd.h"
