@@ -8,7 +8,7 @@
 
 /*
  * Modifications made for dual port TNC's
- * by Michael Durrant and D. Jeff Dionne  February 4, 1995
+ * by Michael Durrant VE3PNX and D. Jeff Dionne  February 4, 1995
  */
 
 #include <stdio.h>
