@@ -87,6 +87,9 @@ int main(int argc, char **argv)
 		case 'l':
 			opt_loglevel = atoi(optarg);
 			break;
+		default:
+			opt_help = 1;
+			break;
 		}
 	}
 
