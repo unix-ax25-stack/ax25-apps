@@ -74,7 +74,7 @@
 int udp_mode;                   /* true if we need a UDP socket */
 int ip_mode;                    /* true if we need the raw IP socket */
 unsigned short my_udp;          /* the UDP port to use (network byte order) */
-char ttydevice[128];            /* the tty device for serial comms */
+char ttydevice[PATH_MAX];       /* the tty device for serial comms */
 int ttyspeed;                   /* The baud rate on the tty device */
 unsigned char mycallsign[7];    /* My callsign, shifted ASCII with SSID */
 unsigned char mycallsign2[7];   /* My seconds port callsign, shifted ASCII with SSID */

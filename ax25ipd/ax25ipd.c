@@ -32,14 +32,16 @@ int opt_version = 0;
 int opt_loglevel = 0;
 int opt_nofork = 0;
 int opt_help = 0;
-char opt_configfile[1024];
+char opt_configfile[PATH_MAX];
+char opt_ttydevice[PATH_MAX];
 
 struct option options[] = {
-	{"version", 0, &opt_version, 1},
-	{"loglevel", 1, &opt_loglevel, 1},
-	{"help", 0, &opt_help, 1},
-	{"configfile", 1, NULL, 0},
-        {"nofork", 0, &opt_nofork, 1},
+	{"version", 0, NULL, 'v'},
+	{"loglevel", 1, NULL, 'l'},
+	{"help", 0, NULL, 'h'},
+	{"configfile", 1, NULL, 'c'},
+	{"ttydevice", 1, NULL, 'd'},
+        {"nofork", 0, NULL, 'f'},
 	{0, 0, 0, 0}
 };
 
@@ -49,40 +51,35 @@ int main(int argc, char **argv)
 		signal(SIGHUP, hupper);
 	}
 
+	*opt_configfile = 0;
+	*opt_ttydevice = 0;
+
 	/* set up the handler for statistics reporting */
 	signal(SIGUSR1, usr1_handler);
 	signal(SIGINT, int_handler);
 	signal(SIGTERM, term_handler);
 
 	while (1) {
-		int option_index = 0;
 		int c;
 
-		c = getopt_long(argc, argv, "c:fhl:v", options, &option_index);
+		c = getopt_long(argc, argv, "c:d:fhl:v", options, NULL);
 		if (c == -1)
 			break;
 
 		switch (c) {
-		case 0:
-			break;
-			switch (option_index) {
-			case 0:
-				break;
-			case 1:
-				opt_loglevel = atoi(optarg);
-				break;
-			case 2:
-				break;
-			case 3:
-				strncpy(opt_configfile, optarg, 1023);
-				break;
-			}
-			break;
 		case 'c':
-			strncpy(opt_configfile, optarg, 1023);
+			strncpy(opt_configfile, optarg, sizeof(opt_configfile)-1);
+			opt_configfile[sizeof(opt_configfile)-1] = 0;
+			break;
+		case 'd':
+			strncpy(opt_ttydevice, optarg, sizeof(opt_ttydevice)-1);
+			opt_ttydevice[sizeof(opt_ttydevice)-1] = 0;
 			break;
                 case 'f':
                         opt_nofork = 1;
+			break;
+		case 'h':
+			opt_help = 1;
 			break;
 		case 'v':
 			opt_version = 1;
@@ -94,7 +91,8 @@ int main(int argc, char **argv)
 	}
 
 	if (optind < argc) {
-		printf("config %s\n", argv[optind++]);
+		printf("Unknown argument '%s' ...\n\n", argv[optind++]);
+		opt_help = 1;
 	}
 
 	if (opt_version == 1) {
@@ -113,6 +111,8 @@ int main(int argc, char **argv)
 		    ("  --loglevel NUM, -l NUM      Set logging level to NUM\n");
 		printf
 		    ("  --configfile FILE, -c FILE  Set configuration file to FILE\n");
+		printf
+		    ("  --device TTYDEV, -d TTYDEV  Set configuration file to FILE\n");
                 printf
                     ("  --nofork, -f                Do not put daemon in background\n");
 		exit(0);
@@ -127,6 +127,11 @@ int main(int argc, char **argv)
 
 	/* read config file */
 	config_read(opt_configfile);
+
+	if (opt_ttydevice[0] != '\0') {
+		strncpy(ttydevice, opt_ttydevice, sizeof(ttydevice)-1);
+		ttydevice[sizeof(ttydevice)-1] = '\0';
+	}
 
 	/* print the current config and route info */
 	dump_config();

@@ -205,10 +205,17 @@ char *buf;
 		return 0;
 
 	} else if (strcmp(p, "device") == 0) {
+		/* already set? i.e. with commandline option, which overwrites
+		 * the preconfigured setting. useful for systems with unix98
+		 * style pty's
+		 */
+		if (*ttydevice)
+			return 0;
 		q = strtok(NULL, " \t\n\r");
 		if (q == NULL)
 			return -1;
-		strcpy(ttydevice, q);
+		strncpy(ttydevice, q, sizeof(ttydevice)-1);
+		ttydevice[sizeof(ttydevice)-1] = 0;
 		return 0;
 
 	} else if (strcmp(p, "mode") == 0) {
@@ -272,10 +279,11 @@ char *buf;
 		q = p + strlen(p) + 1;
 		if (strlen(q) < 2)
 			return -1;	/* line ends with a \n */
-		if (strlen(q) > sizeof bc_text)
+		if (strlen(q) > sizeof(bc_text))
 			return -7;
 		q[strlen(q) - 1] = '\0';
-		strcpy(bc_text, q);
+		strncpy(bc_text, q, sizeof(bc_text)-1);
+		bc_text[sizeof(bc_text)-1] = 0;
 		return 0;
 
 	} else if (strcmp(p, "loglevel") == 0) {
