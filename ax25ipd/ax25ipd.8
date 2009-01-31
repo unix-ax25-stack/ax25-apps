@@ -37,6 +37,14 @@ Set the logging level to NUM.
 .TP 10
 .BI \-c,--configfile FILE
 Use the configuration file named by FILE instead of the default.
+.TP 10
+.BI \-d,--ttydevice TTYDEV
+Use ttydevice instead of the configured. This is useful because on systems
+with unix98 PTYs the device is allocated dynamicaly and thus the name is
+not predictable.
+.TP 10
+.BI \-f,--nofork
+Do not become a daemon. Run in foreground.
 .SH FILES
 /etc/ax25/ax25ipd.conf
 .SH "SEE ALSO"
