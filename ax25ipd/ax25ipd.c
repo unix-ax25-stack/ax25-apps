@@ -108,16 +108,16 @@ int main(int argc, char **argv)
 		printf("%s [flags]\n", argv[0]);
 		printf("\nFlags:\n");
 		printf
-		    ("  --version, -v               Print version of program\n");
-		printf("  --help, -h                  This help screen\n");
+		    ("  --version, -v                 Print version of program\n");
+		printf("  --help, -h                    This help screen\n");
 		printf
-		    ("  --loglevel NUM, -l NUM      Set logging level to NUM\n");
+		    ("  --loglevel NUM, -l NUM        Set logging level to NUM\n");
 		printf
-		    ("  --configfile FILE, -c FILE  Set configuration file to FILE\n");
+		    ("  --configfile FILE, -c FILE    Set configuration file to FILE\n");
 		printf
-		    ("  --device TTYDEV, -d TTYDEV  Set configuration file to FILE\n");
+		    ("  --ttydevice TTYDEV, -d TTYDEV Set device parameter to TTYDEV\n");
                 printf
-                    ("  --nofork, -f                Do not put daemon in background\n");
+                    ("  --nofork, -f                  Do not put daemon in background\n");
 		exit(0);
 	}
 
