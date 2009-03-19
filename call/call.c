@@ -380,18 +380,20 @@ static int connect_to(char *address[])
 	}
 
 	if (!be_silent) {
-		printf("Trying...\r");
+		printf("Trying...\n");
 		fflush(stdout);
 	}
 
 	if (connect(fd, (struct sockaddr *) &sockaddr, addrlen)) {
 		printf("\n");
+		fflush(stdout);
 		perror("connect");
 		close(fd);
 		return (-1);
 	}
 	if (!be_silent) {
 		printf("*** Connected to %s\n", address[0]);
+		fflush(stdout);
 	}
 
 	return (fd);
@@ -424,6 +426,7 @@ void statline(int mode, char *s)
 	}
 	if (mode == RAWMODE) {
 		printf(">>%s\n", s);
+		fflush(stdout);
 		return;
 	}
 	if (strlen(s) > 80 - STATW_STAT)
@@ -450,6 +453,7 @@ WINDOW *opnstatw(int mode, wint * wintab, char *s, int lines, int cols)
 
 	if (mode == RAWMODE) {
 		printf(">>%s\n", s);
+		fflush(stdout);
 		return NULL;
 	}
 	win =
@@ -467,6 +471,7 @@ void wrdstatw(WINDOW * win, char s[])
 
 	if (win == NULL) {
 		printf("  %s\n", s);
+		fflush(stdout);
 		return;
 	}
 	waddstr(win, s);
@@ -489,6 +494,7 @@ void dupdstatw(WINDOW * win, char *s, int add)
 
 		if (win == NULL) {
 			printf("  %s", s);
+			fflush(stdout);
 			return;
 		}
 		waddstr(win, s);
@@ -499,6 +505,7 @@ void dupdstatw(WINDOW * win, char *s, int add)
 	}
 	if (win == NULL) {
 		printf("\r  %s%s", infostr, s);
+		fflush(stdout);
 	} else {
 		mvwaddstr(win, y, x, s);
 	}
@@ -506,9 +513,10 @@ void dupdstatw(WINDOW * win, char *s, int add)
 	if (oldlen > strlen(s)) {
 		l = oldlen - strlen(s);
 		for (cnt = 0; cnt < l; cnt++)
-			if (win == NULL)
+			if (win == NULL) {
 				printf(" ");
-			else
+				fflush(stdout);
+			} else
 				waddch(win, ' ');
 	}
 	if (win == NULL) {
@@ -690,6 +698,7 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], unsigned long *b
 			winclose(wintab);
 		} else {
 			printf("\n");
+			fflush(stdout);
 		}
 
 		return 0;
@@ -709,6 +718,7 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], unsigned long *b
 			winclose(wintab);
 		} else {
 			printf("\n");
+			fflush(stdout);
 		}
 	} else {
 		gp->calc_crc = calc_crc(buf, *bytes, gp->calc_crc);
@@ -718,8 +728,10 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], unsigned long *b
 			if (mode != RAWMODE) {
 				delwin(swin);
 				winclose(wintab);
-			} else
+			} else {
 				printf("\n");
+				fflush(stdout);
+			}
 
 			strcpy(s, "AutoBin download finished ");
 			if (gp->new_header)
@@ -1302,6 +1314,7 @@ int searche_key_words(char buf[], unsigned long *bytes, char *parms, int *parmsb
 		for (cnt = 0; !eol(buf[cnt]) && cnt < *bytes - 1; cnt++);
 		if (cnt == *bytes - 1 && !eol(buf[cnt])) {
 			printf("Problem!!!\n");
+			fflush(stdout);
 			command = -1;
 			*restbytes = 0;
 			*parmsbytes = 0;
@@ -1568,6 +1581,7 @@ int cmd_call(char *call[], int mode)
 	case RAWMODE:
 		if (!be_silent) {
 			printf("Rawmode\n");
+			fflush(stdout);
 		}
 	}
 
@@ -1717,8 +1731,10 @@ int cmd_call(char *call[], int mode)
 						if (mode != RAWMODE) {
 							delwin(swin);
 							winclose(&wintab);
-						} else
+						} else {
 							printf("\n");
+							fflush(stdout);
+						}
 						statline(mode,
 							 "7+ Download finished.");
 						sevenplus = FALSE;
@@ -1782,9 +1798,11 @@ int cmd_call(char *call[], int mode)
 
 					fcntl(STDIN_FILENO, F_SETFL, 0);
 					printf("\n[Spawning subshell]\n");
+					fflush(stdout);
 					system(c);
 					printf
 					    ("\n[Returned to connect]\n");
+					fflush(stdout);
 					fcntl(STDIN_FILENO, F_SETFL,
 					      O_NONBLOCK);
 					change_mode(RAWMODE, mode, &wintab,
@@ -1820,6 +1838,7 @@ int cmd_call(char *call[], int mode)
 					printf("b   Upload binary data (crlf conversion)\n");
 					printf("yd  YAPP Download\n");
 					printf("yu  YAPP Upload\n");
+					fflush(stdout);
 					continue;
 				case 'S':
 				case 's':
@@ -2172,8 +2191,10 @@ int cmd_call(char *call[], int mode)
 	if (mode != RAWMODE)
 		endwin();
 
-	if (!be_silent)
+	if (!be_silent) {
 		printf("*** Cleared\n");
+		fflush(stdout);
+	}
 
 	if (flags & FLAG_RECONNECT) {
 		return TRUE;
@@ -2317,11 +2338,15 @@ int main(int argc, char **argv)
 	}
 
 	
-	if (!be_silent)
+	if (!be_silent) {
 		printf("GW4PTS AX.25 Connect v1.11\n");
+		fflush(stdout);
+	}
 	while (cmd_call(argv + optind + 1, mode)) {
-		if (!be_silent)
+		if (!be_silent) {
 			printf("Wait 60 sec before reconnect\n");
+			fflush(stdout);
+		}
 		sleep(60);
 	}
 
