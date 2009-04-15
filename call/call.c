@@ -529,7 +529,7 @@ void dupdstatw(WINDOW * win, char *s, int add)
 }
 
 int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
-		      char parms[], int parmsbytes, char buf[], unsigned long bytes,
+		      char parms[], int parmsbytes, char buf[], int bytes,
 		      t_gp * gp, char *address[])
 {
 	int crcst;		/* startposition crc-field  */
@@ -673,7 +673,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 				continue;
 			if (ret == 0)
 				break;
-		  	gp->calc_crc = calc_crc(buf, ret, 0);
+		  	gp->calc_crc = calc_crc((unsigned char *) buf, ret, 0);
 		  	gp->dwn_cnt -= ret;
 		  	offset += ret;
 		}
@@ -682,7 +682,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 	return 0;
 }
 
-int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], unsigned long *bytes,
+int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], int *bytes,
 	    t_gp * gp)
 {
 	unsigned long extrach = 0;
@@ -721,7 +721,7 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], unsigned long *b
 			fflush(stdout);
 		}
 	} else {
-		gp->calc_crc = calc_crc(buf, *bytes, gp->calc_crc);
+		gp->calc_crc = calc_crc((unsigned char *) buf, *bytes, gp->calc_crc);
 		gp->dwn_cnt -= *bytes;
 
 		if (gp->dwn_cnt == 0) {
@@ -1295,8 +1295,8 @@ int eol(char c)
 		return FALSE;
 }
 
-int searche_key_words(char buf[], unsigned long *bytes, char *parms, int *parmsbytes,
-		      char restbuf[], unsigned long *restbytes)
+int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
+		      char restbuf[], int *restbytes)
 {
 	static char cmpstr[MAX_CMPSTRLEN];
 	static int cmpstrbyte = 0;
@@ -1526,8 +1526,8 @@ int cmd_call(char *call[], int mode)
 	char parms[MAX_BUFLEN];
 	int sevenplus = FALSE;
 	int sevenplcnt = 0;
-	unsigned long bytes;
-	unsigned long restbytes = 0L;
+	int bytes;
+	int restbytes = 0;
 	int parmsbytes;
 	int com_num;
 	int logfile = -1;
@@ -1642,7 +1642,7 @@ int cmd_call(char *call[], int mode)
 					if (!sevenplus) {
 
 						writeincom(mode, &win_in,
-							   buf, bytes);
+							   (unsigned char * ) buf, bytes);
 					} else {
 						for (cnt = 0; cnt < bytes;
 						     cnt++)
@@ -1955,7 +1955,7 @@ int cmd_call(char *call[], int mode)
 								}
 								crc =
 								    calc_crc
-								    (uplbuf,
+								    ((unsigned char *) uplbuf,
 								     upllen,
 								     crc);
 							}
