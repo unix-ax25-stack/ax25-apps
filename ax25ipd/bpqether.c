@@ -1,4 +1,4 @@
-/* @(#) $Id: bpqether.c,v 1.4 2008/12/21 10:19:02 dl9sau Exp $ */
+/* @(#) $Id: bpqether.c,v 1.5 2009/04/22 21:22:01 dl9sau Exp $ */
 
 extern int ttyfd;
 /*
@@ -17,7 +17,6 @@ extern int ttyfd;
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <limits.h>
 #include <syslog.h>
 
 #ifdef  linux
