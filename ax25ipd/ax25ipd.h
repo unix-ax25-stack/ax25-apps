@@ -58,6 +58,7 @@
 #include	<stdlib.h>
 #include	<string.h>
 #include	<unistd.h>
+#include	<limits.h>
 #include	<arpa/inet.h>
 #include	<netinet/in.h>
 #include	<netinet/in_systm.h>
