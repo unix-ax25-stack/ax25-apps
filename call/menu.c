@@ -62,8 +62,9 @@ void winclose(wint * wtab)
 	awin_lines = awin->lline - awin->fline;
 
 	while (wtab->next != NULL) {
-		if (awin->lline >= wtab->fline
-		    && awin->fline <= wtab->lline) {
+		if (wtab->fline >= 0 && wtab->lline >= 0 &&
+		    awin->lline >= wtab->fline &&
+		    awin->fline <= wtab->lline) {
 			if (wtab->fline <= awin->fline) {
 				if (wtab->lline < awin->lline) {
 					wtouchln(wtab->ptr,
