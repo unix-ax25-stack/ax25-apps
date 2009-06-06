@@ -2074,8 +2074,9 @@ int cmd_call(char *call[], int mode)
 			}
 			if (bytes > 0) {
 				unsigned long offset = 0L;
-				sevenplus = FALSE;
 				int err = 0;
+
+				sevenplus = FALSE;
 				if (uploadfile != -1) {
 					statline(mode,
 						 "Ignored. Type ~s to stop upload");
