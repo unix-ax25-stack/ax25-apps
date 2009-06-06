@@ -1,7 +1,14 @@
+ax25-apps (0.0.8)
+	* Fix numerous build warnings and errors on modern systems.
+	* Switch to more modern autoconf and automake to fix build issues on
+	  many modern systems.
+	* Fix various application crashes.
+	* Support for UNIX98 pseudo terminals.
+	* New option -S to silence call for use in shell scripts.
+
 ax25-apps (0.0.7)
 	* Added opentrac to listen, Thanks to Scott Miller
 	* More autobreak nightmares
-
 
 ax25-apps (0.0.6)
 	* listen can decode INP Packets. Thanks to Jeroen Vreeken
