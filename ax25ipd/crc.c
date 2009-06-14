@@ -70,10 +70,7 @@ static u16 fcstab[256] = {
 /*
  * Calculate a new fcs given the current fcs and the new data.
  */
-u16 pppfcs(fcs, cp, len)
-register u16 fcs;
-register unsigned char *cp;
-register int len;
+u16 pppfcs(register u16 fcs, register unsigned char *cp, register int len)
 {
 /*    ASSERT(sizeof (u16) == 2); */
 /*    ASSERT(((u16) -1) > 0);    */
@@ -94,9 +91,7 @@ register int len;
  */
 
 /* Return the computed CRC */
-unsigned short int compute_crc(buf, l)
-unsigned char *buf;
-int l;
+unsigned short int compute_crc(unsigned char *buf, int l)
 {
 	int fcs;
 
@@ -107,9 +102,7 @@ int l;
 }
 
 /* Return true if the CRC is correct */
-int ok_crc(buf, l)
-unsigned char *buf;
-int l;
+int ok_crc(unsigned char *buf, int l)
 {
 	int fcs;
 
@@ -125,7 +118,7 @@ int l;
  */
 
 #ifdef TEST
-void main()
+void main(int argc, char *argv[])
 {
 	unsigned char buf[258];
 	int l, i;

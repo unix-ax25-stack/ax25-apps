@@ -44,7 +44,7 @@ int param_tbl_top;
  * Initialize the KISS variables
  */
 
-void kiss_init()
+void kiss_init(void)
 {
 	ifptr = iframe;
 	ifcount = 0;
@@ -60,9 +60,7 @@ void kiss_init()
  * frame has been assembled.
  */
 
-void assemble_kiss(buf, l)
-unsigned char *buf;
-int l;
+void assemble_kiss(unsigned char *buf, int l)
 {
 	int i;
 	unsigned char c;
@@ -114,10 +112,7 @@ int l;
 }
 
 /* convert a standard AX25 frame into a kiss frame */
-void send_kiss(type, buf, l)
-unsigned char type;
-unsigned char *buf;
-int l;
+void send_kiss(unsigned char type, unsigned char *buf, int l)
 {
 #define KISSEMIT(x) if(ofcount<MAX_FRAME){*ofptr=(x);ofptr++;ofcount++;}
 
@@ -156,9 +151,7 @@ int l;
 }
 
 /* Add an entry to the parameter table */
-void param_add(p, v)
-int p;
-int v;
+void param_add(int p, int v)
 {
 	if (param_tbl_top >= PTABLE_SIZE) {
 		fprintf(stderr, "param table is full; entry ignored.\n");
@@ -173,7 +166,7 @@ int v;
 }
 
 /* dump the contents of the parameter table */
-void dump_params()
+void dump_params(void)
 {
 	int i;
 
@@ -186,7 +179,7 @@ void dump_params()
 }
 
 /* send the parameters to the TNC */
-void send_params()
+void send_params(void)
 {
 	int i;
 	unsigned char p, v;

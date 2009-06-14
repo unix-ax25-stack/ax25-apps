@@ -92,7 +92,7 @@ int ttyfd_bpq = 0;
  * Initialize the io variables
  */
 
-void io_init()
+void io_init(void)
 {
 
 /*
@@ -140,7 +140,7 @@ void io_init()
  * open and initialize the IO interfaces
  */
 
-void io_open()
+void io_open(void)
 {
 	int baudrate;
 	int i_am_unix98_pty_master = 0; /* unix98 ptmx support */
@@ -329,7 +329,7 @@ behind_normal_tty:
  *  run in a loop, using the select call to handle input.
  */
 
-void io_start() {
+void io_start(void) {
 	int n, nb, hdr_len;
 	fd_set readfds;
 	unsigned char buf[MAX_FRAME];
@@ -455,10 +455,7 @@ out_ttyfd:
 
 /* Send an IP frame */
 
-void send_ip(buf, l, targetip)
-unsigned char *buf;
-int l;
-unsigned char *targetip;
+void send_ip(unsigned char *buf, int l, unsigned char *targetip)
 {
 	int n;
 
@@ -490,9 +487,7 @@ unsigned char *targetip;
 
 /* Send a kiss frame */
 
-void send_tty(buf, l)
-unsigned char *buf;
-int l;
+void send_tty(unsigned char *buf, int l)
 {
 	int n;
 	unsigned char *p;
@@ -535,13 +530,13 @@ int l;
 }
 
 /* process an I/O error; return true if a retry is needed */
-int io_error(oops, buf, bufsize, dir, mode, where)
-int oops;	/* the error flag; < 0 indicates a problem */
-unsigned char *buf;	/* the data in question */
-int bufsize;	/* the size of the data buffer */
-int dir;	/* the direction; input or output */
-int mode;	/* the fd on which we got the error */
-int where;	/* line in the code where this function was called */
+int io_error(
+	int oops,	/* the error flag; < 0 indicates a problem */
+	unsigned char *buf,	/* the data in question */
+	int bufsize,	/* the size of the data buffer */
+	int dir,	/* the direction; input or output */
+	int mode,	/* the fd on which we got the error */
+	int where)	/* line in the code where this function was called */
 {
 
 	/* if (oops >= 0)

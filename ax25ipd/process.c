@@ -37,7 +37,7 @@ int bclen;			/* The size of bcbuf */
  * Initialize the process variables
  */
 
-void process_init()
+void process_init(void)
 {
 	bclen = -1;		/* flag that we need to rebuild the bctext */
 }
@@ -65,9 +65,7 @@ void process_init()
  * the IP interface.
  */
 
-void from_kiss(buf, l)
-unsigned char *buf;
-int l;
+void from_kiss(unsigned char *buf, int l)
 {
 	unsigned char *a, *ipaddr;
 
@@ -148,9 +146,7 @@ int l;
  * We simply send the packet to the KISS send routine.
  */
 
-void from_ip(buf, l)
-unsigned char *buf;
-int l;
+void from_ip(unsigned char *buf, int l)
 {
 	int port = 0;
 	unsigned char *a;
@@ -209,7 +205,7 @@ int l;
  * Send an ID frame out the KISS port.
  */
 
-void do_beacon()
+void do_beacon(void)
 {
 	int i;
 	unsigned char *p;
@@ -255,8 +251,7 @@ void do_beacon()
  * return true if the addresses supplied match
  * modified for wildcarding by vk5xxx
  */
-int addrmatch(a, b)
-unsigned char *a, *b;
+int addrmatch(unsigned char *a, unsigned char *b)
 {
 	if ((*a == '\0') || (*b == '\0'))
 		return 0;
@@ -284,8 +279,7 @@ unsigned char *a, *b;
 /*
  * return pointer to the next station to get this packet
  */
-unsigned char *next_addr(f)
-unsigned char *f;
+unsigned char *next_addr(unsigned char *f)
 {
 	unsigned char *a;
 
@@ -310,9 +304,7 @@ unsigned char *f;
  * tack on the CRC for the frame.  Note we assume the buffer is long
  * enough to have the two bytes tacked on.
  */
-void add_crc(buf, l)
-unsigned char *buf;
-int l;
+void add_crc(unsigned char *buf, int l)
 {
 	unsigned short int u;
 
@@ -324,10 +316,7 @@ int l;
 /*
  * Dump AX25 frame.
  */
-void dump_ax25frame(t, buf, l)
-unsigned char *buf;
-char *t;
-int l;
+void dump_ax25frame(char *t, unsigned char *buf, int l)
 {
 #ifdef DEBUG
 	int i;
