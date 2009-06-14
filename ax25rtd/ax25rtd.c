@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.c,v 1.5 2006/10/05 11:50:39 dl9sau Exp $
+/* $Id: ax25rtd.c,v 1.6 2009/06/14 16:25:33 ralf Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -66,7 +66,7 @@
 #include "../pathnames.h"
 #include "ax25rtd.h"
 
-const char *Version = "ax25rtd $Revision: 1.5 $";
+const char *Version = "ax25rtd $Revision: 1.6 $";
 config *Config = NULL;
 
 int reload = 0;
@@ -137,8 +137,8 @@ void daemon_shutdown(int reason)
 int main(int argc, char **argv)
 {
 	unsigned char buf[256];
-	int size, s;
-	int cntrl_s, cntrl_fd, cntrl_len;
+	int size, s, cntrl_s, cntrl_fd;
+	socklen_t cntrl_len;
 	struct sockaddr_un cntrl_addr;
 	fd_set read_fds, write_fds;
 	int fd_max;

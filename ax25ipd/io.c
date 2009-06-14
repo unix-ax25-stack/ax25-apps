@@ -65,7 +65,7 @@ int icmpsock = -1;
 struct sockaddr_in udpbind;
 struct sockaddr_in to;
 struct sockaddr_in from;
-int fromlen;
+socklen_t fromlen;
 
 time_t last_bc_time;
 
