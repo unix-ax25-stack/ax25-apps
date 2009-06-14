@@ -1,4 +1,4 @@
-/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/nrdump.c,v 1.3 2001/11/27 04:57:43 csmall Exp $ */
+/* @(#) $Header: /home/ax25-cvs/ax25-apps/listen/nrdump.c,v 1.4 2009/06/14 08:48:52 ralf Exp $ */
 
 /* NET/ROM header tracing routines
  * Copyright 1991 Phil Karn, KA9Q
@@ -74,7 +74,7 @@ static void netrom_inp_dump(unsigned char *data, int length)
 void netrom_dump(unsigned char *data, int length, int hexdump, int type)
 {
 	char tmp[15];
-	register int i;
+	int i;
 
 	/* See if it is a routing broadcast */
 	if (data[0] == NR3NODESIG) {
