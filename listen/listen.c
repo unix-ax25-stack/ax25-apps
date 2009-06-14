@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 	int s;
 	char *port = NULL, *dev = NULL;
 	struct sockaddr sa;
-	int asize = sizeof(sa);
+	socklen_t asize = sizeof(sa);
 	struct ifreq ifr;
 	int proto = ETH_P_AX25;
 

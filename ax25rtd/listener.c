@@ -1,4 +1,4 @@
-/* $Id: listener.c,v 1.5 2006/10/05 11:50:39 dl9sau Exp $
+/* $Id: listener.c,v 1.6 2009/06/14 16:25:33 ralf Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -394,10 +394,11 @@ void ax25_receive(int sock)
 	struct sockaddr sa;
 	ax25_address srccall, destcall, digipeater[AX25_MAX_DIGIS];
 	char extseq = 0;
-	int size, asize, action, ipmode, ctl, pid, ndigi, kdigi, mine;
+	int size, action, ipmode, ctl, pid, ndigi, kdigi, mine;
 	time_t stamp;
 	config *config;
 	ax25_rt_entry *ax25rt;
+	socklen_t asize;
 
 	asize = sizeof(sa);
 	if ((size = recvfrom(sock, buf, sizeof(buf), 0, &sa, &asize)) < 0) {

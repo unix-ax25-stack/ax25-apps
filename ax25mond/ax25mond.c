@@ -68,7 +68,7 @@ char sock_filename[MAX_SOCKETS][100];
 int sock_num = 0;
 int conn_list[MAX_CONNECTS];
 struct sockaddr conn_addr[MAX_CONNECTS];
-int conn_addrlen[MAX_CONNECTS];
+socklen_t conn_addrlen[MAX_CONNECTS];
 char conn_monmode[MAX_CONNECTS];
 int conn_num = 0;
 int highest_sock_fd;
@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
 	fd_set monavail;
 	int monrx_fd, monrxtx_fd;
 	struct sockaddr monfrom;
-	int monfromlen;
+	socklen_t monfromlen;
 	fd_set conn_request;
 	struct timeval tv;
 	char buf[500];
