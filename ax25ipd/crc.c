@@ -70,7 +70,7 @@ static u16 fcstab[256] = {
 /*
  * Calculate a new fcs given the current fcs and the new data.
  */
-u16 pppfcs(register u16 fcs, register unsigned char *cp, register int len)
+u16 pppfcs(u16 fcs, unsigned char *cp, int len)
 {
 /*    ASSERT(sizeof (u16) == 2); */
 /*    ASSERT(((u16) -1) > 0);    */

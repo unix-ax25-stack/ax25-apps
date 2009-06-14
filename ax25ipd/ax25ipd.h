@@ -169,7 +169,7 @@ int io_error(int, unsigned char *, int, int, int, int);
 
 /* crc.c */
 unsigned short int compute_crc(unsigned char *, int);
-unsigned short int pppfcs(register unsigned short, register unsigned char *, register int);
+unsigned short int pppfcs(unsigned short, unsigned char *, int);
 unsigned short int compute_crc(unsigned char *, int);
 int ok_crc(unsigned char *, int);
 
