@@ -189,7 +189,7 @@ void add_socket(char *sockname, char monmode)
 
 /*--------------------------------------------------------------------------*/
 
-void close_sockets()
+void close_sockets(void)
 {
 	int i;
 

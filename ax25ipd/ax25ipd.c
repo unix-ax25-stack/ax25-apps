@@ -170,7 +170,7 @@ int main(int argc, char **argv)
 }
 
 
-void greet_world()
+void greet_world(void)
 {
 	printf("\nax25ipd %s / %s\n", VERS2, VERSION);
 	printf
@@ -180,7 +180,7 @@ void greet_world()
 	fflush(stdout);
 }
 
-void do_stats()
+void do_stats(void)
 {
 	int save_loglevel;
 

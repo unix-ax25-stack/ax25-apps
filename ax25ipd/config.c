@@ -24,7 +24,7 @@
 #include "ax25ipd.h"
 
 /* Initialize the config table */
-void config_init()
+void config_init(void)
 {
 	int i;
 
@@ -69,8 +69,7 @@ void config_init()
 
 /* Open and read the config file */
 
-void config_read(f)
-char *f;
+void config_read(char *f)
 {
 	FILE *cf;
 	char buf[256], cbuf[256];
@@ -152,8 +151,7 @@ char *f;
 }
 
 /* Process each line from the config file.  The return value is encoded. */
-int parse_line(buf)
-char *buf;
+int parse_line(char *buf)
 {
 	char *p, *q;
 	unsigned char tcall[7], tip[4];
@@ -366,9 +364,7 @@ char *buf;
 }
 
 /* Convert ascii callsign to internal format */
-int a_to_call(text, tcall)
-char *text;
-unsigned char *tcall;
+int a_to_call(char *text, unsigned char *tcall)
 {
 	int i;
 	int ssid;
@@ -402,8 +398,7 @@ unsigned char *tcall;
 }
 
 /* Convert internal callsign to printable format */
-char *call_to_a(tcall)
-unsigned char *tcall;
+char *call_to_a(unsigned char *tcall)
 {
 	int i;
 	int ssid;
@@ -435,7 +430,7 @@ unsigned char *tcall;
 }
 
 /* print the configuration data out */
-void dump_config()
+void dump_config(void)
 {
 	LOGL1("\nCurrent configuration:\n");
 	if (ip_mode)

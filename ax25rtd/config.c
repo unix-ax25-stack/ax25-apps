@@ -1,4 +1,4 @@
-/* $Id: config.c,v 1.4 2006/10/05 11:50:39 dl9sau Exp $
+/* $Id: config.c,v 1.5 2009/06/14 08:08:26 ralf Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -267,7 +267,7 @@ void load_listeners(void)
 	fclose(fp);
 }
 
-void load_config()
+void load_config(void)
 {
 	FILE *fp;
 	char buf[1024], *p, *cmd, *arg;

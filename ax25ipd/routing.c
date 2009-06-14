@@ -39,7 +39,7 @@ struct bcast_table_entry {
 struct bcast_table_entry *bcast_tbl;
 
 /* Initialize the routing module */
-void route_init()
+void route_init(void)
 {
 	route_tbl = NULL;
 	default_route = NULL;
@@ -47,11 +47,8 @@ void route_init()
 }
 
 /* Add a new route entry */
-void route_add(ip, call, udpport, flags)
-unsigned char *ip;
-unsigned char *call;
-int udpport;
-unsigned int flags;
+void route_add(unsigned char *ip, unsigned char *call, int udpport,
+	unsigned int flags)
 {
 	struct route_table_entry *rl, *rn;
 	int i;
@@ -104,8 +101,7 @@ unsigned int flags;
 }
 
 /* Add a new broadcast address entry */
-void bcast_add(call)
-unsigned char *call;
+void bcast_add(unsigned char *call)
 {
 	struct bcast_table_entry *bl, *bn;
 	int i;
@@ -145,8 +141,7 @@ unsigned char *call;
  * immediately following the IP address. (UGLY coding; to be fixed later!)
  */
 
-unsigned char *call_to_ip(call)
-unsigned char *call;
+unsigned char *call_to_ip(unsigned char *call)
 {
 	struct route_table_entry *rp;
 	unsigned char mycall[7];
@@ -192,8 +187,7 @@ unsigned char *call;
  * Accept a callsign and return true if it is a broadcast address, or false
  * if it is not found on the list
  */
-int is_call_bcast(call)
-unsigned char *call;
+int is_call_bcast(unsigned char *call)
 {
 	struct bcast_table_entry *bp;
 	unsigned char bccall[7];
@@ -222,9 +216,7 @@ unsigned char *call;
 }
 
 /* Traverse the routing table, transmitting the packet to each bcast route */
-void send_broadcast(buf, l)
-unsigned char *buf;
-int l;
+void send_broadcast(unsigned char *buf, int l)
 {
 	struct route_table_entry *rp;
 
@@ -238,7 +230,7 @@ int l;
 }
 
 /* print out the list of routes */
-void dump_routes()
+void dump_routes(void)
 {
 	struct route_table_entry *rp;
 	int i;
