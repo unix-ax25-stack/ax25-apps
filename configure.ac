@@ -1,7 +1,6 @@
 AC_PREREQ(2.59)
 AC_INIT(ax25-apps, 0.0.8-rc1, linux-hams@vger.kernel.org)
 AC_CONFIG_SRCDIR(ax25ipd/config.c)
-AC_CONFIG_MACRO_DIR([m4]
 AM_INIT_AUTOMAKE
 
 AM_CONFIG_HEADER(config.h)
