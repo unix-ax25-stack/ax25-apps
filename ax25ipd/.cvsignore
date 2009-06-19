@@ -2,3 +2,4 @@ ax25ipd
 .libs
 .deps
 Makefile
+Makefile.in
