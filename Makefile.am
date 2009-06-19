@@ -1,7 +1,8 @@
+ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = ax25ipd ax25rtd call listen ax25mond
 
-EXTRA_DIST = pathnames.h autogen.sh
+EXTRA_DIST = pathnames.h
 
 installconf:
 	@for app in $(SUBDIRS); do $(MAKE) -C $$app installconf; done
