@@ -20,30 +20,17 @@ AC_CHECK_LIB(ax25, ax25_config_load_ports, AX25_LIB="-lax25", AC_MSG_ERROR(Could
 AC_CHECK_LIB(ncurses, initscr,NCURSES_LIB="-lncurses",NCURSES_LIB=)
 
 dnl Checks for working glibc 2.1 headers
-AC_MSG_CHECKING(for working netax25/ax25.h header file)
-AC_EGREP_HEADER(ax25_fwd_struct, netax25/ax25.h, has_ax25=yes, has_ax25=no)
-if test "$has_ax25" = "yes" ; then
-  AC_DEFINE(HAVE_NETAX25_AX25_H, 1, [Define if you have a proper netax25/ax25.h header file.])
-  AC_MSG_RESULT(yes)
-else
-  AC_MSG_RESULT(no)
-fi
-AC_MSG_CHECKING(for working netrom/netrom.h header file)
-AC_EGREP_HEADER(unsigned int ndigis, netrom/netrom.h, has_netrom=yes, has_netrom=no)
-if test "$has_netrom" = "yes" ; then
-  AC_DEFINE(HAVE_NETROM_NETROM_H, 1, [Define if you have a proper netrom/netrom.h header file.])
-  AC_MSG_RESULT(yes)
-else
-  AC_MSG_RESULT(no)
-fi
-AC_MSG_CHECKING(for working netrose/rose.h header file)
-AC_EGREP_HEADER(rose_facilities_struct, netrose/rose.h, has_rose=yes, has_rose=no)
-if test "$has_rose" = "yes" ; then
-  AC_DEFINE(HAVE_NETROSE_ROSE_H, 1, [Define if you have a proper netrose/rose.h header file.])
-  AC_MSG_RESULT(yes)
-else
-  AC_MSG_RESULT(no)
-fi
+AC_CHECK_TYPES([struct ax25_fwd_struct], [],
+	[AC_MSG_ERROR([Both glibc and libax25 are too old or both installed])],
+	[[#include <netax25/ax25.h>]])
+AC_CHECK_MEMBER([struct nr_route_struct.ndigis], [],
+	[AC_MSG_ERROR([Both glibc and libax25 are too old or both installed])],
+	[[#include <netrom/netrom.h>]])
+AC_CHECK_TYPES([struct rose_facilities_struct], [],
+	[AC_MSG_ERROR([Both glibc and libax25 are too old or both installed])],
+	[[#include <netax25/ax25.h>     /* Or <netrose/rose.h> will blow up */
+	#include <netrose/rose.h>
+	]])
 
 dnl Checks for header files.
 AC_HEADER_DIRENT

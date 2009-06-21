@@ -1,4 +1,4 @@
-/* $Id: config.c,v 1.5 2009/06/14 08:08:26 ralf Exp $
+/* $Id: config.c,v 1.6 2009/06/21 18:01:57 ralf Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -38,8 +38,8 @@
 #include <net/if_arp.h>
 
 #include <config.h>
-#include <netax25/kernel_ax25.h>
-#include <netax25/kernel_rose.h>
+#include <netax25/ax25.h>
+#include <netrose/rose.h>
 #include <netax25/axlib.h>
 #include <netax25/axconfig.h>
 

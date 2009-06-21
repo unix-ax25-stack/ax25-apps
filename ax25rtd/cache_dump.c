@@ -1,4 +1,4 @@
-/* $Id: cache_dump.c,v 1.2 2001/09/12 13:18:43 terry Exp $
+/* $Id: cache_dump.c,v 1.3 2009/06/21 18:01:57 ralf Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -27,16 +27,8 @@
 #include <sys/socket.h>
 
 #include <config.h>
-#ifdef HAVE_NETAX25_AX25_H
 #include <netax25/ax25.h>
-#else
-#include <netax25/kernel_ax25.h>
-#endif
-#ifdef HAVE_NETROSE_ROSE_H
 #include <netrose/rose.h>
-#else
-#include <netax25/kernel_rose.h>
-#endif
 #include <netax25/axlib.h>
 
 #include "ax25rtd.h"
