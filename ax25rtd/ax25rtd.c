@@ -1,4 +1,4 @@
-/* $Id: ax25rtd.c,v 1.6 2009/06/14 16:25:33 ralf Exp $
+/* $Id: ax25rtd.c,v 1.7 2009/06/21 18:01:57 ralf Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -50,23 +50,15 @@
 #include <linux/if_ether.h>
 #endif
 
-#ifdef HAVE_NETAX25_AX25_H
 #include <netax25/ax25.h>
-#else
-#include <netax25/kernel_ax25.h>
-#endif
-#ifdef HAVE_NETROSE_ROSE_H
 #include <netrose/rose.h>
-#else
-#include <netax25/kernel_rose.h>
-#endif
 #include <netax25/axconfig.h>
 #include <netax25/axlib.h>
 
 #include "../pathnames.h"
 #include "ax25rtd.h"
 
-const char *Version = "ax25rtd $Revision: 1.6 $";
+const char *Version = "ax25rtd $Revision: 1.7 $";
 config *Config = NULL;
 
 int reload = 0;

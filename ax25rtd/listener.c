@@ -1,4 +1,4 @@
-/* $Id: listener.c,v 1.6 2009/06/14 16:25:33 ralf Exp $
+/* $Id: listener.c,v 1.7 2009/06/21 18:01:57 ralf Exp $
  *
  * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
  *
@@ -39,11 +39,7 @@
 #include <net/if.h>
 #include <net/if_arp.h>
 
-#ifdef HAVE_NETAX25_AX25_H
 #include <netax25/ax25.h>
-#else
-#include <netax25/kernel_ax25.h>
-#endif
 
 #include "../pathnames.h"
 #include "ax25rtd.h"
