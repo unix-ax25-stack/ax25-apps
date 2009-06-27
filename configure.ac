@@ -60,5 +60,6 @@ if test "x$GCC" = "xyes"; then
   fi
 fi
 
-AC_OUTPUT(call/Makefile ax25ipd/Makefile listen/Makefile Makefile ax25rtd/Makefile ax25mond/Makefile)
+AC_CONFIG_FILES([call/Makefile ax25ipd/Makefile listen/Makefile Makefile ax25rtd/Makefile ax25mond/Makefile])
+AC_OUTPUT
 
