@@ -1,6 +1,6 @@
-/* $Id: ax25rtctl.c,v 1.3 2002/03/04 01:43:49 csmall Exp $
+/* $Id: ax25rtctl.c,v 1.4 2009/06/27 22:30:23 ralf Exp $
  *
- * Copyright (c) 1996 Jörg Reuter (jreuter@poboxes.com)
+ * Copyright (c) 1996 Joerg Reuter (jreuter@poboxes.com)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -251,7 +251,7 @@ static void Version(void)
 	int sock;
 	char buf[256];
 
-	printf("ax25rtctl $Revision: 1.3 $\n");
+	printf("ax25rtctl $Revision: 1.4 $\n");
 	sock = open_socket();
 	wsock(sock, "version\n");
 	read(sock, buf, sizeof(buf));
