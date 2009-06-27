@@ -5,6 +5,7 @@ ax25-apps (0.0.8)
 	* Fix various application crashes.
 	* Support for UNIX98 pseudo terminals.
 	* New option -S to silence call for use in shell scripts.
+	* Add support for building rpm packages.
 
 ax25-apps (0.0.7)
 	* Added opentrac to listen, Thanks to Scott Miller
