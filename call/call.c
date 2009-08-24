@@ -83,6 +83,10 @@ int interrupted = FALSE;
 int paclen = 0;
 int fd;
 
+int wait_for_remote_disconnect = FALSE;
+static struct timeval inactivity_timeout;
+int inactivity_timeout_is_set = FALSE;
+
 #define GP_FILENAME_SIZE	255
 typedef struct {
 	char file_name[GP_FILENAME_SIZE];
@@ -109,7 +113,7 @@ typedef struct {
 
 void usage(void)
 {
-	fprintf(stderr, "usage: call [-b l|e] [-d] [-h] [-m s|e] [-p paclen] [-r] [-s mycall] [-t] [-v] [-w window] port callsign [[via] digipeaters...]\n");
+	fprintf(stderr, "usage: call [-b l|e] [-d] [-h] [-m s|e] [-p paclen] [-r] [-s mycall] [-t] [-T timeout] [-v] [-w window] [-W] port callsign [[via] digipeaters...]\n");
 	exit(1);
 }
 
@@ -1537,6 +1541,7 @@ int cmd_call(char *call[], int mode)
 	int crc = 0;
 	char s[80];
 	int flags = 0;
+	int EOF_on_STDIN = FALSE;
 
 	init_crc();
 
@@ -1575,29 +1580,43 @@ int cmd_call(char *call[], int mode)
 
 	while (TRUE) {
 		struct timeval tv;
-		tv.tv_sec = 0;
-		tv.tv_usec = 10;
-
+		if (inactivity_timeout_is_set == TRUE && uploadfile == -1 && downloadfile == -1) {
+			tv.tv_sec = inactivity_timeout.tv_sec;
+			tv.tv_usec = inactivity_timeout.tv_usec;
+		} else {
+			tv.tv_sec = 0;
+			tv.tv_usec = 10;
+		}
 		FD_ZERO(&sock_read);
-		FD_SET(STDIN_FILENO, &sock_read);
+		if (EOF_on_STDIN == FALSE)
+			FD_SET(STDIN_FILENO, &sock_read);
 		FD_SET(fd, &sock_read);
 		FD_ZERO(&sock_write);
 
 		if (uploadfile != -1)
 			FD_SET(fd, &sock_write);
 
-		if (select(fd + 1, &sock_read, &sock_write, NULL, (uploadfile == -1 && downloadfile == -1) ? NULL : &tv) == -1) {
-			if (!interrupted && errno == EAGAIN)
+		if (select(fd + 1, &sock_read, &sock_write, NULL, (uploadfile == -1 && downloadfile == -1 && inactivity_timeout_is_set == FALSE) ? NULL : &tv) == -1) {
+			if (!interrupted && errno == EAGAIN) {
+				usleep(100000);
 				continue;
+			}
 			if (!interrupted)
 				perror("select");
+			break;
+		}
+		if (inactivity_timeout_is_set == TRUE && !FD_ISSET(fd, &sock_read) && !FD_ISSET(STDIN_FILENO, &sock_read)) {
+			if (!be_silent) {
+				printf("*** Inactivity timeout reached. Terminating..\n");
+				fflush(stdout);
+			}
 			break;
 		}
 		if (FD_ISSET(fd, &sock_read)) {
 			/* bytes = read(fd, buf, 511); */
 			bytes = read(fd, buf, sizeof(buf));
 			if (bytes == 0) {
-				/* read EOF on stdin */
+				/* read EOF on connection */
 				/* cause program to terminate */
 				flags &= ~FLAG_RECONNECT;
 				break;
@@ -2053,14 +2072,22 @@ int cmd_call(char *call[], int mode)
 			}
 			/* if (bytes == -1 && errno != EWOULDBLOCK && errno != EAGAIN) */
 			/* if ((bytes == 0 && (mode & (TALKMODE|SLAVEMODE)) == 0) || (bytes == -1 && errno != EWOULDBLOCK && errno != EAGAIN)) */
-			if (interrupted
-			    || (bytes == -1 && errno != EWOULDBLOCK
-				&& errno != EAGAIN)) {
-				if (!interrupted)
-					perror("input");
+
+			if (interrupted)
 				break;
-			}
-			if (bytes > 0) {
+			if (bytes == -1) {
+				if (errno != EWOULDBLOCK && errno != EAGAIN) {
+					perror("input");
+					EOF_on_STDIN = TRUE;
+				}
+				usleep(100);
+			} else if (bytes == 0) {
+				/* select() indicated that there is data to
+                                 * read, but read() returned 0 bytes.
+                                 * -> terminate normaly
+                                 */
+				EOF_on_STDIN = TRUE;
+			} else if (bytes > 0) {
 				unsigned long offset = 0L;
 				int err = 0;
 
@@ -2089,6 +2116,8 @@ int cmd_call(char *call[], int mode)
 				if (err)
 					break;
 			}
+			if (EOF_on_STDIN == TRUE && wait_for_remote_disconnect == FALSE)
+				break;
 		}
 		if (uploadfile != -1) {
 			if (uplsize == 0) {
@@ -2203,7 +2232,7 @@ int main(int argc, char **argv)
 
  	setlinebuf(stdin);
 
-	while ((p = getopt(argc, argv, "b:dhm:p:rs:Stvw:")) != -1) {
+	while ((p = getopt(argc, argv, "b:dhm:p:rs:StT:vw:W")) != -1) {
 		switch (p) {
 		case 'b':
 			if (*optarg != 'e' && *optarg != 'l') {
@@ -2248,6 +2277,17 @@ int main(int argc, char **argv)
 		case 'S':
 			be_silent = 1;
 			break;
+		case 'T':
+			{ double f = atof(optarg);
+			  inactivity_timeout.tv_sec = ((time_t) f) & 0x7fffffff;
+			  inactivity_timeout.tv_usec = (time_t ) (f - (double ) (time_t ) f);
+			  if (f < 0.001 || f > (double) (0x7fffffff) || (inactivity_timeout.tv_sec == 0 && inactivity_timeout.tv_usec == 0)) {
+			  	fprintf(stderr, "call: option '-T' must be > 0.001 (1ms) and < 69 years\n");
+				return 1;
+			  }
+			  inactivity_timeout_is_set = TRUE;
+			}
+			break;
 		case 't':
 			mode = TALKMODE;
 			break;
@@ -2273,6 +2313,9 @@ int main(int argc, char **argv)
 					return 1;
 				}
 			}
+			break;
+		case 'W':
+			wait_for_remote_disconnect = TRUE;
 			break;
 		case '?':
 		case ':':
