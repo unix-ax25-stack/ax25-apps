@@ -71,6 +71,10 @@ Specify a specific maximum amount of data to be sent in each AX.25 packet.
 .BI "\-s mycall"
 Connect using the specified source call (you may need to be root).
 .TP 10
+.BI \-R
+Disable all remote commands like autobin (#BIN#), 7plus downloads, //echo, etc.
+This is useful for scripting where you just don't like the remote site to trigger uncaught conditions here.
+.TP 10
 .BI \-S
 Be silent. Useful for using call in shellscripts (together with option \-r) in order to be really transparent.
 .TP 10
