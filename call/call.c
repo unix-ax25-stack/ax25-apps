@@ -86,6 +86,7 @@ int fd;
 int wait_for_remote_disconnect = FALSE;
 static struct timeval inactivity_timeout;
 int inactivity_timeout_is_set = FALSE;
+int remote_commands_enabled = TRUE;
 
 #define GP_FILENAME_SIZE	255
 typedef struct {
@@ -113,7 +114,9 @@ typedef struct {
 
 void usage(void)
 {
-	fprintf(stderr, "usage: call [-b l|e] [-d] [-h] [-m s|e] [-p paclen] [-r] [-s mycall] [-t] [-T timeout] [-v] [-w window] [-W] port callsign [[via] digipeaters...]\n");
+	fprintf(stderr, "usage: call [-b l|e] [-d] [-h] [-m s|e] [-p paclen] [-r] [-R]\n");
+	fprintf(stderr, "            [-s mycall] [-t] [-T timeout] [-v] [-w window] [-W]\n");
+	fprintf(stderr, "            port callsign [[via] digipeaters...]\n");
 	exit(1);
 }
 
@@ -122,6 +125,10 @@ const char *key_words[] = { "//",
 	"#BIN#",
 	" go_7+. ",
 	" stop_7+. ",
+	"\0"
+};
+const char *rkey_words[] = {
+	// actually restricted keywords are very restrictive
 	"\0"
 };
 #define MAXCMDLEN 10
@@ -268,6 +275,7 @@ static int connect_to(char *address[])
 		     sizeof(window)) == -1) {
 			perror("AX25_WINDOW");
 			close(fd);
+			fd = -1;
 			return (-1);
 		}
 		if (setsockopt
@@ -275,6 +283,7 @@ static int connect_to(char *address[])
 		     sizeof(paclen)) == -1) {
 			perror("AX25_PACLEN");
 			close(fd);
+			fd = -1;
 			return (-1);
 		}
 		if (backoff != -1) {
@@ -283,6 +292,7 @@ static int connect_to(char *address[])
 			     sizeof(backoff)) == -1) {
 				perror("AX25_BACKOFF");
 				close(fd);
+				fd = -1;
 				return (-1);
 			}
 		}
@@ -292,6 +302,7 @@ static int connect_to(char *address[])
 			     sizeof(ax25mode)) == -1) {
 				perror("AX25_EXTSEQ");
 				close(fd);
+				fd = -1;
 				return (-1);
 			}
 		}
@@ -303,12 +314,14 @@ static int connect_to(char *address[])
 			  sizeof(one)) == -1) {
 		perror("SO_DEBUG");
 		close(fd);
+		fd = -1;
 		return (-1);
 	}
 	if (af_mode != AF_ROSE) {	/* Let Rose autobind */
 		if (bind(fd, (struct sockaddr *) &sockaddr, addrlen) == -1) {
 			perror("bind");
 			close(fd);
+			fd = -1;
 			return (-1);
 		}
 	}
@@ -320,12 +333,14 @@ static int connect_to(char *address[])
 		    (address[0],
 		     sockaddr.rose.srose_call.ax25_call) == -1) {
 			close(fd);
+			fd = -1;
 			return (-1);
 		}
 		if (rose_aton
 		    (address[1],
 		     sockaddr.rose.srose_addr.rose_addr) == -1) {
 			close(fd);
+			fd = -1;
 			return (-1);
 		}
 		if (address[2] != NULL) {
@@ -335,6 +350,7 @@ static int connect_to(char *address[])
 					fprintf(stderr,
 						"call: callsign must follow 'via'\n");
 					close(fd);
+					fd = -1;
 					return (-1);
 				}
 				digi = address[3];
@@ -343,6 +359,7 @@ static int connect_to(char *address[])
 			    (digi,
 			     sockaddr.rose.srose_digi.ax25_call) == -1) {
 				close(fd);
+				fd = -1;
 				return (-1);
 			}
 			sockaddr.rose.srose_ndigis = 1;
@@ -354,6 +371,7 @@ static int connect_to(char *address[])
 	case AF_NETROM:
 		if (nr_convert_call(address[0], &sockaddr.ax25) == -1) {
 			close(fd);
+			fd = -1;
 			return (-1);
 		}
 		sockaddr.rose.srose_family = AF_NETROM;
@@ -364,6 +382,7 @@ static int connect_to(char *address[])
 		if (ax25_aton_arglist
 		    ((const char **) address, &sockaddr.ax25) == -1) {
 			close(fd);
+			fd = -1;
 			return (-1);
 		}
 		sockaddr.rose.srose_family = AF_AX25;
@@ -381,6 +400,7 @@ static int connect_to(char *address[])
 		fflush(stdout);
 		perror("connect");
 		close(fd);
+		fd = -1;
 		return (-1);
 	}
 	if (!be_silent) {
@@ -644,14 +664,16 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		statline(mode, s);
 		if (write(fd, "#ABORT#\r", 8) == -1) {
 			perror("write");
-			gp->dwn_cnt = 0;
-			gp->file_name[0] = '\0';
-			return -1;
 		}
+		gp->dwn_cnt = 0;
+		gp->file_name[0] = '\0';
+		return -1;
 	}
 	if (bytes == 1) {
 		if (write(fd, "#OK#\r", 5) == -1) {
 			perror("write");
+			close(gp->dwn_file);
+			gp->dwn_file = -1;
 			gp->dwn_cnt = 0;
 			gp->file_name[0] = '\0';
 			return -1;
@@ -661,10 +683,26 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		unsigned long offset = 0L;
 		while (offset != bytes) {
 			int ret = write(gp->dwn_file, buf+offset, bytes-offset);
-			if (ret == -1)
-				continue;
-			if (ret == 0)
+			if (ret == -1) {
+				perror("write");
+			    	if (errno == EWOULDBLOCK || errno == EAGAIN) {
+		 			usleep(100000);
+					continue;
+				}
+				close(gp->dwn_file);
+				gp->dwn_file = -1;
+				gp->dwn_cnt = 0;
+				gp->file_name[0] = '\0';
+				return -1;
+			}
+			if (ret == 0) {
+				close(gp->dwn_file);
+				gp->dwn_file = -1;
+				gp->dwn_cnt = 0;
+				gp->file_name[0] = '\0';
+				return -1;
 				break;
+			}
 		  	gp->calc_crc = calc_crc((unsigned char *) buf, ret, 0);
 		  	gp->dwn_cnt -= ret;
 		  	offset += ret;
@@ -683,7 +721,9 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], int *bytes,
 	if (*bytes == 8 && strncmp(buf, "#ABORT#\r", 8) == 0) {
 		gp->dwn_cnt = 0;
 		close(gp->dwn_file);
+		gp->dwn_file = -1;
 		statline(mode, "Remote aborts AutoBin transfer!");
+		gp->file_name[0] = '\0';
 		*bytes = 0;
 		if (mode != RAWMODE) {
 			delwin(swin);
@@ -701,7 +741,9 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], int *bytes,
 	}
 	if (write(gp->dwn_file, buf, *bytes) != *bytes) {
 		close(gp->dwn_file);
+		gp->dwn_file = -1;
 		gp->dwn_cnt = 0;
+		gp->file_name[0] = '\0';
 		statline(mode,
 			 "Error while writing download file. Download aborted.");
 
@@ -737,7 +779,9 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], int *bytes,
 			}
 			statline(mode, s);
 			close(gp->dwn_file);
+			gp->dwn_file = -1;
 			utime(gp->file_name, &gp->ut);
+		        gp->file_name[0] = '\0';
 			if (extrach != 0) {
 				memmove(buf, buf + *bytes, extrach);
 				*bytes = extrach;
@@ -895,7 +939,13 @@ void writeincom(int mode, t_win * win_in, unsigned char buf[], int bytes)
 	int cnt;
 
 	if (mode & RAWMODE) {
-		write(STDOUT_FILENO, buf, bytes);
+		while (write(STDOUT_FILENO, buf, bytes) == -1) {
+			if (errno == EWOULDBLOCK || errno == EAGAIN) {
+				usleep(100000);
+				continue;
+			}
+			exit(1);
+		}
 		return;
 	}
 	for (cnt = 0; cnt < bytes; cnt++) {
@@ -1293,10 +1343,12 @@ int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
 	static char cmpstr[MAX_CMPSTRLEN];
 	static int cmpstrbyte = 0;
 	static int command = -1;
+        const char **pkey_words = remote_commands_enabled ? key_words : rkey_words;
 
 	int cmdstpos = 0;
 	int cnt = 0;
 	int t = 0;
+
 
 	if (cmpstrbyte != 0) {
 		memmove(buf + cmpstrbyte, buf, *bytes);
@@ -1319,13 +1371,14 @@ int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
 			command = 0;
 			cmdstpos = cnt;
 
-			do {
+			t = -1;
+			while (*pkey_words[command] != '\0') {
 				if ((t =
-				     compstr(key_words[command], &buf[cnt],
+				     compstr(pkey_words[command], &buf[cnt],
 					     *bytes - cnt)) != -1)
 					break;
+				command++;
 			}
-			while (*key_words[++command] != '\0');
 
 			for (; !eol(buf[cnt]) && cnt < *bytes - 1; cnt++);
 
@@ -1333,8 +1386,8 @@ int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
 				cnt++;
 			else
 				break;
-		}
-		while (t == -1);
+		} while (t == -1);
+
 		if (t < 0)
 			command = -1;
 	}
@@ -1354,7 +1407,7 @@ int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
 		*restbytes = 0;
 		return -1;
 	}
-	t = cmdstpos + strlen(key_words[command]);
+	t = cmdstpos + strlen(pkey_words[command]);
 	*restbytes = *bytes - cnt;
 	strncpy(parms, &buf[t], cnt - t);
 	*parmsbytes = cnt - t;
@@ -1442,10 +1495,12 @@ int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
 
 	if (*f != -1) {
 		close(*f);
+		*f = -1;
 	}
 	if ((*f = open(strn, O_RDWR | O_APPEND | O_CREAT, 0666)) == -1) {
 		sprintf(s, "Unable to open %s", strn);
 		statline(mode, s);
+		return -1;
 	} else if (*logfile != -1) {
 		sprintf(s, "*** 7plus download into file: %s ***\n", strn);
 		write(*logfile, s, strlen(s));
@@ -1760,6 +1815,20 @@ int cmd_call(char *call[], int mode)
 			if ((mode & RAWMODE) == RAWMODE) {
 				/* bytes = read(STDIN_FILENO, buf, 511); */
 				bytes = read(STDIN_FILENO, buf, paclen);
+				/* bytes == 0? select() indicated that there
+				 * is data to read, but read() returned 0
+				 * bytes. -> terminate normaly
+                                 */
+				if (bytes == 0)
+					EOF_on_STDIN = TRUE;
+				else if (bytes == -1) {
+					if (errno == EWOULDBLOCK || errno == EAGAIN) {
+						usleep(100);
+					} else {
+						perror("input");
+						EOF_on_STDIN = TRUE;
+					}
+				}
 			} else {
 				bytes =
 				    readoutg(&win_out, &wintab, top, buf,
@@ -1787,19 +1856,19 @@ int cmd_call(char *call[], int mode)
 					break;
 				case '!':
 					change_mode(mode, RAWMODE, &wintab,
-						    &win_in, &win_out,
-						    call);
+							&win_in, &win_out,
+							call);
 					if (buf[2] != '\0'
-					    && buf[2] != '\n') {
+							&& buf[2] != '\n') {
 						c = buf + 2;
 						if ((t =
-						     strchr(c,
-							    '\n')) != NULL)
+									strchr(c,
+										'\n')) != NULL)
 							*t = '\0';
 					} else {
 						if ((c =
-						     getenv("SHELL")) ==
-						    NULL)
+									getenv("SHELL")) ==
+								NULL)
 							c = "/bin/sh";
 					}
 
@@ -1808,13 +1877,13 @@ int cmd_call(char *call[], int mode)
 					fflush(stdout);
 					system(c);
 					printf
-					    ("\n[Returned to connect]\n");
+						("\n[Returned to connect]\n");
 					fflush(stdout);
 					fcntl(STDIN_FILENO, F_SETFL,
-					      O_NONBLOCK);
+							O_NONBLOCK);
 					change_mode(RAWMODE, mode, &wintab,
-						    &win_in, &win_out,
-						    call);
+							&win_in, &win_out,
+							call);
 					continue;
 				case 'z':
 				case 'Z':
@@ -1823,7 +1892,7 @@ int cmd_call(char *call[], int mode)
 					kill(getpid(), SIGSTOP);
 					statline(mode, "Resumed");
 					fcntl(STDIN_FILENO, F_SETFL,
-					      O_NONBLOCK);
+							O_NONBLOCK);
 					continue;
 				case '?':
 				case 'h':
@@ -1851,12 +1920,12 @@ int cmd_call(char *call[], int mode)
 				case 's':
 					if (uploadfile != -1) {
 						statline(mode,
-							 "Upload file closed");
+								"Upload file closed");
 						close(uploadfile);
 						uploadfile = -1;
 					} else {
 						statline(mode,
-							 "No upload in progress");
+								"No upload in progress");
 					}
 					continue;
 				case 'A':
@@ -1867,31 +1936,31 @@ int cmd_call(char *call[], int mode)
 				case 'U':
 					if (uploadfile != -1) {
 						statline(mode,
-							 "Already uploading");
+								"Already uploading");
 						continue;
 					}
 					if ((t =
-					     strchr(buf, '\n')) != NULL)
+								strchr(buf, '\n')) != NULL)
 						*t = '\0';
 					t = buf + 2;
 					while (*t != '\0' && isspace(*t))
 						t++;
 					if (*t == '\0') {
 						statline(mode,
-							 "Upload requires a filename");
+								"Upload requires a filename");
 						continue;
 					}
 					uploadfile = open(t, O_RDONLY);
 					if (uploadfile == -1) {
 						statline(mode,
-							 "Unable to open upload file");
+								"Unable to open upload file");
 						continue;
 					}
 					if (lseek(uploadfile, 0L, SEEK_END)
-					    != -1)
+							!= -1)
 						uplsize =
-						    lseek(uploadfile, 0L,
-							  SEEK_CUR);
+							lseek(uploadfile, 0L,
+									SEEK_CUR);
 					else
 						uplsize = 0;
 					lseek(uploadfile, 0L, SEEK_SET);
@@ -1900,102 +1969,104 @@ int cmd_call(char *call[], int mode)
 					upllen = 0;
 					if (uplsize != -1) {
 						sprintf(s,
-							"Uploading %ld bytes from %s",
-							uplsize, t);
+								"Uploading %ld bytes from %s",
+								uplsize, t);
 						swin =
-						    opnstatw(mode, &wintab,
-							     s, 6, 50);
+							opnstatw(mode, &wintab,
+									s, 6, 50);
 						dupdstatw(swin,
-							  "bytes sent   : ",
-							  TRUE);
+								"bytes sent   : ",
+								TRUE);
 					} else {
 						sprintf(s,
-							"Uploading from %s",
-							t);
+								"Uploading from %s",
+								t);
 						swin =
-						    opnstatw(mode, &wintab,
-							     s, 6, 50);
+							opnstatw(mode, &wintab,
+									s, 6, 50);
 						dupdstatw(swin,
-							  "bytes sent   : ",
-							  TRUE);
+								"bytes sent   : ",
+								TRUE);
 					}
 					switch (buf[1]) {
-					case 'a':
-					case 'A':
-						{
-		 					struct stat statbuf;
-							time_t file_time = 0L;
-							binup = TRUE;
-							crc = 0;
-							if (!fstat(uploadfile, &statbuf))
-								file_time =  statbuf.st_mtime;
-							else
-								file_time = time(0);
+						case 'a':
+						case 'A':
+							{
+								struct stat statbuf;
+								time_t file_time = 0L;
+								binup = TRUE;
+								crc = 0;
+								if (!fstat(uploadfile, &statbuf))
+									file_time =  statbuf.st_mtime;
+								else
+									file_time = time(0);
 
 
-							do {
-								upllen =
-								    read
-								    (uploadfile,
-								     uplbuf,
-								     128);
+								do {
+									upllen =
+										read
+										(uploadfile,
+										 uplbuf,
+										 128);
 
-								if (upllen
-								    ==
-								    -1) {
-									close
-									    (uploadfile);
-									uploadfile
-									    =
-									    -1;
-									delwin
-									    (swin);
-									winclose
-									    (&wintab);
-									sprintf
-									    (s,
-									     "Error reading upload file: upload aborted");
-									statline
-									    (mode,
-									     s);
-									break;
+									if (upllen
+											==
+											-1) {
+										close
+											(uploadfile);
+										uploadfile
+											=
+											-1;
+										delwin
+											(swin);
+										winclose
+											(&wintab);
+										sprintf
+											(s,
+											 "Error reading upload file: upload aborted");
+										statline
+											(mode,
+											 s);
+										break;
+									}
+									crc =
+										calc_crc
+										((unsigned char *) uplbuf,
+										 upllen,
+										 crc);
+								} while (upllen > 0);
+								lseek(uploadfile,
+										0L,
+										SEEK_SET);
+								sprintf(s,
+										"#BIN#%ld#|%u#$%s#%s\r",
+										uplsize,
+										crc,
+										unix_to_sfbin_date_string(file_time),
+										t);
+								if ( write(fd, s,
+											strlen(s)) != strlen(s)) {
+									perror("write");
+									exit(1);
 								}
-								crc =
-								    calc_crc
-								    ((unsigned char *) uplbuf,
-								     upllen,
-								     crc);
+								uplpos = 0;
+								upldp = -1;
+								upllen = 0;
 							}
-							while (upllen > 0);
-							lseek(uploadfile,
-							      0L,
-							      SEEK_SET);
-							sprintf(s,
-								"#BIN#%ld#|%u#$%s#%s\r",
-								uplsize,
-								crc,
-								unix_to_sfbin_date_string(file_time),
-								t);
-							write(fd, s,
-							      strlen(s));
-							uplpos = 0;
-							upldp = -1;
-							upllen = 0;
-						}
-						break;
-					case 'b':
-					case 'B':
-						binup = TRUE;
-						break;
-					case 'u':
-					case 'U':
-						binup = FALSE;
+							break;
+						case 'b':
+						case 'B':
+							binup = TRUE;
+							break;
+						case 'u':
+						case 'U':
+							binup = FALSE;
 					}
 					continue;
 				case 'O':
 				case 'o':
 					if ((t =
-					     strchr(buf, '\n')) != NULL)
+								strchr(buf, '\n')) != NULL)
 						*t = '\0';
 					if (logfile != -1) {
 						close(logfile);
@@ -2011,12 +2082,12 @@ int cmd_call(char *call[], int mode)
 					if (*t == '\0')
 						t = "logfile.txt";
 					if ((logfile =
-					     open(t,
-						  O_RDWR | O_APPEND |
-						  O_CREAT, 0666)) == -1) {
+								open(t,
+									O_RDWR | O_APPEND |
+									O_CREAT, 0666)) == -1) {
 						sprintf(s,
-							"Unable to open %s",
-							buf + 2);
+								"Unable to open %s",
+								buf + 2);
 						statline(mode, s);
 					} else
 						statbits(mode, 'L', 1);
@@ -2029,7 +2100,7 @@ int cmd_call(char *call[], int mode)
 						statbits(mode, '-', 1);
 					} else {
 						statline(mode,
-							 "Log file not open");
+								"Log file not open");
 					}
 					continue;
 				case 'Y':
@@ -2070,24 +2141,11 @@ int cmd_call(char *call[], int mode)
 					continue;
 				}
 			}
-			/* if (bytes == -1 && errno != EWOULDBLOCK && errno != EAGAIN) */
-			/* if ((bytes == 0 && (mode & (TALKMODE|SLAVEMODE)) == 0) || (bytes == -1 && errno != EWOULDBLOCK && errno != EAGAIN)) */
 
 			if (interrupted)
 				break;
-			if (bytes == -1) {
-				if (errno != EWOULDBLOCK && errno != EAGAIN) {
-					perror("input");
-					EOF_on_STDIN = TRUE;
-				}
-				usleep(100);
-			} else if (bytes == 0) {
-				/* select() indicated that there is data to
-                                 * read, but read() returned 0 bytes.
-                                 * -> terminate normaly
-                                 */
-				EOF_on_STDIN = TRUE;
-			} else if (bytes > 0) {
+
+			if (bytes > 0) {
 				unsigned long offset = 0L;
 				int err = 0;
 
@@ -2102,6 +2160,8 @@ int cmd_call(char *call[], int mode)
 				while (offset != bytes) {
 					int len = (bytes-offset > paclen) ? paclen : bytes-offset;
 					int ret = write(fd, buf+offset, len);
+					if (ret == 0)
+						break;
 					if (ret == -1) {
 			    			if (errno == EWOULDBLOCK || errno == EAGAIN) {
 				 			usleep(100000);
@@ -2116,6 +2176,7 @@ int cmd_call(char *call[], int mode)
 				if (err)
 					break;
 			}
+
 			if (EOF_on_STDIN == TRUE && wait_for_remote_disconnect == FALSE)
 				break;
 		}
@@ -2165,8 +2226,9 @@ int cmd_call(char *call[], int mode)
 			    write(fd, uplbuf + upldp,
 				  upllen - upldp);
 
-			if (bytes == 0)
-				continue;
+			if (bytes == 0) {
+				break;
+			}
 			if (bytes == -1) {
 				if (errno != EWOULDBLOCK && errno != EAGAIN) {
 					sprintf(s, "Write error during upload. Connection lost");
@@ -2192,6 +2254,7 @@ int cmd_call(char *call[], int mode)
 	}
 
 	close(fd);
+	fd = -1;
 
 	if (logfile != -1) {
 		close(logfile);
@@ -2200,6 +2263,12 @@ int cmd_call(char *call[], int mode)
 	if (downloadfile != -1) {
 		close(downloadfile);
 		downloadfile = -1;
+	}
+	if (gp.dwn_cnt != 0) {
+		close(gp.dwn_file);
+		gp.dwn_file = -1;
+		gp.dwn_cnt = 0;
+		gp.file_name[0] = '\0';
 	}
 	fcntl(STDIN_FILENO, F_SETFL, 0);
 
@@ -2232,7 +2301,7 @@ int main(int argc, char **argv)
 
  	setlinebuf(stdin);
 
-	while ((p = getopt(argc, argv, "b:dhm:p:rs:StT:vw:W")) != -1) {
+	while ((p = getopt(argc, argv, "b:dhm:p:rs:RStT:vw:W")) != -1) {
 		switch (p) {
 		case 'b':
 			if (*optarg != 'e' && *optarg != 'l') {
@@ -2274,6 +2343,8 @@ int main(int argc, char **argv)
 		case 's':
 			mycall = strdup(optarg);
 			break;
+		case 'R':
+			remote_commands_enabled = FALSE;
 		case 'S':
 			be_silent = 1;
 			break;
