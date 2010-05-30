@@ -9,6 +9,8 @@
 #include <string.h>
 #include <time.h>
 #include <curses.h>
+#include <signal.h>
+#include <errno.h>
 
 #include <sys/socket.h>
 #include <net/if.h>
@@ -24,6 +26,8 @@
 #include "listen.h"
 
 int timestamp;
+static int sigint;
+static int sock;
 
 static void display_port(char *dev)
 {
@@ -45,6 +49,12 @@ void display_timestamp(void)
 
 	lprintf(T_TIMESTAMP, "%02d:%02d:%02d", timenow->tm_hour,
 		timenow->tm_min, timenow->tm_sec);
+}
+
+static void handle_sigint(int signal) 
+{
+	sigint++;
+	close(sock);	/* disturb blocking recvfrom  */
 }
 
 #define ASCII		0
@@ -118,7 +128,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if ((s = socket(PF_PACKET, SOCK_PACKET, htons(proto))) == -1) {
+	if ((sock = socket(PF_PACKET, SOCK_PACKET, htons(proto))) == -1) {
 		perror("socket");
 		return 1;
 	}
@@ -131,13 +141,29 @@ int main(int argc, char **argv)
 
 	setservent(1);
 
-	for (;;) {
+	signal(SIGINT, handle_sigint);
+	signal(SIGTERM, handle_sigint);
+
+	while (!sigint) {
 		asize = sizeof(sa);
 
 		if ((size =
-		     recvfrom(s, buffer, sizeof(buffer), 0, &sa,
+		     recvfrom(sock, buffer, sizeof(buffer), 0, &sa,
 			      &asize)) == -1) {
+			/*
+			 * Signals are cared for by the handler, and we
+			 * don't want to abort on SIGWINCH
+			 */
+			if (errno == EINTR) {
+				refresh();
+				continue;
+			} else if (errno == EBADF && sigint)
+				break;
+
+			if (color)
+				endwin();
 			perror("recv");
+
 			return 1;
 		}
 
@@ -146,7 +172,7 @@ int main(int argc, char **argv)
 
 		if (proto == ETH_P_ALL) {
 			strcpy(ifr.ifr_name, sa.sa_data);
-			if (ioctl(s, SIOCGIFHWADDR, &ifr) < 0)
+			if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0)
 				perror("GIFADDR");
 
 			if (ifr.ifr_hwaddr.sa_family == AF_AX25) {
@@ -170,6 +196,10 @@ int main(int argc, char **argv)
 		if (color)
 			refresh();
 	}
+	if (color)
+		endwin();
+
+	return EXIT_SUCCESS;
 }
 
 static void ascii_dump(unsigned char *data, int length)
