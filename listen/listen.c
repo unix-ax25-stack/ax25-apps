@@ -55,6 +55,7 @@ static void handle_sigint(int signal)
 {
 	sigint++;
 	close(sock);	/* disturb blocking recvfrom  */
+	sock = -1;
 }
 
 #define ASCII		0
@@ -74,6 +75,7 @@ int main(int argc, char **argv)
 	socklen_t asize = sizeof(sa);
 	struct ifreq ifr;
 	int proto = ETH_P_AX25;
+	int exit_code = EXIT_SUCCESS;
 
 	timestamp = 0;
 
@@ -141,12 +143,11 @@ int main(int argc, char **argv)
 
 	setservent(1);
 
-	signal(SIGINT, handle_sigint);
-	signal(SIGTERM, handle_sigint);
-
 	while (!sigint) {
 		asize = sizeof(sa);
 
+		signal(SIGINT, handle_sigint);
+		signal(SIGTERM, handle_sigint);
 		if ((size =
 		     recvfrom(sock, buffer, sizeof(buffer), 0, &sa,
 			      &asize)) == -1) {
@@ -157,24 +158,35 @@ int main(int argc, char **argv)
 			if (errno == EINTR) {
 				refresh();
 				continue;
-			} else if (errno == EBADF && sigint)
-				break;
-
-			if (color)
-				endwin();
-			perror("recv");
-
-			return 1;
+			} else if (!(errno == EBADF && sigint)) {
+				perror("recv");
+				exit_code = errno;
+			}
+			break;
 		}
+		signal(SIGINT, SIG_DFL);
+		signal(SIGTERM, SIG_DFL);
+		if (sock == -1 || sigint)
+			break;
 
 		if (dev != NULL && strcmp(dev, sa.sa_data) != 0)
 			continue;
 
 		if (proto == ETH_P_ALL) {
 			strcpy(ifr.ifr_name, sa.sa_data);
-			if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0)
-				perror("GIFADDR");
-
+			signal(SIGINT, handle_sigint);
+			signal(SIGTERM, handle_sigint);
+			if (ioctl(sock, SIOCGIFHWADDR, &ifr) == -1) {
+				if (!(errno == EBADF && sigint)) {
+					perror("SIOCGIFHWADDR");
+					exit_code = errno;
+					break;
+				}
+			}
+			signal(SIGINT, SIG_DFL);
+			signal(SIGTERM, SIG_DFL);
+			if (sock == -1 || sigint)
+				break;
 			if (ifr.ifr_hwaddr.sa_family == AF_AX25) {
 				display_port(sa.sa_data);
 #ifdef NEW_AX25_STACK
@@ -182,7 +194,7 @@ int main(int argc, char **argv)
 #else
 				ki_dump(buffer, size, dumpstyle);
 #endif
-/*                              lprintf(T_DATA, "\n");  */
+/*				lprintf(T_DATA, "\n");  */
 			}
 		} else {
 			display_port(sa.sa_data);
@@ -199,7 +211,7 @@ int main(int argc, char **argv)
 	if (color)
 		endwin();
 
-	return EXIT_SUCCESS;
+	return exit_code;
 }
 
 static void ascii_dump(unsigned char *data, int length)
