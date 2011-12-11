@@ -5,6 +5,26 @@ man_MANS = ax25ipd.8 ax25ipd.conf.5
 
 EXTRA_DIST = $(man_MANS) $(etcfiles) $(doc_DATA)
 
+ax25ipd.8: ax25ipd.man
+	name_ax25ipd=$$(echo ax25ipd | sed -e '$(transform)')			\
+	name_Ax25ipd=$$(echo $$name_ax25ipd | sed -r 's@^(.)@\U\1\E@') &&		\
+	name_AX25IPD=$$(echo $$name_ax25ipd | sed -r 's@^(.*)@\U\1\E@') &&		\
+	sed -e "s/@@@ax25ipd@@@/$$name_ax25ipd/g"				\
+	    -e "s/@@@Ax25ipd@@@/$$name_Ax25ipd/g"				\
+	    -e "s/@@@AX25IPD@@@/$$name_AX25IPD/g"				\
+	    ax25ipd.man > ax25ipd.1.tmp &&					\
+	mv ax25ipd.1.tmp ax25ipd.1;
+
+ax25ipd.conf.5: ax25ipd.conf.man
+	name_ax25ipd=$$(echo ax25ipd | sed -e '$(transform)')			\
+	name_Ax25ipd=$$(echo $$name_ax25ipd | sed -r 's@^(.)@\U\1\E@') &&		\
+	name_AX25IPD=$$(echo $$name_ax25ipd | sed -r 's@^(.*)@\U\1\E@') &&		\
+	sed -e "s/@@@ax25ipd@@@/$$name_ax25ipd/g"				\
+	    -e "s/@@@Ax25ipd@@@/$$name_Ax25ipd/g"				\
+	    -e "s/@@@AX25IPD@@@/$$name_AX25IPD/g"				\
+	    ax25ipd.conf.man > ax25ipd.conf.5.tmp &&				\
+	mv ax25ipd.conf.5.tmp ax25ipd.conf.5;
+
 docdir = ${datadir}/doc/ax25-apps
 doc_DATA = README.ax25ipd HISTORY.ax25ipd COPYING.ax25ipd
 
