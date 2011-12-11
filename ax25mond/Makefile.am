@@ -5,6 +5,26 @@ man_MANS = ax25mond.8 ax25mond.conf.5
 
 EXTRA_DIST = $(man_MANS) $(etcfiles)
 
+ax25mond.8: ax25mond.man
+	name_ax25mond=$$(echo call | sed -e '$(transform)')			\
+	name_Ax25mond=$$(echo $$name_ax25mond | sed -r 's@^(.)@\U\1\E@') &&	\
+	name_AX25MOND=$$(echo $$name_ax25mond | sed -r 's@^(.*)@\U\1\E@') &&	\
+	sed -e "s/@@@ax25mond@@@/$$name_ax25mond/g"				\
+	    -e "s/@@@Ax25mond@@@/$$name_Ax25mond/g"				\
+	    -e "s/@@@AX25MOND@@@/$$name_AX25MOND/g"				\
+	    ax25mond.man > ax25mond.1.tmp &&					\
+	mv ax25mond.1.tmp ax25mond.1;
+
+ax25mond.conf.5: ax25mond.conf.man
+	name_ax25mond=$$(echo call | sed -e '$(transform)')			\
+	name_Ax25mond=$$(echo $$name_ax25mond | sed -r 's@^(.)@\U\1\E@') &&	\
+	name_AX25MOND=$$(echo $$name_ax25mond | sed -r 's@^(.*)@\U\1\E@') &&	\
+	sed -e "s/@@@ax25mond@@@/$$name_ax25mond/g"				\
+	    -e "s/@@@Ax25mond@@@/$$name_Ax25mond/g"				\
+	    -e "s/@@@AX25MOND@@@/$$name_AX25MOND/g"				\
+	    ax25mond.conf.man > ax25mond.conf.5.tmp &&					\
+	mv ax25mond.conf.5.tmp ax25mond.conf.5;
+
 ax25mond_LDADD = $(AX25_LIB)
 
 ax25mond_SOURCES =	\

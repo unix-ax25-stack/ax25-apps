@@ -4,6 +4,54 @@ varfiles = ax25_route ip_route
 
 man_MANS = ax25rtd.8 ax25rtctl.8 ax25rtd.conf.5
 
+ax25rtd.8: ax25rtd.man
+	name_ax25rtd=$$(echo ax25rtd | sed -e '$(transform)')		\
+	name_Ax25rtd=$$(echo $$name_ax25rtd | sed -r 's@^(.)@\U\1\E@') && \
+	name_AX25RTD=$$(echo $$name_ax25rtd | sed -r 's@^(.*)@\U\1\E@') && \
+	name_ax25rtctl=$$(echo ax25rtctl | sed -e '$(transform)') &&	\
+	name_Ax25rtctl=$$(echo $$name_ax25rtctl | sed -r 's@^(.)@\U\1\E@') && \
+	name_AX25RTCTL=$$(echo $$name_ax25rtctl | sed -r 's@^(.*)@\U\1\E@') && \
+	sed -e "s/@@@ax25rtd@@@/$$name_ax25rtd/g"			\
+	    -e "s/@@@Ax25rtd@@@/$$name_Ax25rtd/g"			\
+	    -e "s/@@@AX25RTD@@@/$$name_AX25RTD/g"			\
+	    -e "s/@@@ax25rtctl@@@/$$name_ax25rtctl/g"			\
+	    -e "s/@@@Ax25rtctl@@@/$$name_Ax25rtctl/g"			\
+	    -e "s/@@@AX25RTCTL@@@/$$name_AX25RTCTL/g"			\
+	    ax25rtd.man > ax25rtd.1.tmp &&				\
+	mv ax25rtd.1.tmp ax25rtd.1;
+
+ax25rtctl.8: ax25rtctl.man
+	name_ax25rtd=$$(echo ax25rtd | sed -e '$(transform)')		\
+	name_Ax25rtd=$$(echo $$name_ax25rtd | sed -r 's@^(.)@\U\1\E@') && \
+	name_AX25RTD=$$(echo $$name_ax25rtd | sed -r 's@^(.*)@\U\1\E@') && \
+	name_ax25rtctl=$$(echo ax25rtctl | sed -e '$(transform)') &&	\
+	name_Ax25rtctl=$$(echo $$name_ax25rtctl | sed -r 's@^(.)@\U\1\E@') && \
+	name_AX25RTCTL=$$(echo $$name_ax25rtctl | sed -r 's@^(.*)@\U\1\E@') && \
+	sed -e "s/@@@ax25rtd@@@/$$name_ax25rtd/g"			\
+	    -e "s/@@@Ax25rtd@@@/$$name_Ax25rtd/g"			\
+	    -e "s/@@@AX25RTD@@@/$$name_AX25RTD/g"			\
+	    -e "s/@@@ax25rtctl@@@/$$name_ax25rtctl/g"			\
+	    -e "s/@@@Ax25rtctl@@@/$$name_Ax25rtctl/g"			\
+	    -e "s/@@@AX25RTCTL@@@/$$name_AX25RTCTL/g"			\
+	    ax25rtctl.man > ax25rtctl.1.tmp &&				\
+	mv ax25rtctl.1.tmp ax25rtctl.1;
+
+ax25rtd.conf.5: ax25rtd.conf.man
+	name_ax25rtd=$$(echo ax25rtd | sed -e '$(transform)')		\
+	name_Ax25rtd=$$(echo $$name_ax25rtd | sed -r 's@^(.)@\U\1\E@') && \
+	name_AX25RTD=$$(echo $$name_ax25rtd | sed -r 's@^(.*)@\U\1\E@') && \
+	name_ax25rtctl=$$(echo ax25rtctl | sed -e '$(transform)') &&	\
+	name_Ax25rtctl=$$(echo $$name_ax25rtctl | sed -r 's@^(.)@\U\1\E@') && \
+	name_AX25RTCTL=$$(echo $$name_ax25rtctl | sed -r 's@^(.*)@\U\1\E@') && \
+	sed -e "s/@@@ax25rtd@@@/$$name_ax25rtd/g"			\
+	    -e "s/@@@Ax25rtd@@@/$$name_Ax25rtd/g"			\
+	    -e "s/@@@AX25RTD@@@/$$name_AX25RTD/g"			\
+	    -e "s/@@@ax25rtctl@@@/$$name_ax25rtctl/g"			\
+	    -e "s/@@@Ax25rtctl@@@/$$name_Ax25rtctl/g"			\
+	    -e "s/@@@AX25RTCTL@@@/$$name_AX25RTCTL/g"			\
+	    ax25rtd.conf.man > ax25rtd.conf.5.tmp &&			\
+	mv ax25rtd.conf.5.tmp ax25rtd.conf.5;
+
 installconf:
 	$(mkinstalldirs) $(DESTDIR)$(AX25_SYSCONFDIR)
 	@list='$(etcfiles)'; for p in $$list; do \
