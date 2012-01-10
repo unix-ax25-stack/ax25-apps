@@ -12,8 +12,8 @@ ax25ipd.8: ax25ipd.man
 	sed -e "s/@@@ax25ipd@@@/$$name_ax25ipd/g"				\
 	    -e "s/@@@Ax25ipd@@@/$$name_Ax25ipd/g"				\
 	    -e "s/@@@AX25IPD@@@/$$name_AX25IPD/g"				\
-	    ax25ipd.man > ax25ipd.1.tmp &&					\
-	mv ax25ipd.1.tmp ax25ipd.1;
+	    ax25ipd.man > ax25ipd.8.tmp &&					\
+	mv ax25ipd.8.tmp ax25ipd.8;
 
 ax25ipd.conf.5: ax25ipd.conf.man
 	name_ax25ipd=$$(echo ax25ipd | sed -e '$(transform)')			\
