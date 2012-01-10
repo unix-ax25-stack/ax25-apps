@@ -17,8 +17,8 @@ ax25rtd.8: ax25rtd.man
 	    -e "s/@@@ax25rtctl@@@/$$name_ax25rtctl/g"			\
 	    -e "s/@@@Ax25rtctl@@@/$$name_Ax25rtctl/g"			\
 	    -e "s/@@@AX25RTCTL@@@/$$name_AX25RTCTL/g"			\
-	    ax25rtd.man > ax25rtd.1.tmp &&				\
-	mv ax25rtd.1.tmp ax25rtd.1;
+	    ax25rtd.man > ax25rtd.8.tmp &&				\
+	mv ax25rtd.8.tmp ax25rtd.8;
 
 ax25rtctl.8: ax25rtctl.man
 	name_ax25rtd=$$(echo ax25rtd | sed -e '$(transform)')		\
@@ -33,8 +33,8 @@ ax25rtctl.8: ax25rtctl.man
 	    -e "s/@@@ax25rtctl@@@/$$name_ax25rtctl/g"			\
 	    -e "s/@@@Ax25rtctl@@@/$$name_Ax25rtctl/g"			\
 	    -e "s/@@@AX25RTCTL@@@/$$name_AX25RTCTL/g"			\
-	    ax25rtctl.man > ax25rtctl.1.tmp &&				\
-	mv ax25rtctl.1.tmp ax25rtctl.1;
+	    ax25rtctl.man > ax25rtctl.8.tmp &&				\
+	mv ax25rtctl.8.tmp ax25rtctl.8;
 
 ax25rtd.conf.5: ax25rtd.conf.man
 	name_ax25rtd=$$(echo ax25rtd | sed -e '$(transform)')		\
