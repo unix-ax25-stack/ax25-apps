@@ -799,8 +799,8 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], int *bytes,
 int start_screen(char *call[])
 {
 	int cnt;
-	char idString[11];
-	sprintf(idString, " %8s ", call[0]);
+	char idString[12];
+	sprintf(idString, " %9.9s ", call[0]);
 
 	if ((win = initscr()) == NULL)
 		return -1;
