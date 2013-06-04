@@ -3,8 +3,8 @@
 ** This file is a cobbling together of the various notes on ax25ipd.
 **
 
-                             ax25ipd
-                             =======
+			     ax25ipd
+			     =======
 
 This README files pertains to version 1.0.2 of ax25ipd.
 (this document is still incomplete -- the UDP features lack examples)
@@ -142,17 +142,17 @@ using ax25ipd to carry AX.25 traffic.
   |   on     |      |          |   |  TCP/IP network
   |    PC    |      |          |   |
   `----------'      `----------'   |
-                                   |
-                             (vast distance)
-                                   |
-                                   |   fish.sea.com        W1AW-5
-                                   |   .----------.      .----------.
-                                   |   |          |      |          |
-                                   |   | UNIX     | KISS |          |
-                                   |---|  host    |------|  NOS     |
-                                   |   |          | 1200 |   on     |
-                                       |          | baud |    PC    |
-                                       `----------'      `----------'
+				   |
+			     (vast distance)
+				   |
+				   |   fish.sea.com        W1AW-5
+				   |   .----------.      .----------.
+				   |   |          |      |          |
+				   |   | UNIX     | KISS |          |
+				   |---|  host    |------|  NOS     |
+				   |   |          | 1200 |   on     |
+				       |          | baud |    PC    |
+				       `----------'      `----------'
 
 
      Config file:                        Config file:
@@ -174,8 +174,8 @@ Sample Configuration - digi-to-digi
    This example shows how to configure ax25ipd as a pair of digipeaters.
 
 
-                      (KA9WSB-3)
-                     one.two.com
+		      (KA9WSB-3)
+		     one.two.com
   .----------.      .----------.
   |          |      |          |
   | Standard | KISS | UNIX     |   |
@@ -183,18 +183,18 @@ Sample Configuration - digi-to-digi
   |   TNC    |      |          |   |  TCP/IP network
   | & radio  |      |          |   |
   `----------'      `----------'   |
-                                   |
-                             (vast distance)
-                                   |
-                                   |    (W1AW-5)
-                                   |   fish.sea.com        W1AW-5
-                                   |   .----------.      .----------.
-                                   |   |          |      |          |
-                                   |   | UNIX     | KISS | Standard |
-                                   |---|  host    |------|   KISS   |
-                                   |   |          | 9600 |   TNC    |
-                                       |          | baud | & radio  |
-                                       `----------'      `----------'
+				   |
+			     (vast distance)
+				   |
+				   |    (W1AW-5)
+				   |   fish.sea.com        W1AW-5
+				   |   .----------.      .----------.
+				   |   |          |      |          |
+				   |   | UNIX     | KISS | Standard |
+				   |---|  host    |------|   KISS   |
+				   |   |          | 9600 |   TNC    |
+				       |          | baud | & radio  |
+				       `----------'      `----------'
 
 
      Config file:                        Config file:
@@ -270,10 +270,10 @@ AXIP (IP encapsulation of AX.25 frames) daemon by Michael Westerhof.
 
 Network Working Group                                          B. Kantor
 Request for Comments: 1226                      Univ. of Calif San Diego
-                                                                May 1991
+								May 1991
 
 
-            Internet Protocol Encapsulation of AX.25 Frames
+	    Internet Protocol Encapsulation of AX.25 Frames
 
 Status of this Memo
 

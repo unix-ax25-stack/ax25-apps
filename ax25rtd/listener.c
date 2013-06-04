@@ -178,7 +178,7 @@ int iproute2(long ip, char *dev, int what)
 	sprintf(ipa, "%d.%d.%d.%d",
 		(int) (ip & 0x000000FF),
 		(int) ((ip & 0x0000FF00) >> 8),
-                (int) ((ip & 0x00FF0000) >> 16),
+		(int) ((ip & 0x00FF0000) >> 16),
 		(int) ((ip & 0xFF000000) >> 24));
 
 	/* ip rule add  table 44 */

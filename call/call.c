@@ -7,15 +7,15 @@
 /* 25.07.1995 some bug-fixes Alexander Tietzel (DG6XA) */
 /* 14.08.1995 merged with mainstream call.c code Jonathan Naylor (G4KLX) */
 /* 01.03.1996 support for different screen sizes, fixed 7plus download (DL1BKE)
-              */
+	      */
 /* 19.08.1996 fixed enter key handling (G4KLX) */
 /* 27.08.1996 added Rose support (G4KLX) */
 /* 30.11.1996 added the called user in the call windows and set talk mode as
-              default (IW0FBB) */
+	      default (IW0FBB) */
 /* 07.12.1996 updated status line to cope with callsign, bits and status
-              message (VK2KTJ) */
+	      message (VK2KTJ) */
 /* 02.02.1997 removed NETROM_PACLEN setting to match Jonathon removing it
-              from kernel (VK2KTJ) */
+	      from kernel (VK2KTJ) */
 
 #include <sys/types.h>
 #include <utime.h>
@@ -685,8 +685,8 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 			int ret = write(gp->dwn_file, buf+offset, bytes-offset);
 			if (ret == -1) {
 				perror("write");
-			    	if (errno == EWOULDBLOCK || errno == EAGAIN) {
-		 			usleep(100000);
+				if (errno == EWOULDBLOCK || errno == EAGAIN) {
+					usleep(100000);
 					continue;
 				}
 				close(gp->dwn_file);
@@ -703,9 +703,9 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 				return -1;
 				break;
 			}
-		  	gp->calc_crc = calc_crc((unsigned char *) buf, ret, 0);
-		  	gp->dwn_cnt -= ret;
-		  	offset += ret;
+			gp->calc_crc = calc_crc((unsigned char *) buf, ret, 0);
+			gp->dwn_cnt -= ret;
+			offset += ret;
 		}
 	}
 
@@ -781,7 +781,7 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], int *bytes,
 			close(gp->dwn_file);
 			gp->dwn_file = -1;
 			utime(gp->file_name, &gp->ut);
-		        gp->file_name[0] = '\0';
+			gp->file_name[0] = '\0';
 			if (extrach != 0) {
 				memmove(buf, buf + *bytes, extrach);
 				*bytes = extrach;
@@ -1343,7 +1343,7 @@ int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
 	static char cmpstr[MAX_CMPSTRLEN];
 	static int cmpstrbyte = 0;
 	static int command = -1;
-        const char **pkey_words = remote_commands_enabled ? key_words : rkey_words;
+	const char **pkey_words = remote_commands_enabled ? key_words : rkey_words;
 
 	int cmdstpos = 0;
 	int cnt = 0;
@@ -1676,12 +1676,12 @@ int cmd_call(char *call[], int mode)
 				break;
 			}
 			if (bytes == -1) {
-			    	if (errno == EWOULDBLOCK || errno == EAGAIN) {
-				 	usleep(100000);
+				if (errno == EWOULDBLOCK || errno == EAGAIN) {
+					usleep(100000);
 					continue;
 				}
 				if (errno != ENOTCONN)
-			 		perror("read");
+					perror("read");
 				break;
 			}
 			if (gp.dwn_cnt != 0) {
@@ -1816,7 +1816,7 @@ int cmd_call(char *call[], int mode)
 				/* bytes == 0? select() indicated that there
 				 * is data to read, but read() returned 0
 				 * bytes. -> terminate normaly
-                                 */
+				 */
 				if (bytes == 0)
 					EOF_on_STDIN = TRUE;
 				else if (bytes == -1) {
@@ -2161,8 +2161,8 @@ int cmd_call(char *call[], int mode)
 					if (ret == 0)
 						break;
 					if (ret == -1) {
-			    			if (errno == EWOULDBLOCK || errno == EAGAIN) {
-				 			usleep(100000);
+						if (errno == EWOULDBLOCK || errno == EAGAIN) {
+							usleep(100000);
 							continue;
 						}
 						perror("write");
@@ -2233,12 +2233,12 @@ int cmd_call(char *call[], int mode)
 					statline(mode, s);
 					perror("write");
 					break;
-			  	}
+				}
 				usleep(100000);
 				continue;
 			}
 /*                      if (uplpos / 1024 != (uplpos + bytes) / 1024)
-                           { */ /*      printf("\r%ld bytes sent    ", uplpos + bytes); */
+			   { */ /*      printf("\r%ld bytes sent    ", uplpos + bytes); */
 				sprintf(s, "%ld", uplpos + bytes);
 				dupdstatw(swin, s, FALSE);
 /*                      } */
@@ -2297,7 +2297,7 @@ int main(int argc, char **argv)
 	if (!isatty(STDIN_FILENO))
 		stdin_is_tty = 0;
 
- 	setlinebuf(stdin);
+	setlinebuf(stdin);
 
 	while ((p = getopt(argc, argv, "b:dhm:p:rs:RStT:vw:W")) != -1) {
 		switch (p) {
@@ -2351,7 +2351,7 @@ int main(int argc, char **argv)
 			  inactivity_timeout.tv_sec = ((time_t) f) & 0x7fffffff;
 			  inactivity_timeout.tv_usec = (time_t ) (f - (double ) (time_t ) f);
 			  if (f < 0.001 || f > (double) (0x7fffffff) || (inactivity_timeout.tv_sec == 0 && inactivity_timeout.tv_usec == 0)) {
-			  	fprintf(stderr, "call: option '-T' must be > 0.001 (1ms) and < 69 years\n");
+				fprintf(stderr, "call: option '-T' must be > 0.001 (1ms) and < 69 years\n");
 				return 1;
 			  }
 			  inactivity_timeout_is_set = TRUE;

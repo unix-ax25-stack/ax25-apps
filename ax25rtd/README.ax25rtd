@@ -150,7 +150,7 @@ irtt <irtt>
        routes an initial round trip time (IRTT) for TCP. <irtt>
        is measured in msec, hence
 
-               irtt 10000
+	       irtt 10000
 
        sets the irtt to 10 seconds. A value of 0 disables this
        feature (default).

@@ -41,7 +41,7 @@ struct option options[] = {
 	{"help", 0, NULL, 'h'},
 	{"configfile", 1, NULL, 'c'},
 	{"ttydevice", 1, NULL, 'd'},
-        {"nofork", 0, NULL, 'f'},
+	{"nofork", 0, NULL, 'f'},
 	{0, 0, 0, 0}
 };
 
@@ -75,8 +75,8 @@ int main(int argc, char **argv)
 			strncpy(opt_ttydevice, optarg, sizeof(opt_ttydevice)-1);
 			opt_ttydevice[sizeof(opt_ttydevice)-1] = 0;
 			break;
-                case 'f':
-                        opt_nofork = 1;
+		case 'f':
+			opt_nofork = 1;
 			break;
 		case 'h':
 			opt_help = 1;
@@ -116,8 +116,8 @@ int main(int argc, char **argv)
 		    ("  --configfile FILE, -c FILE    Set configuration file to FILE\n");
 		printf
 		    ("  --ttydevice TTYDEV, -d TTYDEV Set device parameter to TTYDEV\n");
-                printf
-                    ("  --nofork, -f                  Do not put daemon in background\n");
+		printf
+		    ("  --nofork, -f                  Do not put daemon in background\n");
 		exit(0);
 	}
 
@@ -145,12 +145,12 @@ int main(int argc, char **argv)
 	io_open();
 
 	/* if we get this far without error, let's fork off ! :-) */
-        if (opt_nofork == 0) {
+	if (opt_nofork == 0) {
 	    if (!daemon_start(TRUE)) {
-	    	    syslog(LOG_DAEMON | LOG_CRIT, "ax25ipd: cannot become a daemon\n");
+		    syslog(LOG_DAEMON | LOG_CRIT, "ax25ipd: cannot become a daemon\n");
 		    return 1;
 	    }
-        }
+	}
 
 	/* we need to close stdin, stdout, stderr: because otherwise
 	 * scripting like ttyname=$(ax25ipd | tail -1) does not work

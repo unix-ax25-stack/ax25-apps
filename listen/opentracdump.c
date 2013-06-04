@@ -78,7 +78,7 @@ int decode_origination(unsigned char *element, int element_len) {
 int decode_entityid(unsigned char *element, int element_len) {
 	/* 0x02 Entity ID  */
 	if (element_len > 5) {
-   		memcpy(entity_call, element, 6);
+		memcpy(entity_call, element, 6);
 		entity_call[6]=0;
 		entity_ssid = extract_ssid(entity_call);
 	}
@@ -278,7 +278,7 @@ int decode_availablenets(unsigned char *element, int element_len) {
 
      lprintf(T_OPENTRAC, "Available Networks:");
      for (c=0; c<element_len; c++) {
-          lprintf(T_OPENTRAC, " %d", (int)*(element+c));
+	  lprintf(T_OPENTRAC, " %d", (int)*(element+c));
      }
      lprintf(T_OPENTRAC, "\r\n");
 

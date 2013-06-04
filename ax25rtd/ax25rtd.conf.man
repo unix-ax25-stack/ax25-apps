@@ -95,7 +95,7 @@ Don't use this feature unless you know what you are doing.
 It _should_ be safe do enable this on one-port machines, although
 I strongly recommend to set a network route instead, i.e.:
 
-        route add -net 44.0.0.0 scc3
+	route add -net 44.0.0.0 scc3
 
 Note that @@@ax25rtd@@@'s internal cache will be updated anyway,
 regardless of this option.
@@ -105,7 +105,7 @@ If ip-learn-routes is enabled this will assign newly added
 routes an initial round trip time (IRTT) for TCP. <irtt>
 is measured in msec, hence
 
-        irtt 10000
+	irtt 10000
 
 sets the irtt to 10 seconds. A value of 0 disables this
 feature (default).
