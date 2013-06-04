@@ -66,7 +66,7 @@ for normal (modulus 8) AX.25 operation, or
 for extended (modulus 128) AX.25 operation.
 .TP 10
 .BI "\-p paclen"
-Specify a specific maximum amount of data to be sent in each AX.25 packet. 
+Specify a specific maximum amount of data to be sent in each AX.25 packet.
 .TP 10
 .BI "\-s mycall"
 Connect using the specified source @@@call@@@ (you may need to be root).
@@ -154,7 +154,7 @@ Download a file (YAPP download)
 Suspend program
 .LP
 The program provides no terminal emulation features. These are left
-up to the console facilities of the terminal in use. The program is 
+up to the console facilities of the terminal in use. The program is
 however '8 bit clean'.
 .SH FILES
 .nf

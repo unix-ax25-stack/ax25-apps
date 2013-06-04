@@ -16,9 +16,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
- 
+
 /* Defines for defaults */
- 
+
 #define IP_MAXROUTES	4096
 #define AX25_MAXROUTES	4096
 #define AX25_MAXCALLS	32
@@ -28,7 +28,7 @@
 #define NEW_ARP		1
 #define NEW_ROUTE	2
 #define NEW_IPMODE	4
-  
+
 #define SEG_FIRST       0x80
 #define SEG_REM         0x7F
 
@@ -36,7 +36,7 @@
 #define PID_ARP         0xCD
 #define PID_IP          0xCC
 #define PID_NETROM	0xCF
-  
+
 #define HDLCAEB         0x01
 #define SSSID_SPARE     0x40
 #define AX25_REPEATED	0x80
@@ -95,10 +95,10 @@ typedef struct config_ {
 
 	unsigned long netmask;
 	unsigned long ip;
-	
+
 	int nmycalls;
 	ax25_address mycalls[AX25_MAXCALLS];
-	
+
 	struct full_sockaddr_ax25 ax25_default_path;
 } config;
 

@@ -22,7 +22,7 @@ extern int ibmhack;			/* IBM mapping? */
 extern int timestamp;
 
 void display_timestamp(void);
-	
+
 void lprintf(int dtype, char *fmt, ...);
 int  initcolor(void);
 char *servname(int port, char *proto);

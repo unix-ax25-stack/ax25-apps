@@ -50,7 +50,7 @@ anywhere else you may use the port or the device name.
 .TP
 ax25-learn-routes no
 Set this to "yes", @@@ax25rtd@@@ will add the routing information
-for every heard frame (with complete digipeater path) to the 
+for every heard frame (with complete digipeater path) to the
 kernel AX.25 routing table. Note that @@@ax25rtd@@@'s internal cache
 will be updated anyway, regardless of this option.
 .TP
@@ -76,16 +76,16 @@ ip-learn-routes no
 If set to "yes", @@@ax25rtd@@@ will modify the IP routing table if it
 receives an IP frame (directed to us). This is dangerous!
 
-It should not screw up your routing table, though. @@@Ax25rtd@@@ 
-recognizes the netmask of the device and will adjust the route 
+It should not screw up your routing table, though. @@@Ax25rtd@@@
+recognizes the netmask of the device and will adjust the route
 only if it fits the netmask and the old route points to
 one of the devices @@@ax25rtd@@@ knows about (hence an AX.25 device).
 
 The problems begin if you have more than one port and a user
-is able to hear your outgoing traffic on at least two of them. 
-Due to technical reasons @@@ax25rtd@@@ adjusts the route _after_ the 
-kernel has sent the reply to the received TCP frame already.  
-This has technical reasons. 
+is able to hear your outgoing traffic on at least two of them.
+Due to technical reasons @@@ax25rtd@@@ adjusts the route _after_ the
+kernel has sent the reply to the received TCP frame already.
+This has technical reasons.
 
 If the remote does the same both are switching between the two
 ports.
@@ -116,8 +116,8 @@ encapsulation mode according to the last received IP frame.
 
 The problem with this option is that the kernel AX.25 sends
 a received IP frame to the IP layer regardless if it was
-sent in UI frame encapsulation "mode datagram (dg)" or 
-in I frame encaps, hence in an AX.25 connection, "mode virtual 
+sent in UI frame encapsulation "mode datagram (dg)" or
+in I frame encaps, hence in an AX.25 connection, "mode virtual
 connect (vc)". The Linux kernel will respond to this frame
 before @@@ax25rtd@@@ can adjust the mode. If the remote does the
 same... You get the picture.
@@ -125,7 +125,7 @@ same... You get the picture.
 Don't use this feature unless you know what you are doing.
 .TP
 arp-add	no
-This option, if set to "yes", changes the ARP table to the 
+This option, if set to "yes", changes the ARP table to the
 source callsign of the received frame. It should be harmless,
 just has the the effect that if it is a new entry, the Linux
 ARP code will send one ARP request before @@@ax25rtd@@@ has adjust

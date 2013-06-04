@@ -11,7 +11,7 @@ Source0:        http://www.linux-ax25.org/pub/%{name}/%{name}-@VERSION@.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-@VERSION@-%{release}-root-%(%{__id_u} -n)
 
 %description
-This package provides specific user applications for hamradio that use AX.25 
+This package provides specific user applications for hamradio that use AX.25
 Net/ROM or ROSE network protocols:
 
  * axcall: a general purpose AX.25, NET/ROM and ROSE connection program.

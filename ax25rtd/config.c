@@ -512,7 +512,7 @@ void reload_config(void)
 
 /* commands:
    ---------
-   
+
    add ax25 <callsign> <dev> <time> [<digipeater>]	# Add an AX.25 route
    add ip   <ip> <dev> <time> <call> <mode>		# Add an IP route & mode
    del ax25 <callsign> <dev>				# Remove an AX.25 route (from cache)
@@ -522,20 +522,20 @@ void reload_config(void)
    save							# Save cache
    expire <minutes>					# Expire cache entries
    shutdown						# Save cache and exit
-   
+
    There's a difference between 'list heard' and 'heard':
-   
-   The 'list' commands will output the symbolic port names as defined in 
-   /usr/local/etc/axports (i.e. 9k6 for scc3), while 'heard' shows the 
+
+   The 'list' commands will output the symbolic port names as defined in
+   /usr/local/etc/axports (i.e. 9k6 for scc3), while 'heard' shows the
    'real' network device name (i.e. scc3). All commands accept either the
    port or the network device name. The expample
-   
+
    add ax25 dl0tha scc3 0 db0pra
-   
+
    is equivalent to
-   
+
    add ax25 dl0tha 9k6 0 dbpra
-   
+
    Note that in conflicting cases the network device name has precedence
    over the port name.
 */

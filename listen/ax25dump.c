@@ -297,7 +297,7 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 		lprintf(T_AXHDR, "\n");
 	} else if ((type == SABM || type == UA) && length >= 2) {
 		/* FlexNet transmits the QSO "handle" for header
-		 * compression in SABM and UA frame data fields 
+		 * compression in SABM and UA frame data fields
 		 */
 		lprintf(T_AXHDR, " [%d]%s ", (data[0] << 8) | data[1],
 			dama);

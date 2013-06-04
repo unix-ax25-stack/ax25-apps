@@ -51,7 +51,7 @@ void display_timestamp(void)
 		timenow->tm_min, timenow->tm_sec);
 }
 
-static void handle_sigint(int signal) 
+static void handle_sigint(int signal)
 {
 	sigint++;
 	close(sock);	/* disturb blocking recvfrom  */

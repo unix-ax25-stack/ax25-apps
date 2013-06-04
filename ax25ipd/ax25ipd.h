@@ -3,11 +3,11 @@
  * Copyright 1991, Michael Westerhof, Sun Microsystems, Inc.
  * This software may be freely used, distributed, or modified, providing
  * this header is not removed.
- * 
+ *
  */
 
-/* 
- * Modifications added for dual port kiss TNC 
+/*
+ * Modifications added for dual port kiss TNC
  * by Michael Durrant VE3PNX and D. Jeff Dionne Feb 4, 1995
  */
 

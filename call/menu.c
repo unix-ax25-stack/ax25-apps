@@ -1,5 +1,5 @@
 /*
- * menu (c)1995 Alexander Tietzel (DG6XA) 
+ * menu (c)1995 Alexander Tietzel (DG6XA)
  * little Menu-System for use with ncurses
  * date        activity                             autor
  * 22.07.1995  wininfo->wint (vector->single chain) Alexander Tietzel (DG6XA)

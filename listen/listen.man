@@ -22,15 +22,15 @@ NET/ROM node polls are also displayed.
 .LP
 .B @@@Listen@@@
 can use colors to make the output more readable. The ncurses library is used
-to accomplish this. 
+to accomplish this.
 .B Color support defaults to being disabled,
-and the 
+and the
 .BR -c
 parameter is used to enable it.
 .SH OPTIONS
 .TP 10
 .BI \-8
-Indicates that the terminal is capable of printing 8-bit characters. This 
+Indicates that the terminal is capable of printing 8-bit characters. This
 parameter is required for the -i parameter to work.
 .TP 10
 .BI \-a

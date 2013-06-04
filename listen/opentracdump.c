@@ -17,7 +17,7 @@ const char *units[]={"Volts","Amperes","Watts","Kelvins","Meters","Seconds",
 		"Meters/Sec^2","Grays","Lumens","Cubic Meters/Second",
 		"Pascal Seconds","Kilograms/Meter^3","Radians/Second^2","Coulombs",
 		"Farads","Siemens","Count"};
-		
+
 unsigned char origin_call[7]; /* Who's talking  */
 unsigned char origin_ssid;
 unsigned char entity_call[7]; /* What they're talking about  */
@@ -221,7 +221,7 @@ int decode_waypoint(unsigned char *element, int element_len) {
 	strncpy(waypoint, element, element_len);
 	waypoint[element_len] = 0;
 
-	lprintf(T_OPENTRAC, "Waypoint Name: %s\r\n", waypoint);      
+	lprintf(T_OPENTRAC, "Waypoint Name: %s\r\n", waypoint);
 	return 0;
 }
 
@@ -315,7 +315,7 @@ int decode_acreg(unsigned char *element, int element_len) {
 	strncpy(nnumber, element, element_len);
 	nnumber[element_len]=0;
 	lprintf(T_OPENTRAC, "Aircraft ID: %s\r\n", nnumber);
-	
+
 	return 0;
 }
 
@@ -347,7 +347,7 @@ int decode_units(unsigned int unitnum, unsigned char *element, int element_len) 
 		double d;
 	} *mval;
 	int ival; /* too much variation in byte order and size for union */
-	
+
 	if (unitnum > MAX_UNIT_INDEX) return -2; /* Invalid unit name  */
 	mval = (void *)element;
 	switch (element_len) {
@@ -447,7 +447,7 @@ void opentrac_dump(unsigned char *data, int length, int hexdump)
 	int elen;
 	int etype;
 	int decoded = 0;
-	
+
 	lprintf(T_PROTOCOL, "OpenTRAC decode (%d bytes):\r\n", length);
 	strcpy(origin_call, "SENDER"); /* Listen doesn't tell us the sender  */
 	origin_ssid = 0;
