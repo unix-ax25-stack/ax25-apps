@@ -1,5 +1,3 @@
-.deps
-.libs
-Makefile
-Makefile.in
 ax25mond
+ax25mond.8
+ax25mond.conf.5
