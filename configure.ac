@@ -67,4 +67,3 @@ AC_SUBST(EXTRAVERSION, [$extraver])
 
 AC_CONFIG_FILES([call/Makefile ax25ipd/Makefile listen/Makefile Makefile ax25rtd/Makefile ax25mond/Makefile ax25-apps.spec])
 AC_OUTPUT
-

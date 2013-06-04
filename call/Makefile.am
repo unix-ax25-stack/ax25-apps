@@ -39,4 +39,3 @@ call_SOURCES =		\
 	crc.h		\
 	yapp.c		\
 	dostime.c
-
