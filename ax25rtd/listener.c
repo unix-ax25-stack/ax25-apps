@@ -1,5 +1,4 @@
-/* $Id: listener.c,v 1.8 2009/06/27 22:30:23 ralf Exp $
- *
+/*
  * Copyright (c) 1996 Joerg Reuter (jreuter@poboxes.com)
  *
  * This program is free software; you can redistribute it and/or modify
