@@ -10,7 +10,7 @@ bin_PROGRAMS = call
 man_MANS = call.1
 CLEANFILES = call.1 call.1.tmp
 
-EXTRA_DIST = $(man_MANS)
+EXTRA_DIST = call.man
 
 call.1 : call.man
 	name_call=$$(echo call | sed -e '$(transform)')			\
