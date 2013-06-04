@@ -133,7 +133,7 @@ static void list_ax25(void)
 	printf("Callsign  Port   Last update         Path\n");
 
 /*
-                DB0PRA-15 scc3   Tue Aug  6 16:35:38 1996
+		DB0PRA-15 scc3   Tue Aug  6 16:35:38 1996
 */
 
 	while (1) {
@@ -199,7 +199,7 @@ static void list_ip(void)
 	printf("IP Address      Port   Callsign  Mode Last update\n");
 
 /*
-	        255.255.255.255 scc3   DB0PRA-15 v    Thu Jan  7 06:54:19 1971
+		255.255.255.255 scc3   DB0PRA-15 v    Thu Jan  7 06:54:19 1971
  */
 	while (1) {
 		len = read(sock, buf + offs, sizeof(buf) - offs - 1);

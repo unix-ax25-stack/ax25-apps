@@ -545,49 +545,49 @@ int io_error(
 	/* if (oops >= 0)
 		return 0; */	/* do we have an error ? */
 	/* dl9sau: nobody has set fd's to O_NONBLOCK.
-         * thus EAGAIN (below) or EWOULDBLOCK are never be set.
-         * Has someone removed this behaviour previously?
-         * Anyway, in the current implementation, with blocking
-         * read/writes, a read or write of 0 bytes means EOF,
-         * for e.g. if the attached tty is closed.
-         * We have to exit then. We've currentlsy no mechanism
-         * for regulary reconnects.
-         */
+	 * thus EAGAIN (below) or EWOULDBLOCK are never be set.
+	 * Has someone removed this behaviour previously?
+	 * Anyway, in the current implementation, with blocking
+	 * read/writes, a read or write of 0 bytes means EOF,
+	 * for e.g. if the attached tty is closed.
+	 * We have to exit then. We've currentlsy no mechanism
+	 * for regulary reconnects.
+	 */
 	if (oops > 0)
-                return 0;       /* do we have an error ? */
+		return 0;       /* do we have an error ? */
 
-        if (oops == 0) {
-                if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
-                        return 0;
-                fprintf(stderr, "Close event on mode 0x%2.2x (during %s). LINE %d. Terminating normaly.\n", mode, (dir == READ_MSG ? "READ" : "WRITE"), where);
-                exit(1);
-        }
+	if (oops == 0) {
+		if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
+			return 0;
+		fprintf(stderr, "Close event on mode 0x%2.2x (during %s). LINE %d. Terminating normaly.\n", mode, (dir == READ_MSG ? "READ" : "WRITE"), where);
+		exit(1);
+	}
 
 #ifdef EAGAIN
-        if (errno == EAGAIN) {
+	if (errno == EAGAIN) {
 #ifdef	notdef
-                /* select() said that data is available, but recvfrom sais
-                 * EAGAIN - i really do not know what's the sense in this.. */
-                 if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
-                        return 0;
-                perror("System 5 I/O error!");
-                fprintf(stderr, "A System 5 style I/O error was detected.  This rogram requires BSD 4.2\n");
-                fprintf(stderr, "behaviour.  This is probably a result of compile-time environment.\n");
-                fprintf(stderr, "Mode 0x%2.2x, LINE: %d. During %s\n", mode, where, (dir == READ_MSG ? "READ" : "WRITE"));
-                exit(3);
+		/* select() said that data is available, but recvfrom sais
+		 * EAGAIN - i really do not know what's the sense in this.. */
+		 if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
+			return 0;
+		perror("System 5 I/O error!");
+		fprintf(stderr, "A System 5 style I/O error was detected.  This rogram requires BSD 4.2\n");
+		fprintf(stderr, "behaviour.  This is probably a result of compile-time environment.\n");
+		fprintf(stderr, "Mode 0x%2.2x, LINE: %d. During %s\n", mode, where, (dir == READ_MSG ? "READ" : "WRITE"));
+		exit(3);
 #else
-               int ret = 0;
-               if (dir == READ_MSG) {
-                       LOGL4("read / recv returned -1 EAGAIN\n");
-                       ret = 0;
-               } else if (dir == SEND_MSG) {
-                       LOGL4("write / send returned -1 EAGAIN, sleeping and retrying!\n");
-                       usleep(100000);
-                       ret = 1;
-               }
-               return ret;
+	       int ret = 0;
+	       if (dir == READ_MSG) {
+		       LOGL4("read / recv returned -1 EAGAIN\n");
+		       ret = 0;
+	       } else if (dir == SEND_MSG) {
+		       LOGL4("write / send returned -1 EAGAIN, sleeping and retrying!\n");
+		       usleep(100000);
+		       ret = 1;
+	       }
+	       return ret;
 #endif
-        }
+	}
 #endif
 
 	if (dir == READ_MSG) {
