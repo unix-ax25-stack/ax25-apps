@@ -73,7 +73,6 @@ LDADD = $(AX25_LIB)
 
 EXTRA_DIST = $(etcfiles) ax25rtd.man ax25rtctl.man ax25rtd.conf.man $(doc_DATA)
 
-docdir=${datadir}/doc/ax25-apps
 doc_DATA= TODO.ax25rtd README.ax25rtd
 
 ax25rtd_SOURCES =	\
