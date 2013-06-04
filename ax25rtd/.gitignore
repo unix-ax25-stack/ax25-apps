@@ -1,6 +1,5 @@
-.deps
-.libs
-Makefile
-Makefile.in
 ax25rtctl
+ax25rtctl.8
 ax25rtd
+ax25rtd.8
+ax25rtd.conf.5
