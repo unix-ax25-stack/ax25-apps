@@ -3,6 +3,9 @@ etcfiles = ax25rtd.conf
 varfiles = ax25_route ip_route
 
 man_MANS = ax25rtd.8 ax25rtctl.8 ax25rtd.conf.5
+CLEANFILES = ax25rtd.8 ax25rtd.8.tmp					\
+	     ax25rtctl.8 ax25rtctl.8.tmp				\
+	     ax25rtd.conf.5 ax25rtd.conf.5.tmp
 
 ax25rtd.8: ax25rtd.man
 	name_ax25rtd=$$(echo ax25rtd | sed -e '$(transform)')		\
