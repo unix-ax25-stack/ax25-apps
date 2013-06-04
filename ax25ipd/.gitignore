@@ -1,5 +1,5 @@
-ax25ipd
-.libs
 .deps
+.libs
 Makefile
 Makefile.in
+ax25ipd
