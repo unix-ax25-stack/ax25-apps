@@ -72,15 +72,15 @@ static int ax25mode = -1;
 
 static int debug = FALSE;
 static int af_mode = AF_AX25;
-static int window = 0;
-static int be_silent = 0;
-static char *port = NULL;
-static char *mycall = NULL;
+static int window;
+static int be_silent;
+static char *port;
+static char *mycall;
 
 static int stdin_is_tty = 1;
 
 int interrupted = FALSE;
-int paclen = 0;
+int paclen;
 int fd;
 
 int wait_for_remote_disconnect = FALSE;

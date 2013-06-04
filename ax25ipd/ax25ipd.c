@@ -28,10 +28,10 @@ jmp_buf restart_env;
 /* Prototypes */
 void hupper(int);
 
-int opt_version = 0;
-int opt_loglevel = 0;
-int opt_nofork = 0;
-int opt_help = 0;
+int opt_version;
+int opt_loglevel;
+int opt_nofork;
+int opt_help;
 char opt_configfile[PATH_MAX];
 char opt_ttydevice[PATH_MAX];
 
