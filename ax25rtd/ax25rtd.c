@@ -61,12 +61,12 @@ config *Config = NULL;
 
 int reload = 0;
 
-ip_rt_entry *ip_routes = NULL;
-int ip_routes_cnt = 0;
+ip_rt_entry *ip_routes;
+int ip_routes_cnt;
 int ip_maxroutes = IP_MAXROUTES;
 
-ax25_rt_entry *ax25_routes = NULL;
-int ax25_routes_cnt = 0;
+ax25_rt_entry *ax25_routes;
+int ax25_routes_cnt;
 int ax25_maxroutes = AX25_MAXROUTES;
 
 char ip_encaps_dev[32] = "";
