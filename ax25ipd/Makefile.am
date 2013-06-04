@@ -26,7 +26,6 @@ ax25ipd.conf.5: ax25ipd.conf.man
 	    $(srcdir)/ax25ipd.conf.man > ax25ipd.conf.5.tmp &&				\
 	mv ax25ipd.conf.5.tmp ax25ipd.conf.5;
 
-docdir = ${datadir}/doc/ax25-apps
 doc_DATA = README.ax25ipd HISTORY.ax25ipd COPYING.ax25ipd
 
 AM_CFLAGS = -DUSE_TERMIO
