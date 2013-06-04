@@ -68,7 +68,7 @@ sbin_PROGRAMS = ax25rtd ax25rtctl
 
 LDADD = $(AX25_LIB)
 
-EXTRA_DIST = $(etcfiles) $(man_MANS) $(doc_DATA)
+EXTRA_DIST = $(etcfiles) ax25rtd.man ax25rtctl.man ax25rtd.conf.man $(doc_DATA)
 
 docdir=${datadir}/doc/ax25-apps
 doc_DATA= TODO.ax25rtd README.ax25rtd

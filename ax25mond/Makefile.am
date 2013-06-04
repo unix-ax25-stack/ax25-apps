@@ -3,7 +3,7 @@ sbin_PROGRAMS = ax25mond
 
 man_MANS = ax25mond.8 ax25mond.conf.5
 
-EXTRA_DIST = $(man_MANS) $(etcfiles)
+EXTRA_DIST = ax25mond.man ax25mond.conf.man $(etcfiles)
 
 ax25mond.8: ax25mond.man
 	name_ax25mond=$$(echo call | sed -e '$(transform)')			\
