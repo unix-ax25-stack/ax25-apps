@@ -589,7 +589,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		for (namest = datest; namest < parmsbytes - 1 &&
 			(parms[namest - 1] != '#'); namest++);
 	}
-	
+
 	if (!time_set) {
 		time_t t = time(0);
 		memcpy(&ft, localtime(&t), sizeof(struct tm));
@@ -2438,7 +2438,7 @@ int main(int argc, char **argv)
 		break;
 	}
 
-	
+
 	if (!be_silent) {
 		printf("GW4PTS AX.25 Connect v1.11\n");
 		fflush(stdout);

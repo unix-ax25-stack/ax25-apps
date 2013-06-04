@@ -26,16 +26,16 @@ ax25-apps (0.0.5)
 	* Patch from Hans to work better with newer GCCs
 	* doc dirs are now relocatable
 	* Added Jens patches
-	  - Adapted ax25rtd to new kernel-ax25. ax25-learn-only-mine has 
-	    to be set to "true" for all interfaces to work right now. 
+	  - Adapted ax25rtd to new kernel-ax25. ax25-learn-only-mine has
+	    to be set to "true" for all interfaces to work right now.
 	    Note that this is only a temporary solution.
-	  - Made new-ax25-stack ready (listen, ax25rtd). Will still work 
+	  - Made new-ax25-stack ready (listen, ax25rtd). Will still work
 	    with old kernel-AX25 but need recompile.
 	* New program, ax25mond
 
- -- Craig Small <csmall@small.dropbear.id.au> 
+ -- Craig Small <csmall@small.dropbear.id.au>
 
-ax25-apps 0.0.4 
+ax25-apps 0.0.4
 	* Added Tomi's patch so it correctly detects broken headers
 
  -- Craig Small <csmall@small.dropbear.id.au>  Mon, 23 Aug 1999 11:45:46 +1000

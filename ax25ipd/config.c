@@ -328,7 +328,7 @@ int parse_line(char *buf)
                                  * strange 10093. Even more, ax25ipd.conf's
                                  * examples for axip did not help - and the
                                  * manual is far from complete.
-                                 */ 
+                                 */
                                 if (uport == 0)
 					uport = DEFAULT_UDP_PORT;
 				q = strtok(NULL, " \t\n\r");

@@ -68,7 +68,7 @@ int send_bpq(unsigned char *buf, int l)
   int offset = ETHERTAP_HEADER_LEN_MAX - ethertap_header_len;
 
   static const unsigned char ethernet_header[18] = {
-    0x00, 0x00, 0x00, 0x02,                     /* ??? ??? ETH_P_AX25 (16bit) */ 
+    0x00, 0x00, 0x00, 0x02,                     /* ??? ??? ETH_P_AX25 (16bit) */
     0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00,         /* Destination address (kernel et
 hertap module) */
     0xfe, 0xfe, 0x00, 0x00, 0x00, 0x00,         /* Source address (WAMPES etherta
@@ -161,7 +161,7 @@ static int tun_alloc(char *dev)
 #endif
 
   return fd;
-}              
+}
 #endif
 
 /*---------------------------------------------------------------------------*/
@@ -176,7 +176,7 @@ int open_ethertap(char *ifname)
   int tuntap = 0;
   int mtu = 0;
   int skfd;
-  
+
   strcpy(devname, "/dev/");
   strncpy(devname + 5, ifname, sizeof(devname) - 5 -1);
   devname[sizeof(devname) -1] = 0;

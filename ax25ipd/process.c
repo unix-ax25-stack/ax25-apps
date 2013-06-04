@@ -48,7 +48,7 @@ void process_init(void)
  * not include the CRC bytes.  These are computed by this routine, and
  * it is expected that the buffer we have has room for the CRC bytes.
  * We will either dump this frame, or send it via the IP interface.
- * 
+ *
  * If we are in digi mode, we validate in several ways:
  *   a) we must be the next digi in line to pick up the packet
  *   b) the next site to get the packet (the next listed digi, or
@@ -135,7 +135,7 @@ void from_kiss(unsigned char *buf, int l)
  * a pointer to an AX25 frame.
  * Note that the frame includes the CRC bytes, which we dump ASAP.
  * We will either dump this frame, or send it via the KISS interface.
- * 
+ *
  * If we are in digi mode, we only validate that:
  *   a) we must be the next digi in line to pick up the packet
  * If we pass validation, we then set the digipeated bit for our entry

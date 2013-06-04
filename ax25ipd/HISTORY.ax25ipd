@@ -38,8 +38,8 @@
  *	1.0.1	various cleanups and changes ... now called ax25ipd
  *		added prototypes, fork's itself ... (vk5xxx)
  *
- *	1.0.2	Incorporated patch allowing wildcarding of ax.25 callsigns. 
- *		The old method required a route for every call/ssid 
+ *	1.0.2	Incorporated patch allowing wildcarding of ax.25 callsigns.
+ *		The old method required a route for every call/ssid
  *		combination. (thanks to John Woolner. Wildcarding to be
  *		enhanced later ...
  *

@@ -204,7 +204,7 @@ void io_open(void)
 		perror("setting non-blocking I/O on tty device");
 		exit(1);
 	}
-	
+
 	if (i_am_unix98_pty_master) {
 		/* get name of pts-device */
 		if ((namepts = ptsname(ttyfd)) == NULL) {
