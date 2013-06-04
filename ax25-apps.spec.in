@@ -32,9 +32,6 @@ make %{?_smp_mflags}
 rm -rf $RPM_BUILD_ROOT
 make install DESTDIR=$RPM_BUILD_ROOT
 
-#don't include these twice
-rm -rf $RPM_BUILD_ROOT%{_docdir}/%{name}
-
 %clean
 rm -rf $RPM_BUILD_ROOT
 
