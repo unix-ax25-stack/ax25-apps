@@ -3,6 +3,14 @@
 /INSTALL
 /aclocal.m4
 /autom4te.cache
+/ax25-apps-*.shar.gz
+/ax25-apps-*.tar.Z
+/ax25-apps-*.tar.bz2
+/ax25-apps-*.tar.gz
+/ax25-apps-*.tar.lz
+/ax25-apps-*.tar.lzma
+/ax25-apps-*.tar.xz
+/ax25-apps-*.zip
 /ax25-apps.spec
 /config.guess
 /config.h
