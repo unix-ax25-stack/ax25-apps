@@ -12,7 +12,7 @@ ax25mond.8: ax25mond.man
 	sed -e "s/@@@ax25mond@@@/$$name_ax25mond/g"				\
 	    -e "s/@@@Ax25mond@@@/$$name_Ax25mond/g"				\
 	    -e "s/@@@AX25MOND@@@/$$name_AX25MOND/g"				\
-	    ax25mond.man > ax25mond.8.tmp &&					\
+	    $(srcdir)/ax25mond.man > ax25mond.8.tmp &&				\
 	mv ax25mond.8.tmp ax25mond.8;
 
 ax25mond.conf.5: ax25mond.conf.man
@@ -22,7 +22,7 @@ ax25mond.conf.5: ax25mond.conf.man
 	sed -e "s/@@@ax25mond@@@/$$name_ax25mond/g"				\
 	    -e "s/@@@Ax25mond@@@/$$name_Ax25mond/g"				\
 	    -e "s/@@@AX25MOND@@@/$$name_AX25MOND/g"				\
-	    ax25mond.conf.man > ax25mond.conf.5.tmp &&					\
+	    $(srcdir)/ax25mond.conf.man > ax25mond.conf.5.tmp &&		\
 	mv ax25mond.conf.5.tmp ax25mond.conf.5;
 
 ax25mond_LDADD = $(AX25_LIB)

@@ -21,7 +21,7 @@ listen.1 : listen.man
 	    -e "s/@@@listen@@@/$$name_listen/g"				\
 	    -e "s/@@@Listen@@@/$$name_Listen/g"				\
 	    -e "s/@@@LISTEN@@@/$$name_LISTEN/g"				\
-	    listen.man > listen.1.tmp &&				\
+	    $(srcdir)/listen.man > listen.1.tmp &&			\
 	mv listen.1.tmp listen.1;
 
 LDADD = $(AX25_LIB) $(NCURSES_LIB)

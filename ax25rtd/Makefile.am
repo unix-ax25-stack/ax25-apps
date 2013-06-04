@@ -17,7 +17,7 @@ ax25rtd.8: ax25rtd.man
 	    -e "s/@@@ax25rtctl@@@/$$name_ax25rtctl/g"			\
 	    -e "s/@@@Ax25rtctl@@@/$$name_Ax25rtctl/g"			\
 	    -e "s/@@@AX25RTCTL@@@/$$name_AX25RTCTL/g"			\
-	    ax25rtd.man > ax25rtd.8.tmp &&				\
+	    $(srcdir)/ax25rtd.man > ax25rtd.8.tmp &&			\
 	mv ax25rtd.8.tmp ax25rtd.8;
 
 ax25rtctl.8: ax25rtctl.man
@@ -33,7 +33,7 @@ ax25rtctl.8: ax25rtctl.man
 	    -e "s/@@@ax25rtctl@@@/$$name_ax25rtctl/g"			\
 	    -e "s/@@@Ax25rtctl@@@/$$name_Ax25rtctl/g"			\
 	    -e "s/@@@AX25RTCTL@@@/$$name_AX25RTCTL/g"			\
-	    ax25rtctl.man > ax25rtctl.8.tmp &&				\
+	    $(srcdir)/ax25rtctl.man > ax25rtctl.8.tmp &&		\
 	mv ax25rtctl.8.tmp ax25rtctl.8;
 
 ax25rtd.conf.5: ax25rtd.conf.man
@@ -49,7 +49,7 @@ ax25rtd.conf.5: ax25rtd.conf.man
 	    -e "s/@@@ax25rtctl@@@/$$name_ax25rtctl/g"			\
 	    -e "s/@@@Ax25rtctl@@@/$$name_Ax25rtctl/g"			\
 	    -e "s/@@@AX25RTCTL@@@/$$name_AX25RTCTL/g"			\
-	    ax25rtd.conf.man > ax25rtd.conf.5.tmp &&			\
+	    $(srcdir)/ax25rtd.conf.man > ax25rtd.conf.5.tmp &&		\
 	mv ax25rtd.conf.5.tmp ax25rtd.conf.5;
 
 installconf:

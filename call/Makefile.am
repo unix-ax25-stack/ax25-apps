@@ -25,7 +25,7 @@ call.1 : call.man
 	    -e "s/@@@listen@@@/$$name_listen/g"				\
 	    -e "s/@@@Listen@@@/$$name_Listen/g"				\
 	    -e "s/@@@LISTEN@@@/$$name_LISTEN/g"				\
-	    call.man > call.1.tmp &&					\
+	    $(srcdir)/call.man > call.1.tmp &&				\
 	mv call.1.tmp call.1;
 
 call_LDADD = $(NCURSES_LIB) $(AX25_LIB)
