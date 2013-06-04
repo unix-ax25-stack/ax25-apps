@@ -12,7 +12,7 @@ ax25ipd.8: ax25ipd.man
 	sed -e "s/@@@ax25ipd@@@/$$name_ax25ipd/g"				\
 	    -e "s/@@@Ax25ipd@@@/$$name_Ax25ipd/g"				\
 	    -e "s/@@@AX25IPD@@@/$$name_AX25IPD/g"				\
-	    ax25ipd.man > ax25ipd.8.tmp &&					\
+	     $(srcdir)/ax25ipd.man > ax25ipd.8.tmp &&					\
 	mv ax25ipd.8.tmp ax25ipd.8;
 
 ax25ipd.conf.5: ax25ipd.conf.man
@@ -22,7 +22,7 @@ ax25ipd.conf.5: ax25ipd.conf.man
 	sed -e "s/@@@ax25ipd@@@/$$name_ax25ipd/g"				\
 	    -e "s/@@@Ax25ipd@@@/$$name_Ax25ipd/g"				\
 	    -e "s/@@@AX25IPD@@@/$$name_AX25IPD/g"				\
-	    ax25ipd.conf.man > ax25ipd.conf.5.tmp &&				\
+	    $(srcdir)/ax25ipd.conf.man > ax25ipd.conf.5.tmp &&				\
 	mv ax25ipd.conf.5.tmp ax25ipd.conf.5;
 
 docdir = ${datadir}/doc/ax25-apps
