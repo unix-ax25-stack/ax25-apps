@@ -4,6 +4,7 @@ sbin_PROGRAMS = ax25ipd
 man_MANS = ax25ipd.8 ax25ipd.conf.5
 
 EXTRA_DIST = ax25ipd.man ax25ipd.conf.man $(etcfiles) $(doc_DATA)
+CLEANFILES = ax25ipd.8 ax25ipd.8.tmp ax25ipd.conf.5 ax25ipd.conf.5.tmp
 
 ax25ipd.8: ax25ipd.man
 	name_ax25ipd=$$(echo ax25ipd | sed -e '$(transform)')			\
