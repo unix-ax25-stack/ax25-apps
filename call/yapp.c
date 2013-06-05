@@ -269,7 +269,7 @@ static int yapp_download_data(int *filefd, unsigned char *buffer)
 
 	if (buffer[0] == CAN || buffer[0] == NAK) {
 		Write_Status("RcdABORT");
-		return (FALSE);
+		return FALSE;
 	}
 
 	switch (state) {
@@ -283,7 +283,7 @@ static int yapp_download_data(int *filefd, unsigned char *buffer)
 
 		Send_CN("Unknown code");
 		Write_Status("SndABORT");
-		return (FALSE);
+		return FALSE;
 
 	case STATE_RH:
 		if (buffer[0] == SOH) {
@@ -315,7 +315,7 @@ static int yapp_download_data(int *filefd, unsigned char *buffer)
 					printf("\n[Unable to open %s]\n",
 					       hfield[0]);
 					Send_NR("Invalid filename");
-					return (FALSE);
+					return FALSE;
 				}
 			}
 
@@ -345,12 +345,12 @@ static int yapp_download_data(int *filefd, unsigned char *buffer)
 		if (buffer[0] == EOT && buffer[1] == 0x01) {
 			Send_AT();
 			Write_Status("RcvEOT");
-			return (FALSE);
+			return FALSE;
 		}
 
 		Send_CN("Unknown code");
 		Write_Status("SndABORT");
-		return (FALSE);
+		return FALSE;
 
 	case STATE_RD:
 		if (buffer[0] == STX) {
@@ -372,7 +372,7 @@ static int yapp_download_data(int *filefd, unsigned char *buffer)
 					Send_CN("Bad Checksum");
 					Write_Status
 					    ("SndABORT: Bad Checksum");
-					return (FALSE);
+					return FALSE;
 				}
 			}
 
@@ -391,10 +391,10 @@ static int yapp_download_data(int *filefd, unsigned char *buffer)
 
 		Send_CN("Unknown code");
 		Write_Status("SndABORT");
-		return (FALSE);
+		return FALSE;
 	}
 
-	return (TRUE);
+	return TRUE;
 }
 
 static void yapp_download(int filefd)
@@ -500,7 +500,7 @@ static int yapp_upload_data(int filefd, char *filename, int filelength,
 
 	if (buffer[0] == CAN || buffer[0] == NAK) {
 		Write_Status("RcvABORT");
-		return (FALSE);
+		return FALSE;
 	}
 
 	switch (state) {
@@ -534,7 +534,7 @@ static int yapp_upload_data(int filefd, char *filename, int filelength,
 
 		Send_CN("Unknown code");
 		Write_Status("SndABORT");
-		return (FALSE);
+		return FALSE;
 
 	case STATE_SH:
 		/* Could get three replies here:
@@ -579,12 +579,12 @@ static int yapp_upload_data(int filefd, char *filename, int filelength,
 
 		Send_CN("Unknown code");
 		Write_Status("SndABORT");
-		return (FALSE);
+		return FALSE;
 
 	case STATE_SD:
 		Send_CN("Unknown code");
 		Write_Status("SndABORT");
-		return (FALSE);
+		return FALSE;
 
 	case STATE_SE:
 		if (buffer[0] == ACK && buffer[1] == 0x03) {
@@ -596,19 +596,19 @@ static int yapp_upload_data(int filefd, char *filename, int filelength,
 
 		Send_CN("Unknown code");
 		Write_Status("SndABORT");
-		return (FALSE);
+		return FALSE;
 
 	case STATE_ST:
 		if (buffer[0] == ACK && buffer[1] == 0x04) {
-			return (FALSE);
+			return FALSE;
 		}
 
 		Send_CN("Unknown code");
 		Write_Status("SndABORT");
-		return (FALSE);
+		return FALSE;
 	}
 
-	return (TRUE);
+	return TRUE;
 }
 
 static void yapp_upload(int filefd, char *filename, long filelength)

@@ -166,7 +166,7 @@ int main(int argc, char **argv)
 	/* and let the games begin */
 	io_start();
 
-	return (0);
+	return 0;
 }
 
 

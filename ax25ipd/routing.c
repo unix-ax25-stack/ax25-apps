@@ -195,7 +195,7 @@ int is_call_bcast(unsigned char *call)
 	int i;
 
 	if (call == NULL)
-		return (FALSE);
+		return FALSE;
 
 	for (i = 0; i < 6; i++)
 		bccall[i] = call[i] & 0xfe;
@@ -209,11 +209,11 @@ int is_call_bcast(unsigned char *call)
 		if (addrmatch(bccall, bp->callsign)) {
 			LOGL4("found broadcast %s\n",
 			      call_to_a(bp->callsign));
-			return (TRUE);
+			return TRUE;
 		}
 		bp = bp->next;
 	}
-	return (FALSE);
+	return FALSE;
 }
 
 /* Traverse the routing table, transmitting the packet to each bcast route */
