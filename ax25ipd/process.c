@@ -272,7 +272,7 @@ int addrmatch(unsigned char *a, unsigned char *b)
 		return 1;	/* ssid 0 matches all ssid's */
 	if ((*a++ ^ *b) & 0x1e)
 		return 0;	/* ssid */
-/*	if((*a++^*b++)&0x1e)return 0;      ssid (how it was ...) */
+/*	if ((*a++^*b++)&0x1e)return 0;      ssid (how it was ...) */
 	return 1;
 }
 
