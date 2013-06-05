@@ -99,8 +99,6 @@ void route_add(unsigned char *ip, unsigned char *call, int udpport,
 	      call_to_a(rn->callsign),
 	      inet_ntoa(rn->ip_addr_in),
 	      rn->udp_port ? "udp" : "ip", ntohs(rn->udp_port), flags);
-
-	return;
 }
 
 /* Add a new broadcast address entry */

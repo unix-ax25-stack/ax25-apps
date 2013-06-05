@@ -162,7 +162,6 @@ void param_add(int p, int v)
 	      param_tbl[param_tbl_top].parameter,
 	      param_tbl[param_tbl_top].value);
 	param_tbl_top++;
-	return;
 }
 
 /* dump the contents of the parameter table */

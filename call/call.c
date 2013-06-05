@@ -1023,8 +1023,6 @@ void writeincom(int mode, t_win * win_in, unsigned char buf[], int bytes)
 
 /*      waddnstr(win_in->ptr, buf, bytes); */
 	wrefresh(win_in->ptr);
-
-	return;
 }
 
 int getstring(wint * wintab, char text[], char buf[])
@@ -1521,7 +1519,6 @@ void statbits(int mode, char stat, int m)
 	addch(stat);
 	attroff(A_REVERSE);
 	refresh();
-	return;
 }
 
 
