@@ -147,42 +147,42 @@ void rose_dump(unsigned char *data, int length, int hexdump)
 			data += 5;
 			length -= 5;
 			switch (pid) {
-				case PID_SEGMENT:
-					lprintf(T_ROSEHDR," len %d\n", length - 5);
-					data_dump(data, length, hexdump);
-					break;
-				case PID_ARP:
-					lprintf(T_ROSEHDR," pid=ARP len %d\n", length - 5);
-					arp_dump(data, length);
-					break;
-				case PID_NETROM:
-					lprintf(T_ROSEHDR," pid=NET/ROM len %d\n", length - 5);
-					netrom_dump(data, length, hexdump, 0);
-					break;
-				case PID_IP:
-					lprintf(T_ROSEHDR," pid=IP len %d\n", length - 5);
-					ip_dump(data, length, hexdump);
-					break;
-				case PID_X25:
-					lprintf(T_ROSEHDR, " pid=X.25 len %d\n", length - 5);
-					rose_dump(data, length, hexdump);
-					break;
-				case PID_TEXNET:
-					lprintf(T_ROSEHDR, " pid=TEXNET len %d\n", length - 5);
-					data_dump(data, length, hexdump);
-					break;
-				case PID_FLEXNET:
-					lprintf(T_ROSEHDR, " pid=FLEXNET len %d\n", length - 5);
-					flexnet_dump(data, length, hexdump);
-					break;
-				case PID_NO_L3:
-					lprintf(T_ROSEHDR, " pid=Text len %d\n", length - 5);
-					data_dump(data, length, hexdump);
-					break;
-				default:
-					lprintf(T_ROSEHDR, " pid=0x%x len %d\n", pid, length - 5);
-					data_dump(data, length, hexdump);
-					break;
+			case PID_SEGMENT:
+				lprintf(T_ROSEHDR," len %d\n", length - 5);
+				data_dump(data, length, hexdump);
+				break;
+			case PID_ARP:
+				lprintf(T_ROSEHDR," pid=ARP len %d\n", length - 5);
+				arp_dump(data, length);
+				break;
+			case PID_NETROM:
+				lprintf(T_ROSEHDR," pid=NET/ROM len %d\n", length - 5);
+				netrom_dump(data, length, hexdump, 0);
+				break;
+			case PID_IP:
+				lprintf(T_ROSEHDR," pid=IP len %d\n", length - 5);
+				ip_dump(data, length, hexdump);
+				break;
+			case PID_X25:
+				lprintf(T_ROSEHDR, " pid=X.25 len %d\n", length - 5);
+				rose_dump(data, length, hexdump);
+				break;
+			case PID_TEXNET:
+				lprintf(T_ROSEHDR, " pid=TEXNET len %d\n", length - 5);
+				data_dump(data, length, hexdump);
+				break;
+			case PID_FLEXNET:
+				lprintf(T_ROSEHDR, " pid=FLEXNET len %d\n", length - 5);
+				flexnet_dump(data, length, hexdump);
+				break;
+			case PID_NO_L3:
+				lprintf(T_ROSEHDR, " pid=Text len %d\n", length - 5);
+				data_dump(data, length, hexdump);
+				break;
+			default:
+				lprintf(T_ROSEHDR, " pid=0x%x len %d\n", pid, length - 5);
+				data_dump(data, length, hexdump);
+				break;
 			}
 		} else {
 			lprintf(T_ROSEHDR, " len %d\n", length - 3);

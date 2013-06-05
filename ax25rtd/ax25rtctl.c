@@ -63,7 +63,7 @@ static void usage(void)
 	fprintf(stderr, "          -r|--reload\n");
 	fprintf(stderr, "          -q|--shutdown\n");
 	fprintf(stderr, "          -V|--Version\n");
-	fprintf(stderr, "	  -h|--help\n");
+	fprintf(stderr, "          -h|--help\n");
 	fprintf(stderr, "          -v|--version\n");
 	exit(1);
 }

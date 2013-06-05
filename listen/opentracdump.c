@@ -87,31 +87,31 @@ int decode_entityid(unsigned char *element, int element_len) {
 	}
 
 	switch (element_len) {
-		case 0:
-			entity_serial++;
-			entity_sequence = 0;
-			break;
-		case 2:
-			entity_serial = get16(element);
-			entity_sequence = 0;
-			break;
-		case 4:
-			entity_serial = get16(element);
-			entity_sequence = get16(element+2);
-			break;
-		case 6:
-			entity_serial = 0;
-			break;
-		case 8:
-			entity_serial = get16(element+6);
-			entity_sequence = 0;
-			break;
-		case 10:
-			entity_serial = get16(element+6);
-			entity_sequence = get16(element+8);
-			break;
-		default:
-			return -1;
+	case 0:
+		entity_serial++;
+		entity_sequence = 0;
+		break;
+	case 2:
+		entity_serial = get16(element);
+		entity_sequence = 0;
+		break;
+	case 4:
+		entity_serial = get16(element);
+		entity_sequence = get16(element+2);
+		break;
+	case 6:
+		entity_serial = 0;
+		break;
+	case 8:
+		entity_serial = get16(element+6);
+		entity_sequence = 0;
+		break;
+	case 10:
+		entity_serial = get16(element+6);
+		entity_sequence = get16(element+8);
+		break;
+	default:
+		return -1;
 	}
 
 	lprintf(T_OPENTRAC, "Entity %s-%d:%04x #%d\r\n", entity_call, entity_ssid, entity_serial, entity_sequence);
@@ -274,15 +274,15 @@ int decode_heardby(unsigned char *element, int element_len) {
 }
 
 int decode_availablenets(unsigned char *element, int element_len) {
-     int c;	/* 0x22 Available Networks  */
+	int c;	/* 0x22 Available Networks  */
 
-     lprintf(T_OPENTRAC, "Available Networks:");
-     for (c=0; c<element_len; c++) {
-	  lprintf(T_OPENTRAC, " %d", (int)*(element+c));
-     }
-     lprintf(T_OPENTRAC, "\r\n");
+	lprintf(T_OPENTRAC, "Available Networks:");
+	for (c=0; c<element_len; c++) {
+		lprintf(T_OPENTRAC, " %d", (int)*(element+c));
+	}
+	lprintf(T_OPENTRAC, "\r\n");
 
-     return 0;
+	return 0;
 }
 
 int decode_gpsquality(unsigned char *element, int element_len) {
@@ -351,21 +351,21 @@ int decode_units(unsigned int unitnum, unsigned char *element, int element_len) 
 	if (unitnum > MAX_UNIT_INDEX) return -2; /* Invalid unit name  */
 	mval = (void *)element;
 	switch (element_len) {
-		case 1:
-			lprintf(T_OPENTRAC, "%d %s\r\n", mval->c, units[unitnum]);
-			break;
-		case 2:
-			ival = get16(element);
-			lprintf(T_OPENTRAC, "%d %s\r\n", ival, units[unitnum]);
-			break;
-		case 4:
-			lprintf(T_OPENTRAC, "%f %s\r\n", mval->f, units[unitnum]);
-			break;
-		case 8:
-			lprintf(T_OPENTRAC, "%f %s\r\n", mval->d, units[unitnum]);
-			break;
-		default:
-			return -1;
+	case 1:
+		lprintf(T_OPENTRAC, "%d %s\r\n", mval->c, units[unitnum]);
+		break;
+	case 2:
+		ival = get16(element);
+		lprintf(T_OPENTRAC, "%d %s\r\n", ival, units[unitnum]);
+		break;
+	case 4:
+		lprintf(T_OPENTRAC, "%f %s\r\n", mval->f, units[unitnum]);
+		break;
+	case 8:
+		lprintf(T_OPENTRAC, "%f %s\r\n", mval->d, units[unitnum]);
+		break;
+	default:
+		return -1;
 	}
 
 	return 0;

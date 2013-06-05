@@ -1984,78 +1984,78 @@ int cmd_call(char *call[], int mode)
 								TRUE);
 					}
 					switch (buf[1]) {
-						case 'a':
-						case 'A':
-							{
-								struct stat statbuf;
-								time_t file_time = 0L;
-								binup = TRUE;
-								crc = 0;
-								if (!fstat(uploadfile, &statbuf))
-									file_time =  statbuf.st_mtime;
-								else
-									file_time = time(0);
+					case 'a':
+					case 'A':
+						{
+							struct stat statbuf;
+							time_t file_time = 0L;
+							binup = TRUE;
+							crc = 0;
+							if (!fstat(uploadfile, &statbuf))
+								file_time =  statbuf.st_mtime;
+							else
+								file_time = time(0);
 
 
-								do {
-									upllen =
-										read
-										(uploadfile,
-										 uplbuf,
-										 128);
+							do {
+								upllen =
+									read
+									(uploadfile,
+									 uplbuf,
+									 128);
 
-									if (upllen
-											==
-											-1) {
-										close
-											(uploadfile);
-										uploadfile
-											=
-											-1;
-										delwin
-											(swin);
-										winclose
-											(&wintab);
-										sprintf
-											(s,
-											 "Error reading upload file: upload aborted");
-										statline
-											(mode,
-											 s);
-										break;
-									}
-									crc =
-										calc_crc
-										((unsigned char *) uplbuf,
-										 upllen,
-										 crc);
-								} while (upllen > 0);
-								lseek(uploadfile,
-										0L,
-										SEEK_SET);
-								sprintf(s,
-										"#BIN#%ld#|%u#$%s#%s\r",
-										uplsize,
-										crc,
-										unix_to_sfbin_date_string(file_time),
-										t);
-								if ( write(fd, s,
-											strlen(s)) != strlen(s)) {
-									perror("write");
-									exit(1);
+								if (upllen
+										==
+										-1) {
+									close
+										(uploadfile);
+									uploadfile
+										=
+										-1;
+									delwin
+										(swin);
+									winclose
+										(&wintab);
+									sprintf
+										(s,
+										 "Error reading upload file: upload aborted");
+									statline
+										(mode,
+										 s);
+									break;
 								}
-								uplpos = 0;
-								upldp = -1;
-								upllen = 0;
+								crc =
+									calc_crc
+									((unsigned char *) uplbuf,
+									 upllen,
+									 crc);
+							} while (upllen > 0);
+							lseek(uploadfile,
+									0L,
+									SEEK_SET);
+							sprintf(s,
+									"#BIN#%ld#|%u#$%s#%s\r",
+									uplsize,
+									crc,
+									unix_to_sfbin_date_string(file_time),
+									t);
+							if ( write(fd, s,
+										strlen(s)) != strlen(s)) {
+								perror("write");
+								exit(1);
+							}
+							uplpos = 0;
+							upldp = -1;
+							upllen = 0;
 							}
 							break;
-						case 'b':
-						case 'B':
-							binup = TRUE;
-							break;
-						case 'u':
-						case 'U':
-							binup = FALSE;
+					case 'b':
+					case 'B':
+						binup = TRUE;
+						break;
+					case 'u':
+					case 'U':
+						binup = FALSE;
 					}
 					continue;
 				case 'O':
