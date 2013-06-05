@@ -114,7 +114,7 @@ void assemble_kiss(unsigned char *buf, int l)
 /* convert a standard AX25 frame into a kiss frame */
 void send_kiss(unsigned char type, unsigned char *buf, int l)
 {
-#define KISSEMIT(x) if (ofcount<MAX_FRAME){*ofptr=(x);ofptr++;ofcount++;}
+#define KISSEMIT(x) if (ofcount<MAX_FRAME) {*ofptr=(x);ofptr++;ofcount++;}
 
 	int i;
 
