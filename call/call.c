@@ -225,11 +225,11 @@ static int connect_to(char *address[])
 		if (address[0] == NULL || address[1] == NULL) {
 			fprintf(stderr,
 				"call: too few arguments for Rose\n");
-			return (-1);
+			return -1;
 		}
 		if ((fd = socket(AF_ROSE, SOCK_SEQPACKET, 0)) < 0) {
 			perror("socket");
-			return (-1);
+			return -1;
 		}
 		break;
 
@@ -237,11 +237,11 @@ static int connect_to(char *address[])
 		if (address[0] == NULL) {
 			fprintf(stderr,
 				"call: too few arguments for NET/ROM\n");
-			return (-1);
+			return -1;
 		}
 		if ((fd = socket(AF_NETROM, SOCK_SEQPACKET, 0)) < 0) {
 			perror("socket");
-			return (-1);
+			return -1;
 		}
 		ax25_aton(nr_config_get_addr(port), &sockaddr.ax25);
 		sockaddr.ax25.fsa_ax25.sax25_family = AF_NETROM;
@@ -252,11 +252,11 @@ static int connect_to(char *address[])
 		if (address[0] == NULL) {
 			fprintf(stderr,
 				"call: too few arguments for AX.25\n");
-			return (-1);
+			return -1;
 		}
 		if ((fd = socket(AF_AX25, SOCK_SEQPACKET, 0)) < 0) {
 			perror("socket");
-			return (-1);
+			return -1;
 		}
 		ax25_aton(ax25_config_get_addr(port), &sockaddr.ax25);
 		if (sockaddr.ax25.fsa_ax25.sax25_ndigis == 0) {
@@ -276,7 +276,7 @@ static int connect_to(char *address[])
 			perror("AX25_WINDOW");
 			close(fd);
 			fd = -1;
-			return (-1);
+			return -1;
 		}
 		if (setsockopt
 		    (fd, SOL_AX25, AX25_PACLEN, &paclen,
@@ -284,7 +284,7 @@ static int connect_to(char *address[])
 			perror("AX25_PACLEN");
 			close(fd);
 			fd = -1;
-			return (-1);
+			return -1;
 		}
 		if (backoff != -1) {
 			if (setsockopt
@@ -293,7 +293,7 @@ static int connect_to(char *address[])
 				perror("AX25_BACKOFF");
 				close(fd);
 				fd = -1;
-				return (-1);
+				return -1;
 			}
 		}
 		if (ax25mode != -1) {
@@ -303,7 +303,7 @@ static int connect_to(char *address[])
 				perror("AX25_EXTSEQ");
 				close(fd);
 				fd = -1;
-				return (-1);
+				return -1;
 			}
 		}
 		break;
@@ -315,14 +315,14 @@ static int connect_to(char *address[])
 		perror("SO_DEBUG");
 		close(fd);
 		fd = -1;
-		return (-1);
+		return -1;
 	}
 	if (af_mode != AF_ROSE) {	/* Let Rose autobind */
 		if (bind(fd, (struct sockaddr *) &sockaddr, addrlen) == -1) {
 			perror("bind");
 			close(fd);
 			fd = -1;
-			return (-1);
+			return -1;
 		}
 	}
 	switch (af_mode) {
@@ -334,14 +334,14 @@ static int connect_to(char *address[])
 		     sockaddr.rose.srose_call.ax25_call) == -1) {
 			close(fd);
 			fd = -1;
-			return (-1);
+			return -1;
 		}
 		if (rose_aton
 		    (address[1],
 		     sockaddr.rose.srose_addr.rose_addr) == -1) {
 			close(fd);
 			fd = -1;
-			return (-1);
+			return -1;
 		}
 		if (address[2] != NULL) {
 			digi = address[2];
@@ -351,7 +351,7 @@ static int connect_to(char *address[])
 						"call: callsign must follow 'via'\n");
 					close(fd);
 					fd = -1;
-					return (-1);
+					return -1;
 				}
 				digi = address[3];
 			}
@@ -360,7 +360,7 @@ static int connect_to(char *address[])
 			     sockaddr.rose.srose_digi.ax25_call) == -1) {
 				close(fd);
 				fd = -1;
-				return (-1);
+				return -1;
 			}
 			sockaddr.rose.srose_ndigis = 1;
 		}
@@ -372,7 +372,7 @@ static int connect_to(char *address[])
 		if (nr_convert_call(address[0], &sockaddr.ax25) == -1) {
 			close(fd);
 			fd = -1;
-			return (-1);
+			return -1;
 		}
 		sockaddr.rose.srose_family = AF_NETROM;
 		addrlen = sizeof(struct sockaddr_ax25);
@@ -383,7 +383,7 @@ static int connect_to(char *address[])
 		    ((const char **) address, &sockaddr.ax25) == -1) {
 			close(fd);
 			fd = -1;
-			return (-1);
+			return -1;
 		}
 		sockaddr.rose.srose_family = AF_AX25;
 		addrlen = sizeof(struct full_sockaddr_ax25);
@@ -401,14 +401,14 @@ static int connect_to(char *address[])
 		perror("connect");
 		close(fd);
 		fd = -1;
-		return (-1);
+		return -1;
 	}
 	if (!be_silent) {
 		printf("*** Connected to %s\n", address[0]);
 		fflush(stdout);
 	}
 
-	return (fd);
+	return fd;
 }
 
 void cmd_intr(int sig)

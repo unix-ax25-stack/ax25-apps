@@ -367,7 +367,7 @@ char *pax25(char *buf, unsigned char *data)
 	else
 		*s = '\0';
 
-	return (buf);
+	return buf;
 }
 
 static int ftype(unsigned char *data, int *type, int *ns, int *nr, int *pf,

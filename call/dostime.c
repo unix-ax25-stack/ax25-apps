@@ -78,7 +78,7 @@ int yapp2unix(char *ytime)
 	time = strtoul(ytime + 4, (char **) NULL, 16);
 	ytime[4] = 0;
 	date = strtoul(ytime, (char **) NULL, 16);
-	return (date_dos2unix(time, date));
+	return date_dos2unix(time, date);
 
 }
 

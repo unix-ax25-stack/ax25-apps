@@ -332,7 +332,7 @@ int get16(unsigned char *cp)
 	x <<= 8;
 	x |= *cp++;
 
-	return (x);
+	return x;
 }
 
 int get32(unsigned char *cp)
@@ -347,5 +347,5 @@ int get32(unsigned char *cp)
 	x <<= 8;
 	x |= *cp;
 
-	return (x);
+	return x;
 }
