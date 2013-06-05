@@ -568,7 +568,7 @@ int io_error(
 #ifdef	notdef
 		/* select() said that data is available, but recvfrom sais
 		 * EAGAIN - i really do not know what's the sense in this.. */
-		 if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
+		if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
 			return 0;
 		perror("System 5 I/O error!");
 		fprintf(stderr, "A System 5 style I/O error was detected.  This rogram requires BSD 4.2\n");
@@ -576,16 +576,16 @@ int io_error(
 		fprintf(stderr, "Mode 0x%2.2x, LINE: %d. During %s\n", mode, where, (dir == READ_MSG ? "READ" : "WRITE"));
 		exit(3);
 #else
-	       int ret = 0;
-	       if (dir == READ_MSG) {
-		       LOGL4("read / recv returned -1 EAGAIN\n");
-		       ret = 0;
-	       } else if (dir == SEND_MSG) {
-		       LOGL4("write / send returned -1 EAGAIN, sleeping and retrying!\n");
-		       usleep(100000);
-		       ret = 1;
-	       }
-	       return ret;
+		int ret = 0;
+		if (dir == READ_MSG) {
+			LOGL4("read / recv returned -1 EAGAIN\n");
+			ret = 0;
+		} else if (dir == SEND_MSG) {
+			LOGL4("write / send returned -1 EAGAIN, sleeping and retrying!\n");
+			usleep(100000);
+			ret = 1;
+		}
+		return ret;
 #endif
 	}
 #endif

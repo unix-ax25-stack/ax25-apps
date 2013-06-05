@@ -146,10 +146,10 @@ int main(int argc, char **argv)
 
 	/* if we get this far without error, let's fork off ! :-) */
 	if (opt_nofork == 0) {
-	    if (!daemon_start(TRUE)) {
-		    syslog(LOG_DAEMON | LOG_CRIT, "ax25ipd: cannot become a daemon\n");
-		    return 1;
-	    }
+		if (!daemon_start(TRUE)) {
+			syslog(LOG_DAEMON | LOG_CRIT, "ax25ipd: cannot become a daemon\n");
+			return 1;
+		}
 	}
 
 	/* we need to close stdin, stdout, stderr: because otherwise

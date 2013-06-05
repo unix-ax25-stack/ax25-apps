@@ -15,8 +15,8 @@
 /* Linear day numbers of the respective 1sts in non-leap years. */
 
 static int day_n[] =
-    { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 0, 0, 0, 0 };
-		  /* JanFebMarApr May Jun Jul Aug Sep Oct Nov Dec */
+	{ 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 0, 0, 0, 0 };
+	/* Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec */
 
 
 /* Convert a MS-DOS time/date pair to a UNIX date (seconds since 1 1 70). */
