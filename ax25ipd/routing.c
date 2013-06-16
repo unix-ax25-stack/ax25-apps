@@ -97,7 +97,7 @@ void route_add(unsigned char *ip, unsigned char *call, int udpport,
 	/* Log this entry ... */
 	LOGL4("added route: %s %s %s %d %d\n",
 	      call_to_a(rn->callsign),
-	      (char *) inet_ntoa(rn->ip_addr_in),
+	      inet_ntoa(rn->ip_addr_in),
 	      rn->udp_port ? "udp" : "ip", ntohs(rn->udp_port), flags);
 
 	return;
@@ -164,7 +164,7 @@ unsigned char *call_to_ip(unsigned char *call)
 	while (rp) {
 		if (addrmatch(mycall, rp->callsign)) {
 			LOGL4("found ip addr %s\n",
-			      (char *) inet_ntoa(rp->ip_addr_in));
+			      inet_ntoa(rp->ip_addr_in));
 			return rp->ip_addr;
 		}
 		rp = rp->next;
@@ -176,7 +176,7 @@ unsigned char *call_to_ip(unsigned char *call)
 	 */
 	if (default_route) {
 		LOGL4("failed, using default ip addr %s\n",
-		      (char *) inet_ntoa(default_route->ip_addr_in));
+		      inet_ntoa(default_route->ip_addr_in));
 		return default_route->ip_addr;
 	}
 
@@ -245,7 +245,7 @@ void dump_routes(void)
 	while (rp) {
 		LOGL1("  %s\t%s\t%s\t%d\t%d\n",
 		      call_to_a(rp->callsign),
-		      (char *) inet_ntoa(rp->ip_addr_in),
+		      inet_ntoa(rp->ip_addr_in),
 		      rp->udp_port ? "udp" : "ip",
 		      ntohs(rp->udp_port), rp->flags);
 		rp = rp->next;
