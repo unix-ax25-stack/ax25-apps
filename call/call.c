@@ -479,7 +479,7 @@ WINDOW *opnstatw(int mode, wint * wintab, char *s, int lines, int cols)
 
 void wrdstatw(WINDOW * win, char s[])
 {
-	int y, x;
+	int y;
 
 	if (win == NULL) {
 		printf("  %s\n", s);
@@ -487,7 +487,7 @@ void wrdstatw(WINDOW * win, char s[])
 		return;
 	}
 	waddstr(win, s);
-	getyx(win, y, x);
+	y = getcury(win);
 	wmove(win, y + 1, 2);
 	wrefresh(win);
 }
