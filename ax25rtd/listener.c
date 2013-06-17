@@ -138,7 +138,7 @@ int set_arp(config * config, long ip, ax25_address * call)
 
 	fds = socket(AF_INET, SOCK_DGRAM, 0);
 
-	memset((char *) &arp, 0, sizeof(arp));
+	memset(&arp, 0, sizeof(arp));
 
 	isa = (struct sockaddr_in *) &arp.arp_pa;
 	asa = (struct sockaddr_ax25 *) &arp.arp_ha;
@@ -234,7 +234,7 @@ int set_route(config * config, long ip)
 
 	fds = socket(AF_INET, SOCK_DGRAM, 0);
 
-	memset((char *) &rt, 0, sizeof(rt));
+	memset(&rt, 0, sizeof(rt));
 
 	isa = (struct sockaddr_in *) &rt.rt_dst;
 
@@ -280,7 +280,7 @@ int del_kernel_ip_route(char *dev, long ip)
 
 	fds = socket(AF_INET, SOCK_DGRAM, 0);
 
-	memset((char *) &rt, 0, sizeof(struct rtentry));
+	memset(&rt, 0, sizeof(struct rtentry));
 
 	isa = (struct sockaddr_in *) &rt.rt_dst;
 
