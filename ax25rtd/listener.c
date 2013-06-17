@@ -229,7 +229,7 @@ int set_route(config * config, long ip)
 	if (!config->ip_add_route)
 		return 0;
 
-	if (iproute2_table && *iproute2_table)
+	if (*iproute2_table)
 		return iproute2(ip, config->dev, RT_ADD);
 
 	fds = socket(AF_INET, SOCK_DGRAM, 0);
@@ -275,7 +275,7 @@ int del_kernel_ip_route(char *dev, long ip)
 	if (config == NULL || !config->ip_add_route)
 		return 0;
 
-	if (iproute2_table && *iproute2_table)
+	if (*iproute2_table)
 		return iproute2(ip, dev, RT_DEL);
 
 	fds = socket(AF_INET, SOCK_DGRAM, 0);
