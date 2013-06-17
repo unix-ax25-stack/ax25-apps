@@ -312,7 +312,7 @@ int parse_line(char *buf)
 			j = inet_addr(q);
 			if (j == -1)
 				return -5;	/* if -1, bad deal! */
-			memcpy(tip, (char *) &j, 4);
+			memcpy(tip, &j, 4);
 		}
 
 		if (my_udp)
