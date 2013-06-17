@@ -1587,7 +1587,6 @@ int cmd_call(char *call[], int mode)
 	int upldp = 0;
 	int upllen = 0;
 	char *c, *t;
-	int extrach = 0;
 	t_gp gp;
 	t_win win_in;
 	t_win win_out;
@@ -1759,7 +1758,6 @@ int cmd_call(char *call[], int mode)
 								  &gp,
 								  call);
 						restbytes = 0;
-						extrach = 0;
 					}
 					break;
 				case 2:
