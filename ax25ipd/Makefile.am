@@ -40,6 +40,7 @@ ax25ipd_SOURCES =	\
 	ax25ipd.h	\
 	process.c	\
 	routing.c	\
+	syslog.c	\
 	bpqether.c
 
 # Needed so that install is optional
