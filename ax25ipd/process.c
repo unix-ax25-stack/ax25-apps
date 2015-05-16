@@ -30,8 +30,8 @@
 #define SETREPEATED(p)  (*(p+6))|=0x80
 #define SETLAST(p)      (*(p+6))|=0x01
 
-unsigned char bcbuf[256];	/* Must be larger than bc_text!!! */
-int bclen;			/* The size of bcbuf */
+static unsigned char bcbuf[256];	/* Must be larger than bc_text!!! */
+static int bclen;			/* The size of bcbuf */
 
 /*
  * Initialize the process variables
