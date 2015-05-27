@@ -281,6 +281,82 @@ void io_open(void)
 		baudrate = EXTB;
 #endif /* EXTB */
 #endif /* B38400 */
+#ifdef B57600
+	 else if (ttyspeed == 57600)
+		baudrate = B57600;
+#endif /* B57600  */
+#ifdef B76800					/* SPARC-specific  */
+	 else if (ttyspeed == 76800)
+		baudrate = B76800;
+#endif /* B76800  */
+#ifdef B115200
+	 else if (ttyspeed == 115200)
+		baudrate = B115200;
+#endif /* B115200  */
+#ifdef B153600					/* SPARC-specific  */
+	 else if (ttyspeed == 153600)
+		baudrate = B153600;
+#endif /* B153600  */
+#ifdef B230400
+	 else if (ttyspeed == 230400)
+		baudrate = B230400;
+#endif /* B230400  */
+#ifdef B307200					/* SPARC-specific  */
+	 else if (ttyspeed == 307200)
+		baudrate = B307200;
+#endif /* B307200  */
+#ifdef B460800
+	 else if (ttyspeed == 460800)
+		baudrate = B460800;
+#endif /* B460800  */
+#ifdef B500000
+	 else if (ttyspeed == 500000)
+		baudrate = B500000;
+#endif /* B500000  */
+#ifdef B576000
+	 else if (ttyspeed == 576000)
+		baudrate = B576000;
+#endif /* B576000  */
+#ifdef B614400					/* SPARC-specific  */
+	 else if (ttyspeed == 614400)
+		baudrate = B614400;
+#endif /* B614400  */
+#ifdef B921600					/* SPARC-specific  */
+	 else if (ttyspeed == 921600)
+		baudrate = B921600;
+#endif /* B921600  */
+#ifdef B1000000
+	 else if (ttyspeed == 1000000)
+		baudrate = B1000000;
+#endif /* B1000000  */
+#ifdef B1152000
+	 else if (ttyspeed == 1152000)
+		baudrate = B1152000;
+#endif /* B1152000  */
+#ifdef B1500000
+	 else if (ttyspeed == 1500000)
+		baudrate = B1500000;
+#endif /* B1500000  */
+#ifdef B2000000
+	 else if (ttyspeed == 2000000)
+		baudrate = B2000000;
+#endif /* B2000000  */
+#ifdef B2500000
+	 else if (ttyspeed == 2500000)
+		baudrate = B2500000;
+#endif /* B2500000  */
+#ifdef B3000000
+	 else if (ttyspeed == 3000000)
+		baudrate = B3000000;
+#endif /* B3000000  */
+#ifdef B3500000
+	 else if (ttyspeed == 3500000)
+		baudrate = B3500000;
+#endif /* B3500000  */
+#ifdef B4000000
+	 else if (ttyspeed == 4000000)
+		baudrate = B4000000;
+#endif /* B4000000  */
 	else
 		baudrate = B9600;
 

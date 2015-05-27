@@ -198,6 +198,17 @@ route vk2abc 44.1.1.1 d
 .br
 .LP
 More to come ...
+.br
+For the
+.I speed
+statement 50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800, 9600,
+19200, 38400, 57600, 115200, 230400, 460800, 500000, 576000, 1000000, 1152000,
+1500000, 2000000, 2500000, 3000000, 3500000 and 4000000 are supported on
+all architectures on Linux.  On
+.B SPARC
+in addition to these line speeds 76800, 153600, 307200, 614400 and 921600 bits
+per second are also supported.  If a system does not support a particular line
+speed, a speed of 9600 bits per second will be set instead.
 .SH FILES
 .LP
 /etc/ax25/ax25ipd.conf
