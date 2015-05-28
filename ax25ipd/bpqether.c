@@ -301,7 +301,8 @@ int set_bpq_dev_call_and_up(char *ifname)
 	}
 	fclose(fp);
 	if (!*bpq_name) {
-		LOGL2("Did not found bpqether device for %s in /proc/net/bpqether: %s", ifr.ifr_name, strerror(errno));
+		LOGL2("Could not find bpqether device for %s in "
+		      "/proc/net/bpqether: %s", ifr.ifr_name, strerror(errno));
 		return -1;
 	}
 
