@@ -47,7 +47,6 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/ax25/ax25rtd.conf
 %{_sbindir}/*
 %{_mandir}/man?/*
-%{_docdir}/*
 
 %changelog
 * Sat Jun 27 2009 Ralf Baechle <ralf@linux-mips.org>
