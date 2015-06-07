@@ -306,8 +306,8 @@ static void debug(void)
 int main(int argc, char **argv)
 {
 	int sock, cmd, k, len;
-	unsigned char buf[256];
 	int opt_ind = 0;
+	char buf[256];
 	long when;
 
 	cmd = getopt_long(argc, argv, sopts, lopts, &opt_ind);

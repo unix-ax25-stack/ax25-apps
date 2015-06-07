@@ -130,7 +130,7 @@ ax25_rt_entry *update_ax25_route(config * config, ax25_address * call,
 {
 	ax25_rt_entry *bp = ax25_routes;
 	ax25_rt_entry *bp_prev = ax25_routes;
-	unsigned char *iface = config->dev;
+	char *iface = config->dev;
 	int action = 0;
 
 	while (bp) {

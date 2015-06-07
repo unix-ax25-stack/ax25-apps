@@ -126,7 +126,7 @@ void daemon_shutdown(int reason)
 
 int main(int argc, char **argv)
 {
-	unsigned char buf[256];
+	char buf[256];
 	int size, s, cntrl_s, cntrl_fd;
 	socklen_t cntrl_len;
 	struct sockaddr_un cntrl_addr;
