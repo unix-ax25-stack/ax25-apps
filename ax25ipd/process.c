@@ -232,7 +232,7 @@ void do_beacon(void)
 
 		*p++ = 0xf0;	/* Protocol ID -- 0xf0 is no protocol */
 
-		strcpy(p, bc_text);	/* add the text field */
+		strcpy((char *)p, bc_text);	/* add the text field */
 
 		bclen = 16 + strlen(bc_text);	/* adjust the length nicely */
 	}
