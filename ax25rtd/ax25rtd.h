@@ -56,7 +56,7 @@
 typedef struct ip_rt_entry_ {
 	struct ip_rt_entry_	*next, *prev;
 	unsigned long		ip;
-	unsigned char		iface[14];
+	char			iface[14];
 	ax25_address		call;
 	char			ipmode;
 	time_t			timestamp;
@@ -65,7 +65,7 @@ typedef struct ip_rt_entry_ {
 
 typedef struct ax25_rt_entry_ {
 	struct ax25_rt_entry_	*next, *prev;
-	unsigned char		iface[14];
+	char			iface[14];
 	ax25_address		call;
 	ax25_address		digipeater[AX25_MAX_DIGIS];
 	int			ndigi;
@@ -127,7 +127,7 @@ void load_config(void);
 void reload_config(void);
 void load_cache(void);
 void save_cache(void);
-void interpret_command(int fd, unsigned char *buf);
+void interpret_command(int fd, char *buf);
 
 /* listener.c */
 

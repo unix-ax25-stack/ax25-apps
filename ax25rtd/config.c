@@ -541,7 +541,7 @@ void reload_config(void)
 */
 
 
-void interpret_command(int fd, unsigned char *buf)
+void interpret_command(int fd, char *buf)
 {
 	char *p, *cmd, *arg, *arg2, *dev, *time;
 	ax25_address digipeater[AX25_MAX_DIGIS];
