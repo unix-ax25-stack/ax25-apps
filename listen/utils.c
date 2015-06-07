@@ -38,8 +38,8 @@ void lprintf(int dtype, char *fmt, ...)
 {
 	va_list args;
 	char str[1024];
-	unsigned char *p;
 	chtype ch;
+	char *p;
 
 	va_start(args, fmt);
 	vsnprintf(str, 1024, fmt, args);

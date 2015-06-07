@@ -216,7 +216,7 @@ int main(int argc, char **argv)
 
 static void ascii_dump(unsigned char *data, int length)
 {
-	unsigned char c;
+	char c;
 	int i, j;
 	char buf[100];
 
@@ -272,9 +272,9 @@ static void readable_dump(unsigned char *data, int length)
 
 static void hex_dump(unsigned char *data, int length)
 {
+	unsigned char *data2;
 	int i, j, length2;
 	unsigned char c;
-	char *data2;
 
 	char buf[4], hexd[49], ascd[17];
 
@@ -309,7 +309,7 @@ static void hex_dump(unsigned char *data, int length)
 	}
 }
 
-void data_dump(unsigned char *data, int length, int dumpstyle)
+void data_dump(void *data, int length, int dumpstyle)
 {
 	switch (dumpstyle) {
 

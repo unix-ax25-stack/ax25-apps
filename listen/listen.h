@@ -28,7 +28,7 @@ int  initcolor(void);
 char *servname(int port, char *proto);
 
 /* In listen.c */
-void data_dump(unsigned char *, int, int);
+void data_dump(void *, int, int);
 int  get16(unsigned char *);
 int  get32(unsigned char *);
 

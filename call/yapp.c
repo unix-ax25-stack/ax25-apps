@@ -288,13 +288,13 @@ static int yapp_download_data(int *filefd, unsigned char *buffer)
 	case STATE_RH:
 		if (buffer[0] == SOH) {
 			/* Parse header: 3 fields == YAPP C */
-			char *hptr, *hfield[3];
+			unsigned char *hptr, *hfield[3];
 			if ((length = buffer[1]) == 0)
 				length = 256;
 			hptr = buffer + 2;
 			while (length > 0) {
 				int hlen;
-				hlen = strlen(hptr) + 1;
+				hlen = strlen((char *)hptr) + 1;
 				hfield[(int) yappc++] = hptr;
 				hptr += hlen;
 				length -= hlen;
@@ -303,13 +303,13 @@ static int yapp_download_data(int *filefd, unsigned char *buffer)
 			if (yappc < 3) {
 				yappc = 0;
 			} else {
-				file_time = yapp2unix(hfield[2]);
+				file_time = yapp2unix((char *)hfield[2]);
 				yappc = 1;
 			}
 
 			if (*filefd == -1) {
 				if ((*filefd =
-				     open(hfield[0],
+				     open((char *)hfield[0],
 					  O_RDWR | O_APPEND | O_CREAT,
 					  0666)) == -1) {
 					printf("\n[Unable to open %s]\n",
@@ -549,7 +549,7 @@ static int yapp_upload_data(int filefd, char *filename, int filelength,
 			len = buffer[1];
 			if (buffer[len] == 'C')
 				yappc = 1;
-			rpos = atol(buffer + 4);
+			rpos = atol((char *)buffer + 4);
 			lseek(filefd, rpos, SEEK_SET);
 			buffer[0] = ACK;
 			buffer[1] = yappc ? ACK : 0x02;
