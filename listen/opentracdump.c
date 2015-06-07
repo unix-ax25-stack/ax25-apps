@@ -18,16 +18,16 @@ const char *units[]={"Volts","Amperes","Watts","Kelvins","Meters","Seconds",
 		"Pascal Seconds","Kilograms/Meter^3","Radians/Second^2","Coulombs",
 		"Farads","Siemens","Count"};
 
-unsigned char origin_call[7]; /* Who's talking  */
+char origin_call[7]; /* Who's talking  */
 unsigned char origin_ssid;
-unsigned char entity_call[7]; /* What they're talking about  */
+char entity_call[7]; /* What they're talking about  */
 unsigned char entity_ssid;
 unsigned int  entity_serial;
 unsigned int  entity_sequence;
 
 
 
-int extract_ssid(unsigned char *call) {
+int extract_ssid(char *call) {
 	/* Strip the SSID from the callsign and return it  */
 	int c, ssid;
 
@@ -156,7 +156,7 @@ int decode_comment(unsigned char *element, int element_len) {
 	/* 0x12 Freeform Comment - ASCII text  */
 	char comment[127];
 
-	strncpy(comment, element, element_len);
+	strncpy(comment, (char *)element, element_len);
 	comment[element_len] = 0;
 	lprintf(T_OPENTRAC, "Text: %s\r\n", comment);
 
@@ -192,10 +192,10 @@ int decode_country(unsigned char *element, int element_len) {
 	char country[3];
 	char subdivision[4];
 
-	strncpy(country, element, 2);
+	strncpy(country, (char *)element, 2);
 	country[2] = 0;
 	if (element_len > 2) {
-		strncpy(subdivision, element+2, element_len-2);
+		strncpy(subdivision, (char *)element+2, element_len-2);
 		subdivision[element_len-2] = 0;
 		lprintf(T_OPENTRAC, "Country Code %s-%s\r\n", country, subdivision);
 	}
@@ -208,7 +208,7 @@ int decode_country(unsigned char *element, int element_len) {
 int decode_displayname(unsigned char *element, int element_len) {
      char displayname[31];	/* 0x16 - Display Name (UTF-8 text)    */
 
-     strncpy(displayname, element, element_len);
+     strncpy(displayname, (char *)element, element_len);
      displayname[element_len] = 0;
 
      lprintf(T_OPENTRAC, "Display Name: %s\r\n", displayname);
@@ -218,7 +218,7 @@ int decode_displayname(unsigned char *element, int element_len) {
 int decode_waypoint(unsigned char *element, int element_len) {
 	char waypoint[7]; /* 0x17 - Waypoint Name (up to 6 chars, uppercase)  */
 
-	strncpy(waypoint, element, element_len);
+	strncpy(waypoint, (char *)element, element_len);
 	waypoint[element_len] = 0;
 
 	lprintf(T_OPENTRAC, "Waypoint Name: %s\r\n", waypoint);
@@ -312,7 +312,7 @@ int decode_gpsquality(unsigned char *element, int element_len) {
 int decode_acreg(unsigned char *element, int element_len) {
 	char nnumber[9];	/* 0x35 Aircraft Registration - ASCII text  */
 
-	strncpy(nnumber, element, element_len);
+	strncpy(nnumber, (char *)element, element_len);
 	nnumber[element_len]=0;
 	lprintf(T_OPENTRAC, "Aircraft ID: %s\r\n", nnumber);
 
@@ -403,7 +403,7 @@ int decode_maidenhead(unsigned char *element, int element_len) {
 
    if (element_len > 6 || !element_len) return -1;
 
-   strncpy(maidenhead, element, element_len);
+   strncpy(maidenhead, (char *)element, element_len);
    maidenhead[element_len] = 0;
 
    lprintf(T_OPENTRAC, "Grid ID: %s\r\n", maidenhead);
