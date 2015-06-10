@@ -79,7 +79,7 @@ static char *mycall;
 
 static int stdin_is_tty = 1;
 
-int interrupted = FALSE;
+volatile int interrupted = FALSE;
 int paclen;
 int fd;
 

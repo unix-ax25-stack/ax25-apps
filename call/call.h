@@ -5,7 +5,7 @@
 #define	TRUE	1
 #endif
 extern int fd;
-extern int interrupted;
+extern volatile int interrupted;
 extern int paclen;
 
 /* In call.c */
