@@ -85,7 +85,7 @@ int paclen;
 int fd;
 
 int wait_for_remote_disconnect = FALSE;
-static struct timeval inactivity_timeout;
+static struct timespec inactivity_timeout;
 int inactivity_timeout_is_set = FALSE;
 int remote_commands_enabled = TRUE;
 
@@ -1593,6 +1593,7 @@ int cmd_call(char *call[], int mode)
 	char s[80];
 	int flags = 0;
 	int EOF_on_STDIN = FALSE;
+	sigset_t oursigs, oldsigs;
 
 	init_crc();
 
@@ -1609,6 +1610,8 @@ int cmd_call(char *call[], int mode)
 	signal(SIGQUIT, cmd_intr);
 	signal(SIGINT, SIG_IGN);
 	signal(SIGTSTP, SIG_IGN);
+	sigemptyset(&oursigs);
+	sigaddset(&oursigs, SIGQUIT);
 
 	fcntl(fd, F_SETFL, O_NONBLOCK);
 	fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
@@ -1629,15 +1632,17 @@ int cmd_call(char *call[], int mode)
 		}
 	}
 
+	sigprocmask(SIG_BLOCK, &oursigs, &oldsigs);
+
 	while (TRUE) {
-		struct timeval tv, *timeout;
+		struct timespec tv, *timeout;
 		int nfds;
 		if (inactivity_timeout_is_set == TRUE && uploadfile == -1 && downloadfile == -1) {
 			tv.tv_sec = inactivity_timeout.tv_sec;
-			tv.tv_usec = inactivity_timeout.tv_usec;
+			tv.tv_nsec = inactivity_timeout.tv_nsec;
 		} else {
 			tv.tv_sec = 0;
-			tv.tv_usec = 10;
+			tv.tv_nsec = 10000;		/* 10ms		*/
 		}
 		FD_ZERO(&sock_read);
 		if (EOF_on_STDIN == FALSE)
@@ -1653,7 +1658,8 @@ int cmd_call(char *call[], int mode)
 			timeout = NULL;
 		else
 			timeout = &tv;
-		nfds = select(fd + 1, &sock_read, &sock_write, NULL, timeout);
+		nfds = pselect(fd + 1, &sock_read, &sock_write, NULL, timeout,
+			       &oldsigs);
 		if (nfds == -1) {
 			if (!interrupted) {
 				if (errno == EINTR)
@@ -2277,6 +2283,7 @@ int cmd_call(char *call[], int mode)
 	}
 	fcntl(STDIN_FILENO, F_SETFL, 0);
 
+	sigprocmask(SIG_SETMASK, &oldsigs, NULL);
 	signal(SIGQUIT, SIG_IGN);
 	signal(SIGINT, SIG_DFL);
 
@@ -2357,7 +2364,7 @@ int main(int argc, char **argv)
 				double f = atof(optarg);
 
 				inactivity_timeout.tv_sec = f;
-				inactivity_timeout.tv_usec = (f - (long) f) * 1000000;
+				inactivity_timeout.tv_nsec = (f - (long) f) * 1000000000;
 
 				if (f < 0.001 || f > (double) LONG_MAX) {
 					fprintf(stderr, "call: option '-T' must be > 0.001 (1ms) and < %ld seconds\n", LONG_MAX);
