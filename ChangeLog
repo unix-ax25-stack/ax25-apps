@@ -16,6 +16,8 @@ ax25-apps (0.0.8)
 	* Fix grammar of bpqether log message.
 	* Support all standard baud rates from 50 to 4000000 bits per second
 	  with ax25ipd.
+	* call: Do not exit when running in curses mode and the window is
+	  resized.
 
 ax25-apps (0.0.7)
 	* Added opentrac to listen, Thanks to Scott Miller
