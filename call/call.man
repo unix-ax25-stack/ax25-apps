@@ -8,11 +8,11 @@ For AX.25
 .sp 1
 For NET/ROM
 .br
-.B @@@call@@@ [-d] [-h] [-p paclen] [-r] [-t] [-v] port callsign
+.B @@@call@@@ [-d] [-h] [-p paclen] [-r] [-t] [-T timeout] [-v] port callsign
 .sp 1
 For Rose
 .br
-.B @@@call@@@ [-d] [-h] [-r] [-t] [-v] port callsign address [[via] digipeater]
+.B @@@call@@@ [-d] [-h] [-r] [-t] [-T timeout] [-v] port callsign address [[via] digipeater]
 .br
 .SH DESCRIPTION
 .LP
