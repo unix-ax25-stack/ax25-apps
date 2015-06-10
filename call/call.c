@@ -1630,7 +1630,8 @@ int cmd_call(char *call[], int mode)
 	}
 
 	while (TRUE) {
-		struct timeval tv;
+		struct timeval tv, *timeout;
+		int nfds;
 		if (inactivity_timeout_is_set == TRUE && uploadfile == -1 && downloadfile == -1) {
 			tv.tv_sec = inactivity_timeout.tv_sec;
 			tv.tv_usec = inactivity_timeout.tv_usec;
@@ -1647,7 +1648,13 @@ int cmd_call(char *call[], int mode)
 		if (uploadfile != -1)
 			FD_SET(fd, &sock_write);
 
-		if (select(fd + 1, &sock_read, &sock_write, NULL, (uploadfile == -1 && downloadfile == -1 && inactivity_timeout_is_set == FALSE) ? NULL : &tv) == -1) {
+		if (uploadfile == -1 && downloadfile == -1 &&
+		    inactivity_timeout_is_set == FALSE)
+			timeout = NULL;
+		else
+			timeout = &tv;
+		nfds = select(fd + 1, &sock_read, &sock_write, NULL, timeout);
+		if (nfds == -1) {
 			if (!interrupted) {
 				if (errno == EINTR)
 					continue;
