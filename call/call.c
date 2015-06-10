@@ -413,7 +413,6 @@ static int connect_to(char *address[])
 
 void cmd_intr(int sig)
 {
-	signal(SIGQUIT, cmd_intr);
 	interrupted = TRUE;
 }
 
