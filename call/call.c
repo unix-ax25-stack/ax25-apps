@@ -1648,12 +1648,15 @@ int cmd_call(char *call[], int mode)
 			FD_SET(fd, &sock_write);
 
 		if (select(fd + 1, &sock_read, &sock_write, NULL, (uploadfile == -1 && downloadfile == -1 && inactivity_timeout_is_set == FALSE) ? NULL : &tv) == -1) {
-			if (!interrupted && errno == EAGAIN) {
-				usleep(100000);
-				continue;
-			}
-			if (!interrupted)
+			if (!interrupted) {
+				if (errno == EINTR)
+					continue;
+				if (errno == EAGAIN) {
+					usleep(100000);
+					continue;
+				}
 				perror("select");
+			}
 			break;
 		}
 		if (inactivity_timeout_is_set == TRUE && !FD_ISSET(fd, &sock_read) && !FD_ISSET(STDIN_FILENO, &sock_read)) {
