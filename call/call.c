@@ -19,6 +19,7 @@
 
 #include <sys/types.h>
 #include <utime.h>
+#include <limits.h>
 #include <time.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -2352,15 +2353,17 @@ int main(int argc, char **argv)
 		case 'S':
 			be_silent = 1;
 			break;
-		case 'T':
-			{ double f = atof(optarg);
-			  inactivity_timeout.tv_sec = ((time_t) f) & 0x7fffffff;
-			  inactivity_timeout.tv_usec = (time_t ) (f - (double ) (time_t ) f);
-			  if (f < 0.001 || f > (double) (0x7fffffff) || (inactivity_timeout.tv_sec == 0 && inactivity_timeout.tv_usec == 0)) {
-				fprintf(stderr, "call: option '-T' must be > 0.001 (1ms) and < 69 years\n");
-				return 1;
-			  }
-			  inactivity_timeout_is_set = TRUE;
+		case 'T': {
+				double f = atof(optarg);
+
+				inactivity_timeout.tv_sec = f;
+				inactivity_timeout.tv_usec = (f - (long) f) * 1000000;
+
+				if (f < 0.001 || f > (double) LONG_MAX) {
+					fprintf(stderr, "call: option '-T' must be > 0.001 (1ms) and < %ld seconds\n", LONG_MAX);
+					return 1;
+				}
+				inactivity_timeout_is_set = TRUE;
 			}
 			break;
 		case 't':
