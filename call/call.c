@@ -151,42 +151,40 @@ static void addscrollline(char *s, int len)
 	}
 }
 
-// Notes: Japanese, Chinese and Korean characters mostly take up two
-// characters in width.  These characters return 2 via
-// wcwidth to let the code know that they require two
-// spaces.  Mono-space fonts/ncurses seems to work correctly with
-// East Asian characters.
-//
-// There are also some characters that return a wcwidth of 0. I'm
-// not sure about all of them, but some of the 0 width characters
-// add a mark above or below a character.  In order for these marks
-// to appear correctly, the previous character and the overstrike
-// must be drawn together.  using wmove and drawing the accent doesn't
-// work.
-//
-// There are some other characters that have functions, and these
-// are not supported using a print to the screen. South Asian
-// fonts are complicated.  I don't believe south asian fonts work
-// correctly from the Linux command line (as of late 2009). They
-// print but don't combine.  The result is distorted.
-//
-// Many characters, as of 12/09, are too wide for a single space
-// in the font, although they return a wcwidth of 1.  I suspect
-// this is due to these characters not being part of the mono-spaced
-// font and are instead pulled from an alternate font.  These
-// characters also glitch in xterm, vim and other ncurses
-// software. I suspect this is actually a font bug, and any character
-// that returns wcwidth=1 in a monospaced font should be
-// monospaced.
-//
-
+/*
+ * Notes: Japanese, Chinese and Korean characters mostly take up two  characters
+ * in width.  These characters return 2 via wcwidth to let the code know that
+ * they require two spaces.  Mono-space fonts/ncurses seems to work correctly
+ * with East Asian characters.
+ *
+ * There are also some characters that return a wcwidth of 0. I'm not sure
+ * about all of them, but some of the 0 width characters add a mark above or
+ * below a character.  In order for these marks to appear correctly, the
+ * previous character and the overstrike must be drawn together.  using wmove
+ * and drawing the accent doesn't work.
+ *
+ * There are some other characters that have functions, and these are not
+ * supported using a print to the screen. South Asian fonts are complicated.  I
+ * don't believe south asian fonts work correctly from the Linux command line
+ * (as of late 2009). They print but don't combine.  The result is distorted.
+ *
+ * Many characters, as of 12/09, are too wide for a single space in the font,
+ * although they return a wcwidth of 1.  I suspect this is due to these
+ * characters not being part of the mono-spaced font and are instead pulled
+ * from an alternate font.  These characters also glitch in xterm, vim and
+ * other ncurses software. I suspect this is actually a font bug, and any
+ * character that returns wcwidth=1 in a monospaced font should be monospaced.
+ */
 
 static int widthchar(char *s, size_t bytes, int xpos)
 {
 	wchar_t c;int width;
 	char *outbuf=(char *) &c;
 	size_t outsize = sizeof(wchar_t);
-	// Note:  Actually need to check if bad UTF8 characters show as ?
+
+	/*
+	 * Note:  Actually need to check if bad UTF8 characters show as ?
+	 */
 	if (iconv(utf8towchart, &s, &bytes, &outbuf, &outsize)< 0)return 0;
 	if (c == 9){
 		return 8 - (xpos & 7);
@@ -206,21 +204,23 @@ static int completecharlen(char *s)
 	else if ((ut >= 240) && (ut < 240+8))clen = 4;
 	else if ((ut >= 248) && (ut < 248+4))clen = 5;
 	else if ((ut >= 252) && (ut < 252+2))clen = 6;
-	else clen = 1; // bad
+	else clen = 1;		/* bad  */
 	return clen;
 }
 
 
-// Must check for COLS while redrawing from history.  Or otherwise the text
-// wraps around and does strange things.
+/*
+ * Must check for COLS while redrawing from history.  Or otherwise the text
+ * wraps around and does strange things.
+ */
 static int waddnstrcolcheck(WINDOW *win, char *s, int len, int twidth)
 {
 	int n;
 	for (twidth = 0,n=0;n<len;){
 		int cwidth = completecharlen(&s[n]), width;
-		if (n + cwidth > len)return twidth; // Error condition
+		if (n + cwidth > len)return twidth;	/* Error condition  */
 		width = widthchar(&s[n], cwidth, twidth);
-		if (twidth+width > COLS)return twidth; //
+		if (twidth+width > COLS)return twidth;
 		waddnstr(win, &s[n], cwidth);
 		n += cwidth;
 		twidth += width;
@@ -228,7 +228,9 @@ static int waddnstrcolcheck(WINDOW *win, char *s, int len, int twidth)
 	return twidth;
 }
 
-// Update a line on the screen from the backscroll buffer.
+/*
+ * Update a line on the screen from the backscroll buffer.
+ */
 static void updateline(int screeny, int yfrom, t_win *win_in, int mode, t_win *win_out)
 {
 	wmove(win_in->ptr, screeny, 0);
@@ -250,8 +252,10 @@ static void updateline(int screeny, int yfrom, t_win *win_in, int mode, t_win *w
 	}
 }
 
-// Cursor in SLAVE mode while scrolling looks broken.
-// Cursor in TALK mode is always good, because it's on the bottom window
+/*
+ * Cursor in SLAVE mode while scrolling looks broken.
+ * Cursor in TALK mode is always good, because it's on the bottom window
+ */
 static void checkcursor(int mode)
 {
 	int newcursor;
@@ -270,8 +274,8 @@ static void restorecursor(int mode, t_win *win_out)
 	checkcursor(mode);
 	if (mode != RAWMODE){
 		int x,y;
-		getyx(win_out->ptr, y, x);// Must restore input cursor location.
-		wmove(win_out->ptr,y, x);
+		getyx(win_out->ptr, y, x);	/* Must restore input cursor */
+		wmove(win_out->ptr,y, x);	/* location.		     */
 		wrefresh(win_out->ptr);
 	}
 }
@@ -281,11 +285,17 @@ static void redrawscreen(t_win *win_in, int mode, t_win *win_out)
 	int y, storedlines;
 	if (lastscroll >= topscroll) storedlines = lastscroll - topscroll;
 	else storedlines = lastscroll + SCROLLBACKSIZE - topscroll;
-	// Note it's stored lines + 1 extra line for text input.
+	/*
+	 * Note it's stored lines + 1 extra line for text input.
+	 */
 	for (y=0;(y<=win_in->max_y) && (y <= storedlines);y++){
 		int linefrom;
-		if (storedlines <= win_in->max_y){// This is a little confusing.
-			linefrom = topscroll + y;// The screen scrolls top down at start
+		if (storedlines <= win_in->max_y){
+			/*
+			 * This is a little confusing.
+			 * The screen scrolls top down at start
+			 */
+			linefrom = topscroll + y;
 		}
 		else linefrom = lastscroll -scrolledup - (win_in->max_y) + y;
 		while (linefrom < 0)linefrom += SCROLLBACKSIZE;
@@ -303,11 +313,15 @@ static void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 	if (scrolledup + lines < 0){
 		lines = -scrolledup;
 	}
-	// storedlines = Lines stored in buffer.
+	/*
+	 * storedlines = Lines stored in buffer.
+	 */
 	if (lastscroll >= topscroll) storedlines = lastscroll - topscroll;
 	else storedlines = lastscroll + SCROLLBACKSIZE - topscroll;
-	// The max scrolling  we can do is the # of lines stored - the
-	// screen size.
+	/*
+	 * The max scrolling  we can do is the # of lines stored - the
+	 * screen size.
+	 */
 	topline = storedlines - win_in->max_y;
 	if (topline < 0)topline = 0;
 	if (scrolledup + lines > topline){
@@ -362,7 +376,9 @@ static const char *key_words[] = { "//",
 	"\0"
 };
 static const char *rkey_words[] = {
-	// actually restricted keywords are very restrictive
+	/*
+	 * actually restricted keywords are very restrictive
+	 */
 	"\0"
 };
 #define MAXCMDLEN 10
@@ -421,17 +437,25 @@ static wchar_t *wunctrlwchar(wchar_t c)
 	return str;
 }
 
-// For some reason wins_nwstr fails on fedora 12 on some characters
-// but waddnstr works.
-// Draw the entire input buffer when adding text.
-// The fonts that do overstrike fail when written one char at a time.
+/*
+ * For some reason wins_nwstr fails on fedora 12 on some characters but
+ * waddnstr works.  Draw the entire input buffer when adding text.
+ * The fonts that do overstrike fail when written one char at a time.
+ */
 static void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 {
 	int n, x, cursorx, xpos, ypos, width;
-	getyx(w, ypos, xpos);// Assume cursor to be at position of current char to draw.
+
+	/*
+	 * Assume cursor to be at position of current char to draw.
+	 */
+	getyx(w, ypos, xpos);
 	x = xpos;cursorx = xpos;
 	// cur_pos-1 = the chracter that was just added.
-	for (n=cur_pos-2;n>=0;n--){// Move x position to start of string or 0
+	for (n=cur_pos-2;n>=0;n--){
+		/*
+		 * Move x position to start of string or 0
+		 */
 		width = wcwidthcontrol(string[n]);
 		if (x >= width)x -= width;
 		else x = 0;
@@ -1251,20 +1275,20 @@ static void reinit_mode(int mode, wint * wintab, t_win * win_in, t_win * win_out
 	switch (mode) {
 	case RAWMODE:
 		break;
-	case TALKMODE:// Clear the screen and re-init. Which looks awful.
+	case TALKMODE:	/* Clear the screen and re-init. Which looks awful.  */
 		wclear(win_out->ptr);
 		wrefresh(win_out->ptr);
 		wclear(win_in->ptr);
-		//wrefresh(win_in->ptr);
+		/* wrefresh(win_in->ptr);  */
 		wintab->next = 0;
 		endwin();
 		start_screen(call);
 		start_talk_mode(wintab, win_in, win_out);
 		restorecursor(mode, win_out);
 		break;
-		case SLAVEMODE:// Also fix me.
+		case SLAVEMODE:	/* Also fix me.  */
 		wclear(win_out->ptr);
-		//wrefresh(win_out->ptr);
+		/* wrefresh(win_out->ptr);  */
 		wintab->next = 0;
 		endwin();
 		start_screen(call);
@@ -1301,7 +1325,7 @@ static void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int m
 			incharbuflen = 0;
 			inbufwid += width;
 			if (inbufwid >= COLS)eatchar = 1;
-			continue;// Skip to next line when width goes over.
+			continue; /* Skip to next line when width goes over. */
 		}
 		addscrollline(inbuf, inbuflen);
 		if (incharbuflen){
@@ -1315,7 +1339,10 @@ static void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int m
 			inbufwid = 0;
 		}
 		if (scrolledup && win_in && win_out){
-			scrolledup++; // scrolledup is relative to bottom line
+			/*
+			 * scrolledup is relative to bottom line
+			 */
+			scrolledup++;
 			scrolltext(win_in, 0, mode, win_out);
 		}
 	}
@@ -1404,12 +1431,17 @@ static int getstring(wint * wintab, char text[], char buf[])
 				outstring(buf, wbuf, bytes, UTF8ENCODING);
 				done = 1;
 			}
-			else if (r == KEY_CODE_YES); // Put in code for other KEYCODES here
+			else if (r == KEY_CODE_YES);
+				/*
+				 * Put in code for other KEYCODES here
+				 */
 			else if (bytes+2 < MAX_BUFLEN){
-				//int width;
-				//width = wins_nwchrmy(win, c);
-				//getyx(win, ypos, xpos);
-				//wmove(win, ypos, xpos+width);
+#if 0
+				int width;
+				width = wins_nwchrmy(win, c);
+				getyx(win, ypos, xpos);
+				wmove(win, ypos, xpos+width);
+#endif
 				wbuf[bytes++] = c;
 				drawinbuf(win, wbuf, bytes, bytes);
 			}
@@ -1536,7 +1568,8 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 	else if (( (r==KEY_CODE_YES) && (c == KEY_ENTER))||
 		   ( (r == OK) && ((c=='\n') || (c=='\r')))){
 		if ((mode == SLAVEMODE) && scrolledup) return 0;
-		while (win_out->curs_pos < win_out->bytes) { // Move to end of the line
+		while (win_out->curs_pos < win_out->bytes) {
+			/* Move to end of the line  */
 			int width;
 			width = wcwidthcontrol(win_out->string[win_out->curs_pos]);
 			win_out->curs_pos++;
@@ -1560,19 +1593,20 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 	}
 	else if (r == KEY_CODE_YES){
 		switch(c){
-			case KEY_LEFT:// Character of 0 width
+			case KEY_LEFT:	/* Character of 0 width  */
 				while (win_out->curs_pos > 0) {
 					int width;
 					win_out->curs_pos--;
 					width = wcwidthcontrol(win_out->string[win_out->curs_pos]);
 					getyx(win_out->ptr, ypos, xpos);
 					wmove(win_out->ptr, ypos, xpos - width);
-					if (width)break; // Skip to non-width
+					if (width)break; /* Skip to non-width */
 				}
 				break;
 			case KEY_RIGHT:
 				{
-				int skipped = 0;// Skip over 0 length characters
+				/* Skip over 0 length characters  */
+				int skipped = 0;
 				while (win_out->curs_pos < win_out->bytes) {
 					int width;
 					width = wcwidthcontrol(win_out->string[win_out->curs_pos]);
@@ -1608,7 +1642,10 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 				}
 				break;
 			case KEY_END:
-				while (win_out->curs_pos < win_out->bytes) { // Move to end of the line
+				while (win_out->curs_pos < win_out->bytes) {
+					/*
+					 * Move to end of the line
+					 */
 					int width;
 					width = wcwidthcontrol(win_out->string[win_out->curs_pos]);
 					win_out->curs_pos++;
@@ -1654,8 +1691,13 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 	case '\n':
 		break;
 	default:
-		if ((mode == SLAVEMODE) && scrolledup) return 0; // Don't try to edit while scrolled up in SLAVEmode.
-						// It's just not possible because the cursor is off screen
+		/*
+		 * Don't try to edit while scrolled up in SLAVEmode.
+		 */
+		if ((mode == SLAVEMODE) && scrolledup) return 0;
+		/*
+		 * It's just not possible because the cursor is off screen
+		 */
 		if (win_out->bytes < MAX_BUFLEN )	{
 			if (win_out->curs_pos < win_out->bytes) {
 				memmove(&win_out->
@@ -2061,7 +2103,9 @@ static int cmd_call(char *call[], int mode, int encoding)
 					continue;
 				}
 				if ((errno == EINTR) && sigwinchsignal) {
-					// Just process screen resize here.
+					/*
+					 * Just process screen resize here.
+					 */
 					reinit_mode(mode, &wintab, &win_in, &win_out, call);
 					sigwinchsignal = 0;
 					continue;
@@ -2146,17 +2190,19 @@ static int cmd_call(char *call[], int mode, int encoding)
 				}
 				switch (com_num) {
 				case 0:
-					{
 #if 0
-						/*
-						   FIXME! We should, no: WE MUST be able to turn off
-						   all remote commands to avoid mail bombs generating
-						   offensive mails with //e while sucking the BBS
-						 */
+					/*
+					 * FIXME! We should, no: WE MUST be
+					 * able to turn off all remote commands
+					 * to avoid mail bombs generating
+					 * offensive mails with //e while
+					 *sucking the BBS
+					 */
+					{
 						remotecommand(parms,
 							      parmsbytes);
-#endif
 					}
+#endif
 					break;
 				case 1:
 					{
@@ -2741,7 +2787,7 @@ int main(int argc, char **argv)
 {
 	int p;
 	int mode = TALKMODE;
-	int encoding = UTF8ENCODING;// Maybe controversial?
+	int encoding = UTF8ENCODING;	/* Maybe controversial?  */
 
 	setlocale(LC_ALL, "");
 	if (!isatty(STDIN_FILENO))
@@ -2786,7 +2832,11 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'r':
-			COLS = 80; // This is used to format the scrollback buffer, which is stored in raw
+			/*
+			 * This is used to format the scrollback buffer,
+			 * which is stored in raw
+			 */
+			COLS = 80;
 			mode = RAWMODE;
 			break;
 		case 's':
