@@ -129,14 +129,17 @@ typedef struct {
 #define SCROLLBACKSIZE 5000
 
 typedef struct {
-	char *str;int len;
+	char *str;
+	int len;
 }scrollbackstruct;
 
 
 static scrollbackstruct scrollback[SCROLLBACKSIZE];
 static int topscroll, lastscroll, scrolledup, eatchar;
-static char inbuf[MAX_BUFLEN];static int inbuflen, inbufwid;
-static char incharbuf[6];static int incharbuflen;
+static char inbuf[MAX_BUFLEN];
+static int inbuflen, inbufwid;
+static char incharbuf[6];
+static int incharbuflen;
 static void statline(int mode, char *s);
 
 static void addscrollline(char *s, int len)
@@ -178,7 +181,8 @@ static void addscrollline(char *s, int len)
 
 static int widthchar(char *s, size_t bytes, int xpos)
 {
-	wchar_t c;int width;
+	wchar_t c;
+	int width;
 	char *outbuf=(char *) &c;
 	size_t outsize = sizeof(wchar_t);
 
@@ -197,7 +201,8 @@ static int widthchar(char *s, size_t bytes, int xpos)
 
 static int completecharlen(char *s)
 {
-	unsigned ut = (unsigned char)s[0];int clen;
+	unsigned ut = (unsigned char)s[0];
+	int clen;
 	if (ut <= 0x80)clen = 1;
 	else if ((ut >= 192) && (ut < 192+32))clen = 2;
 	else if ((ut >= 224) && (ut < 224+16))clen = 3;
@@ -450,7 +455,9 @@ static void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 	 * Assume cursor to be at position of current char to draw.
 	 */
 	getyx(w, ypos, xpos);
-	x = xpos;cursorx = xpos;
+	x = xpos;
+
+	cursorx = xpos;
 	// cur_pos-1 = the chracter that was just added.
 	for (n=cur_pos-2;n>=0;n--){
 		/*
@@ -465,7 +472,9 @@ static void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 		char obuf[MAX_BUFLEN];
 		char *inbuf, *outbuf = obuf;
 		size_t insize, outsize = MAX_BUFLEN;
-		wchar_t *str;int len, width;
+		int len, width;
+		wchar_t *str;
+
 		if (n == cur_pos){
 			cursorx = x;
 		}
@@ -781,7 +790,8 @@ static void statline(int mode, char *s)
 
 	attron(A_REVERSE);
 	addnstr(s, l);
-	for (cnt = STATW_STAT+l;cnt < COLS;cnt++)addch(' ');
+	for (cnt = STATW_STAT+l;cnt < COLS;cnt++)
+		addch(' ');
 	attroff(A_REVERSE);
 	oldlen = l;
 	refresh();
@@ -1419,7 +1429,8 @@ static int getstring(wint * wintab, char text[], char buf[])
 				if (bytes > 0) {
 					int width, j;
 					width = wcwidthcontrol(wbuf[bytes-1]);
-					for (j=0;j<width;j++) mvwdelch(win, ypos, xpos-width);
+					for (j=0;j<width;j++)
+						mvwdelch(win, ypos, xpos-width);
 					xpos -= width;
 					wmove(win, ypos, xpos);
 					bytes--;
@@ -1547,10 +1558,12 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 			((r == OK) && ((c==127)|| (c==8)))){
 		if ((mode == SLAVEMODE) && scrolledup) return 0;
 		while(win_out->curs_pos > 0){
-			int width;int j;
+			int width;
+			int j;
 			getyx(win_out->ptr, ypos, xpos);
 			width = wcwidthcontrol(win_out->string[win_out->curs_pos-1]);
-			for (j=0;j<width;j++) mvwdelch(win_out->ptr, ypos, xpos-width);
+			for (j=0;j<width;j++)
+				mvwdelch(win_out->ptr, ypos, xpos-width);
 			xpos -= width;
 			wmove(win_out->ptr, ypos, xpos);
 			if (win_out->curs_pos < win_out->bytes) {
@@ -1657,14 +1670,16 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 				int skipped = 0;
 				if ((mode == SLAVEMODE) && scrolledup) return 0;
 				while (win_out->curs_pos < win_out->bytes){
-					int width;int j;
+					int width;
+					int j;
 					getyx(win_out->ptr, ypos, xpos);
 					width = wcwidthcontrol(win_out->string[win_out->curs_pos]);
 					if (width){
 						if (skipped)break;
 						skipped = 1;
 					}
-					for (j=0;j<width;j++) mvwdelch(win_out->ptr, ypos, xpos);
+					for (j=0;j<width;j++)
+						mvwdelch(win_out->ptr, ypos, xpos);
 					if (win_out->curs_pos + 1 < win_out->bytes) {
 						memmove(&win_out-> string[win_out->curs_pos],
 							&win_out->string[win_out-> curs_pos+1],
