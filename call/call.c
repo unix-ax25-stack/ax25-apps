@@ -1674,36 +1674,6 @@ int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 	wrefresh(win_out->ptr);
 	return 0;
 }
-void writemsg(char fname[], char caller[])
-{
-	char text_row[255];
-	char *text_ptr;
-	char buf[255];
-	FILE *f = fopen(fname, "r");
-
-	if (f == NULL) {
-		perror(fname);
-		return;
-	}
-	do {
-		if (fgets(text_row, 255, f) != 0) {
-			text_row[strlen(text_row) - 1] = '\r';
-			text_ptr = strchr(text_row, '$');
-			if (text_ptr != NULL) {
-				strcpy(buf, text_ptr + 2);
-				switch (*(text_ptr + 1)) {
-				case 'c':
-					{
-						strcpy(text_ptr, caller);
-						strcat(text_ptr, buf);
-					}
-				}
-			}
-			write(fd, text_row, strlen(text_row));
-		}
-	}
-	while (!feof(f));
-}
 
 void remotecommand(char buf[], int bytes)
 {
