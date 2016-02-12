@@ -137,9 +137,9 @@ static scrollbackstruct scrollback[SCROLLBACKSIZE];
 static int topscroll, lastscroll, scrolledup, eatchar;
 static char inbuf[MAX_BUFLEN];static int inbuflen, inbufwid;
 static char incharbuf[6];static int incharbuflen;
-void statline(int mode, char *s);
+static void statline(int mode, char *s);
 
-void addscrollline(char *s, int len)
+static void addscrollline(char *s, int len)
 {
 	scrollback[lastscroll].str = malloc(len);
 	memcpy(scrollback[lastscroll].str, s, len);
@@ -181,7 +181,7 @@ void addscrollline(char *s, int len)
 //
 
 
-int widthchar(char *s, size_t bytes, int xpos)
+static int widthchar(char *s, size_t bytes, int xpos)
 {
 	wchar_t c;int width;
 	char *outbuf=(char *) &c;
@@ -197,7 +197,7 @@ int widthchar(char *s, size_t bytes, int xpos)
 }
 
 
-int completecharlen(char *s)
+static int completecharlen(char *s)
 {
 	unsigned ut = (unsigned char)s[0];int clen;
 	if (ut <= 0x80)clen = 1;
@@ -213,7 +213,7 @@ int completecharlen(char *s)
 
 // Must check for COLS while redrawing from history.  Or otherwise the text
 // wraps around and does strange things.
-int waddnstrcolcheck(WINDOW *win, char *s, int len, int twidth)
+static int waddnstrcolcheck(WINDOW *win, char *s, int len, int twidth)
 {
 	int n;
 	for (twidth = 0,n=0;n<len;){
@@ -229,7 +229,7 @@ int waddnstrcolcheck(WINDOW *win, char *s, int len, int twidth)
 }
 
 // Update a line on the screen from the backscroll buffer.
-void updateline(int screeny, int yfrom, t_win *win_in, int mode, t_win *win_out)
+static void updateline(int screeny, int yfrom, t_win *win_in, int mode, t_win *win_out)
 {
 	wmove(win_in->ptr, screeny, 0);
 	if (yfrom == lastscroll){
@@ -252,7 +252,7 @@ void updateline(int screeny, int yfrom, t_win *win_in, int mode, t_win *win_out)
 
 // Cursor in SLAVE mode while scrolling looks broken.
 // Cursor in TALK mode is always good, because it's on the bottom window
-void checkcursor(int mode)
+static void checkcursor(int mode)
 {
 	int newcursor;
 	if ((mode == SLAVEMODE) && scrolledup)newcursor = 0;
@@ -276,7 +276,7 @@ static void restorecursor(int mode, t_win *win_out)
 	}
 }
 
-void redrawscreen(t_win *win_in, int mode, t_win *win_out)
+static void redrawscreen(t_win *win_in, int mode, t_win *win_out)
 {
 	int y, storedlines;
 	if (lastscroll >= topscroll) storedlines = lastscroll - topscroll;
@@ -295,7 +295,7 @@ void redrawscreen(t_win *win_in, int mode, t_win *win_out)
 	checkcursor(mode);
 }
 
-void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
+static void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 {
 	int topline, storedlines;
 	int y;
@@ -346,7 +346,7 @@ void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 	}
 }
 
-void usage(void)
+static void usage(void)
 {
 	fprintf(stderr, "usage: call [-8] [-b l|e] [-d] [-h] [-i] [-m s|e] [-p paclen] [-r] [-R]\n");
 	fprintf(stderr, "            [-s mycall] [-S] [-t] [-T timeout] [-v] [-w window] [-W]\n");
@@ -354,20 +354,20 @@ void usage(void)
 	exit(1);
 }
 
-WINDOW *win;
-const char *key_words[] = { "//",
+static WINDOW *win;
+static const char *key_words[] = { "//",
 	"#BIN#",
 	" go_7+. ",
 	" stop_7+. ",
 	"\0"
 };
-const char *rkey_words[] = {
+static const char *rkey_words[] = {
 	// actually restricted keywords are very restrictive
 	"\0"
 };
 #define MAXCMDLEN 10
 
-void convert_cr_lf(char *buf, int len)
+static void convert_cr_lf(char *buf, int len)
 {
 	while (len--) {
 		if (*buf == '\r')
@@ -376,7 +376,7 @@ void convert_cr_lf(char *buf, int len)
 	}
 }
 
-void convert_lf_cr(char *buf, int len)
+static void convert_lf_cr(char *buf, int len)
 {
 	while (len--) {
 		if (*buf == '\n')
@@ -385,7 +385,7 @@ void convert_lf_cr(char *buf, int len)
 	}
 }
 
-void convert_upper_lower(char *buf, int len)
+static void convert_upper_lower(char *buf, int len)
 {
 	while (len--) {
 		*buf = tolower(*buf);
@@ -425,7 +425,7 @@ static wchar_t *wunctrlwchar(wchar_t c)
 // but waddnstr works.
 // Draw the entire input buffer when adding text.
 // The fonts that do overstrike fail when written one char at a time.
-void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
+static void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 {
 	int n, x, cursorx, xpos, ypos, width;
 	getyx(w, ypos, xpos);// Assume cursor to be at position of current char to draw.
@@ -719,12 +719,12 @@ static void cmd_sigwinch(int sig)
 	sigwinchsignal = TRUE;
 }
 
-void cmd_intr(int sig)
+static void cmd_intr(int sig)
 {
 	interrupted = TRUE;
 }
 
-void statline(int mode, char *s)
+static void statline(int mode, char *s)
 {
 	static int oldlen = 0;
 	int l, cnt;
@@ -1274,7 +1274,7 @@ static void reinit_mode(int mode, wint * wintab, t_win * win_in, t_win * win_out
 	}
 }
 
-void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int mode, t_win *win_out)
+static void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int mode, t_win *win_out)
 {
         int n;
         for (n=0;n<bytes;n++){
@@ -1324,7 +1324,7 @@ void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int mode, t_
 }
 
 
-void writeincom(int mode, int encoding, t_win * win_in, unsigned char buf[], int bytes, t_win *win_out)
+static void writeincom(int mode, int encoding, t_win * win_in, unsigned char buf[], int bytes, t_win *win_out)
 {
         if (mode & RAWMODE) {
                 while (write(STDOUT_FILENO, buf, bytes) == -1) {
@@ -1352,7 +1352,7 @@ static void writeincomstr(int mode, int encoding, t_win * win_in, char buf[], t_
         writeincom(mode, encoding, win_in, (unsigned char *)buf, len, win_out);
 }
 
-int outstring(char *buf, wchar_t *string, int bytes, int encoding)
+static int outstring(char *buf, wchar_t *string, int bytes, int encoding)
 {
         char *inbuf = (char *) string, *outbuf = buf;
         size_t insize = bytes * sizeof(wchar_t), outsize = MAX_BUFLEN-1;
@@ -1367,7 +1367,7 @@ int outstring(char *buf, wchar_t *string, int bytes, int encoding)
         return (MAX_BUFLEN-1)-outsize;
 }
 
-int getstring(wint * wintab, char text[], char buf[])
+static int getstring(wint * wintab, char text[], char buf[])
 {
         wchar_t c;
         int ypos = 0, xpos = 0;
@@ -1423,7 +1423,7 @@ int getstring(wint * wintab, char text[], char buf[])
 }
 
 
-int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
+static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 		int keyesc, int mode, int encoding, t_win *win_in)
 {
 	int out_cnt;
@@ -1699,7 +1699,7 @@ void remotecommand(char buf[], int bytes)
 	}
 }
 
-int compstr(const char st1[], char st2[], int maxbytes)
+static int compstr(const char st1[], char st2[], int maxbytes)
 {
 	int cnt;
 	for (cnt = 0;
@@ -1716,7 +1716,7 @@ int compstr(const char st1[], char st2[], int maxbytes)
 	return -1;
 }
 
-int eol(char c)
+static int eol(char c)
 {
 
 	if (c == '\r' || c == '\n' || c == 0x1A)
@@ -1725,7 +1725,7 @@ int eol(char c)
 		return FALSE;
 }
 
-int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
+static int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
 		      char restbuf[], int *restbytes)
 {
 	static char cmpstr[MAX_CMPSTRLEN];
@@ -1807,7 +1807,7 @@ int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
 	return t;
 }
 
-int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
+static int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
 		int *logfile, char parms[], int parmsbytes, char buf[],
 		int bytes)
 {
@@ -1900,7 +1900,7 @@ int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
 
 	return lines;
 }
-void statbits(int mode, char stat, int m)
+static void statbits(int mode, char stat, int m)
 {
 	if (mode == RAWMODE)
 		return;
@@ -1912,7 +1912,7 @@ void statbits(int mode, char stat, int m)
 }
 
 
-int cmd_call(char *call[], int mode, int encoding)
+static int cmd_call(char *call[], int mode, int encoding)
 {
 	menuitem con[] = {
 		{"~Reconnect", 'R', M_ITEM, (void *) 0x01},
@@ -2729,7 +2729,7 @@ int cmd_call(char *call[], int mode, int encoding)
 	}
 }
 
-void iconvclose(void)
+static void iconvclose(void)
 {
 	iconv_close(ibm850toutf8);
 	iconv_close(wcharttoibm850);
