@@ -133,7 +133,6 @@ typedef struct {
 	int len;
 }scrollbackstruct;
 
-
 static scrollbackstruct scrollback[SCROLLBACKSIZE];
 static int topscroll, lastscroll, scrolledup, eatchar;
 static char inbuf[MAX_BUFLEN];
@@ -201,7 +200,6 @@ static int widthchar(char *s, size_t bytes, int xpos)
 	return width;
 }
 
-
 static int completecharlen(char *s)
 {
 	unsigned ut = (unsigned char)s[0];
@@ -222,7 +220,6 @@ static int completecharlen(char *s)
 		clen = 1;		/* bad  */
 	return clen;
 }
-
 
 /*
  * Must check for COLS while redrawing from history.  Or otherwise the text
@@ -444,6 +441,7 @@ static const char *key_words[] = { "//",
 	" stop_7+. ",
 	"\0"
 };
+
 static const char *rkey_words[] = {
 	/*
 	 * actually restricted keywords are very restrictive
@@ -477,8 +475,6 @@ static void convert_upper_lower(char *buf, int len)
 		buf++;
 	}
 }
-
-
 
 /* Return the with of this character in character blocks.  (Normal = 1, CJK=2)
  * Also for control chracters, return the width of the replacement string.
@@ -559,7 +555,6 @@ static void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 		wmove(w,ypos, cursorx);
 	}
 }
-
 
 /* Convert linear UNIX date to a MS-DOS time/date pair. */
 
@@ -812,7 +807,6 @@ static int connect_to(char *address[])
 	return fd;
 }
 
-
 static void cmd_sigwinch(int sig)
 {
 	signal(SIGWINCH, cmd_sigwinch);
@@ -965,7 +959,6 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 	gp->dwn_cnt = (unsigned long ) atol(parms);
 	strncpy(gp->file_name, STD_DWN_DIR, GP_FILENAME_SIZE-1);
 	gp->file_name[GP_FILENAME_SIZE-1] = 0;
-
 
 	if (crcst == parmsbytes - 1 || datest - crcst > 7
 	    || namest - datest > 10) {
@@ -1412,6 +1405,7 @@ static void writeincom(int mode, int encoding, t_win * win_in, unsigned char buf
 	}
 	return;
 }
+
 static void writeincomstr(int mode, int encoding, t_win * win_in, char buf[], t_win *win_out)
 {
 	int len;
@@ -1831,7 +1825,6 @@ static int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbyte
 	int cnt = 0;
 	int t = 0;
 
-
 	if (cmpstrbyte != 0) {
 		memmove(buf + cmpstrbyte, buf, *bytes);
 		*bytes += cmpstrbyte;
@@ -1994,6 +1987,7 @@ static int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
 
 	return lines;
 }
+
 static void statbits(int mode, char stat, int m)
 {
 	if (mode == RAWMODE)
@@ -2004,7 +1998,6 @@ static void statbits(int mode, char stat, int m)
 	attroff(A_REVERSE);
 	refresh();
 }
-
 
 static int cmd_call(char *call[], int mode, int encoding)
 {
@@ -2514,7 +2507,6 @@ static int cmd_call(char *call[], int mode, int encoding)
 							else
 								file_time = time(0);
 
-
 							do {
 								upllen =
 									read
@@ -3004,7 +2996,6 @@ int main(int argc, char **argv)
 			paclen = ax25_config_get_paclen(port);
 		break;
 	}
-
 
 	if (!be_silent) {
 		printf("GW4PTS AX.25 Connect v1.11\n");
