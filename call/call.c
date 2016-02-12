@@ -448,7 +448,6 @@ static const char *rkey_words[] = {
 	 */
 	"\0"
 };
-#define MAXCMDLEN 10
 
 static void convert_cr_lf(char *buf, int len)
 {
