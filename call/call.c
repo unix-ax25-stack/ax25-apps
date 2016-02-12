@@ -130,7 +130,7 @@ typedef struct {
 
 typedef struct {
 	char *str;int len;
-}scrollbackstruct;	
+}scrollbackstruct;
 
 
 static scrollbackstruct scrollback[SCROLLBACKSIZE];
@@ -146,16 +146,16 @@ void addscrollline(char *s, int len)
 	scrollback[lastscroll].len = len;
 	if (++lastscroll >= SCROLLBACKSIZE)lastscroll = 0;
 	if (lastscroll == topscroll){
-		free(scrollback[topscroll].str);		
+		free(scrollback[topscroll].str);
 		if (++topscroll >= SCROLLBACKSIZE)topscroll = 0;
 	}
 }
 
 // Notes: Japanese, Chinese and Korean characters mostly take up two
-// characters in width.  These characters return 2 via 
+// characters in width.  These characters return 2 via
 // wcwidth to let the code know that they require two
-// spaces.  Mono-space fonts/ncurses seems to work correctly with 
-// East Asian characters.  
+// spaces.  Mono-space fonts/ncurses seems to work correctly with
+// East Asian characters.
 //
 // There are also some characters that return a wcwidth of 0. I'm
 // not sure about all of them, but some of the 0 width characters
@@ -164,7 +164,7 @@ void addscrollline(char *s, int len)
 // must be drawn together.  using wmove and drawing the accent doesn't
 // work.
 //
-// There are some other characters that have functions, and these 
+// There are some other characters that have functions, and these
 // are not supported using a print to the screen. South Asian
 // fonts are complicated.  I don't believe south asian fonts work
 // correctly from the Linux command line (as of late 2009). They
@@ -177,7 +177,7 @@ void addscrollline(char *s, int len)
 // characters also glitch in xterm, vim and other ncurses
 // software. I suspect this is actually a font bug, and any character
 // that returns wcwidth=1 in a monospaced font should be
-// monospaced.  
+// monospaced.
 //
 
 
@@ -185,9 +185,9 @@ int widthchar(char *s, size_t bytes, int xpos)
 {
 	wchar_t c;int width;
 	char *outbuf=(char *) &c;
-	size_t outsize = sizeof(wchar_t); 
-	// Note:  Actually need to check if bad UTF8 characters show as ? 
-	if (iconv(utf8towchart, &s, &bytes, &outbuf, &outsize)< 0)return 0; 
+	size_t outsize = sizeof(wchar_t);
+	// Note:  Actually need to check if bad UTF8 characters show as ?
+	if (iconv(utf8towchart, &s, &bytes, &outbuf, &outsize)< 0)return 0;
 	if (c == 9){
 		return 8 - (xpos & 7);
 	}
@@ -206,11 +206,11 @@ int completecharlen(char *s)
 	else if ((ut >= 240) && (ut < 240+8))clen = 4;
 	else if ((ut >= 248) && (ut < 248+4))clen = 5;
 	else if ((ut >= 252) && (ut < 252+2))clen = 6;
-	else clen = 1; // bad 
+	else clen = 1; // bad
 	return clen;
 }
 
-		
+
 // Must check for COLS while redrawing from history.  Or otherwise the text
 // wraps around and does strange things.
 int waddnstrcolcheck(WINDOW *win, char *s, int len, int twidth)
@@ -220,7 +220,7 @@ int waddnstrcolcheck(WINDOW *win, char *s, int len, int twidth)
 		int cwidth = completecharlen(&s[n]), width;
 		if (n + cwidth > len)return twidth; // Error condition
 		width = widthchar(&s[n], cwidth, twidth);
-		if (twidth+width > COLS)return twidth; // 
+		if (twidth+width > COLS)return twidth; //
 		waddnstr(win, &s[n], cwidth);
 		n += cwidth;
 		twidth += width;
@@ -239,7 +239,7 @@ void updateline(int screeny, int yfrom, t_win *win_in, int mode, t_win *win_out)
 		if (mode == SLAVEMODE){
 			char obuf[MAX_BUFLEN];
 			char *inbuf = (char *)win_out->string, *outbuf = obuf;
-			size_t insize = win_out->bytes * sizeof(wchar_t), outsize = MAX_BUFLEN; 
+			size_t insize = win_out->bytes * sizeof(wchar_t), outsize = MAX_BUFLEN;
 			iconv(wcharttoutf8, &inbuf, &insize, &outbuf, &outsize);
 			waddnstrcolcheck(win_in->ptr, obuf, MAX_BUFLEN - outsize, twidth);
 			win_out->curs_pos = win_out->bytes;
@@ -267,18 +267,18 @@ void checkcursor(int mode)
  * window.  Otherwise the display is confused */
 static void restorecursor(int mode, t_win *win_out)
 {
-	checkcursor(mode);	
+	checkcursor(mode);
 	if (mode != RAWMODE){
 		int x,y;
 		getyx(win_out->ptr, y, x);// Must restore input cursor location.
 		wmove(win_out->ptr,y, x);
 		wrefresh(win_out->ptr);
-	}						
+	}
 }
 
 void redrawscreen(t_win *win_in, int mode, t_win *win_out)
 {
-	int y, storedlines;	
+	int y, storedlines;
 	if (lastscroll >= topscroll) storedlines = lastscroll - topscroll;
 	else storedlines = lastscroll + SCROLLBACKSIZE - topscroll;
 	// Note it's stored lines + 1 extra line for text input.
@@ -306,7 +306,7 @@ void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 	// storedlines = Lines stored in buffer.
 	if (lastscroll >= topscroll) storedlines = lastscroll - topscroll;
 	else storedlines = lastscroll + SCROLLBACKSIZE - topscroll;
-	// The max scrolling  we can do is the # of lines stored - the 
+	// The max scrolling  we can do is the # of lines stored - the
 	// screen size.
 	topline = storedlines - win_in->max_y;
 	if (topline < 0)topline = 0;
@@ -333,7 +333,7 @@ void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 			while (linefrom >= SCROLLBACKSIZE)linefrom -= SCROLLBACKSIZE;
 			updateline(win_in->max_y  - y,linefrom , win_in, mode, win_out);
 		}
-		
+
 	}
 	scrollok(win_in->ptr, TRUE);
 	checkcursor(mode);
@@ -345,7 +345,7 @@ void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 		statline(mode, "Viewing Scrollback");
 	}
 }
-	
+
 void usage(void)
 {
 	fprintf(stderr, "usage: call [-8] [-b l|e] [-d] [-h] [-i] [-m s|e] [-p paclen] [-r] [-R]\n");
@@ -395,7 +395,7 @@ void convert_upper_lower(char *buf, int len)
 
 
 
-/* Return the with of this character in character blocks.  (Normal = 1, CJK=2) 
+/* Return the with of this character in character blocks.  (Normal = 1, CJK=2)
  * Also for control chracters, return the width of the replacement string.
  * */
 static int wcwidthcontrol(wchar_t c)
@@ -419,11 +419,11 @@ static wchar_t *wunctrlwchar(wchar_t c)
 	cc.chars[0] = c;
 	str = wunctrl(&cc);
 	return str;
-}		
+}
 
 // For some reason wins_nwstr fails on fedora 12 on some characters
-// but waddnstr works.  
-// Draw the entire input buffer when adding text.  
+// but waddnstr works.
+// Draw the entire input buffer when adding text.
 // The fonts that do overstrike fail when written one char at a time.
 void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 {
@@ -440,7 +440,7 @@ void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 	for (n=0;n<bytes;n++){
 		char obuf[MAX_BUFLEN];
 		char *inbuf, *outbuf = obuf;
-		size_t insize, outsize = MAX_BUFLEN; 
+		size_t insize, outsize = MAX_BUFLEN;
 		wchar_t *str;int len, width;
 		if (n == cur_pos){
 			cursorx = x;
@@ -452,11 +452,11 @@ void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 	        insize = len * sizeof(wchar_t);
 		width = wcswidth(str, len);
 		iconv(wcharttoutf8, &inbuf, &insize, &outbuf, &outsize);
-		waddnstr(w, obuf, MAX_BUFLEN-outsize);	
+		waddnstr(w, obuf, MAX_BUFLEN-outsize);
 		x += width;
 	}
 	if (cur_pos < bytes){
-		wmove(w,ypos, cursorx); 
+		wmove(w,ypos, cursorx);
 	}
 }
 
@@ -748,7 +748,7 @@ void statline(int mode, char *s)
 		fflush(stdout);
 		return;
 	}
-	if (COLS <= STATW_STAT)return; 
+	if (COLS <= STATW_STAT)return;
 	l = strlen(s);
 	if (l > COLS - STATW_STAT)
 		l = COLS-STATW_STAT;
@@ -1251,7 +1251,7 @@ static void reinit_mode(int mode, wint * wintab, t_win * win_in, t_win * win_out
 	switch (mode) {
 	case RAWMODE:
 		break;
-	case TALKMODE:// Clear the screen and re-init. Which looks awful.  
+	case TALKMODE:// Clear the screen and re-init. Which looks awful.
 		wclear(win_out->ptr);
 		wrefresh(win_out->ptr);
 		wclear(win_in->ptr);
@@ -1262,7 +1262,7 @@ static void reinit_mode(int mode, wint * wintab, t_win * win_in, t_win * win_out
 		start_talk_mode(wintab, win_in, win_out);
 		restorecursor(mode, win_out);
 		break;
-		case SLAVEMODE:// Also fix me.  
+		case SLAVEMODE:// Also fix me.
 		wclear(win_out->ptr);
 		//wrefresh(win_out->ptr);
 		wintab->next = 0;
@@ -1315,12 +1315,12 @@ void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int mode, t_
                         inbufwid = 0;
                 }
                 if (scrolledup && win_in && win_out){
-                        scrolledup++; // scrolledup is relative to bottom line  
+                        scrolledup++; // scrolledup is relative to bottom line
                         scrolltext(win_in, 0, mode, win_out);
                 }
         }
         if (draw && win_in) wrefresh(win_in->ptr);
-        
+
 }
 
 
@@ -1339,7 +1339,7 @@ void writeincom(int mode, int encoding, t_win * win_in, unsigned char buf[], int
                 waddnstrcrcheck(win_in, (char *)buf, bytes,scrolledup == 0, mode, win_out);
         else {
                 char *inbuf = (char *) buf, out[MAX_BUFLEN], *outbuf=out;
-                size_t insize = bytes, outsize = MAX_BUFLEN; 
+                size_t insize = bytes, outsize = MAX_BUFLEN;
                 iconv(ibm850toutf8, &inbuf, &insize, &outbuf, &outsize);
                 waddnstrcrcheck(win_in, out, MAX_BUFLEN-outsize,scrolledup == 0, mode, win_out);
         }
@@ -1355,15 +1355,15 @@ static void writeincomstr(int mode, int encoding, t_win * win_in, char buf[], t_
 int outstring(char *buf, wchar_t *string, int bytes, int encoding)
 {
         char *inbuf = (char *) string, *outbuf = buf;
-        size_t insize = bytes * sizeof(wchar_t), outsize = MAX_BUFLEN-1; 
+        size_t insize = bytes * sizeof(wchar_t), outsize = MAX_BUFLEN-1;
         if (encoding == UTF8ENCODING){
                 iconv(wcharttoutf8, &inbuf, &insize, &outbuf, &outsize);
         }
         else {
                 iconv(wcharttoibm850, &inbuf, &insize, &outbuf, &outsize);
-                        
-        }                       
-        buf[(MAX_BUFLEN-1)-outsize] = '\0'; 
+
+        }
+        buf[(MAX_BUFLEN-1)-outsize] = '\0';
         return (MAX_BUFLEN-1)-outsize;
 }
 
@@ -1513,7 +1513,7 @@ int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 	}
 	if  (((r == KEY_CODE_YES) && (c == KEY_BACKSPACE))||
 			((r == OK) && ((c==127)|| (c==8)))){
-		if ((mode == SLAVEMODE) && scrolledup) return 0;  
+		if ((mode == SLAVEMODE) && scrolledup) return 0;
 		while(win_out->curs_pos > 0){
 			int width;int j;
 			getyx(win_out->ptr, ypos, xpos);
@@ -1527,7 +1527,7 @@ int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 					&win_out->string[win_out-> curs_pos],
 					(win_out->bytes -
 					win_out->curs_pos) * sizeof(wchar_t));
-				} 
+				}
 			win_out->bytes--;
 			win_out->curs_pos--;
 			if (width)break;
@@ -1535,7 +1535,7 @@ int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 	}
 	else if (( (r==KEY_CODE_YES) && (c == KEY_ENTER))||
 		   ( (r == OK) && ((c=='\n') || (c=='\r')))){
-		if ((mode == SLAVEMODE) && scrolledup) return 0;  
+		if ((mode == SLAVEMODE) && scrolledup) return 0;
 		while (win_out->curs_pos < win_out->bytes) { // Move to end of the line
 			int width;
 			width = wcwidthcontrol(win_out->string[win_out->curs_pos]);
@@ -1550,7 +1550,7 @@ int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 		if (mode == SLAVEMODE){
 			char obuf[MAX_BUFLEN];
 			char *inbuf = (char *)win_out->string, *outbuf = obuf;
-			size_t insize = win_out->bytes * sizeof(wchar_t), outsize = MAX_BUFLEN; 
+			size_t insize = win_out->bytes * sizeof(wchar_t), outsize = MAX_BUFLEN;
 			iconv(wcharttoutf8, &inbuf, &insize, &outbuf, &outsize);
                         waddnstrcrcheck(win_in, obuf, MAX_BUFLEN-outsize, 0, mode, win_out);
 		}
@@ -1560,7 +1560,7 @@ int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 	}
 	else if (r == KEY_CODE_YES){
 		switch(c){
-			case KEY_LEFT:// Character of 0 width 
+			case KEY_LEFT:// Character of 0 width
 				while (win_out->curs_pos > 0) {
 					int width;
 					win_out->curs_pos--;
@@ -1618,7 +1618,7 @@ int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 				break;
 			case KEY_DC:{
 				int skipped = 0;
-				if ((mode == SLAVEMODE) && scrolledup) return 0;  
+				if ((mode == SLAVEMODE) && scrolledup) return 0;
 				while (win_out->curs_pos < win_out->bytes){
 					int width;int j;
 					getyx(win_out->ptr, ypos, xpos);
@@ -1632,7 +1632,7 @@ int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 						memmove(&win_out-> string[win_out->curs_pos],
 							&win_out->string[win_out-> curs_pos+1],
 							(win_out->bytes - (win_out->curs_pos+1)) * sizeof(wchar_t));
-					} 
+					}
 					win_out->bytes--;
 				}
 				break;
@@ -1655,14 +1655,14 @@ int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 		break;
 	default:
 		if ((mode == SLAVEMODE) && scrolledup) return 0; // Don't try to edit while scrolled up in SLAVEmode.
-						// It's just not possible because the cursor is off screen 
+						// It's just not possible because the cursor is off screen
 		if (win_out->bytes < MAX_BUFLEN )	{
 			if (win_out->curs_pos < win_out->bytes) {
 				memmove(&win_out->
 					string[win_out->curs_pos + 1],
 					&win_out->string[win_out-> curs_pos],
 					(win_out->bytes -
-					win_out->curs_pos) * sizeof(wchar_t)); 
+					win_out->curs_pos) * sizeof(wchar_t));
 			}
 			win_out->string[win_out->curs_pos] =  c;
 			win_out->bytes++;
@@ -1941,7 +1941,7 @@ void statbits(int mode, char stat, int m)
 	refresh();
 }
 
-	
+
 int cmd_call(char *call[], int mode, int encoding)
 {
 	menuitem con[] = {
@@ -2771,7 +2771,7 @@ int main(int argc, char **argv)
 {
 	int p;
 	int mode = TALKMODE;
-	int encoding = UTF8ENCODING;// Maybe controversial? 
+	int encoding = UTF8ENCODING;// Maybe controversial?
 
 	setlocale(LC_ALL, "");
 	if (!isatty(STDIN_FILENO))
