@@ -121,7 +121,7 @@ typedef struct {
 
 #define TALKMODE	001	/* two windows (outgoing and incoming) with menu */
 #define SLAVEMODE	002	/* Menu mode */
-#define RAWMODE         004	/* mode used by earlier versions */
+#define RAWMODE		004	/* mode used by earlier versions */
 
 #define ORIGINALENCODING	0
 #define UTF8ENCODING		1
@@ -449,7 +449,7 @@ static void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 		if (!str)continue;
 		inbuf = (char *) str;
 		len = wcslen(str);
-	        insize = len * sizeof(wchar_t);
+		insize = len * sizeof(wchar_t);
 		width = wcswidth(str, len);
 		iconv(wcharttoutf8, &inbuf, &insize, &outbuf, &outsize);
 		waddnstr(w, obuf, MAX_BUFLEN-outsize);
@@ -1150,7 +1150,7 @@ int start_slave_mode(wint * wintab, t_win * win_in, t_win * win_out)
 	win_out->curs_pos = 0;
 	win_in->bytes = 0;
 	win_in->curs_pos = 0;
-        redrawscreen(win_in, SLAVEMODE, win_out);
+	redrawscreen(win_in, SLAVEMODE, win_out);
 	wrefresh(win_in->ptr);
 	return 0;
 }
@@ -1188,7 +1188,7 @@ int start_talk_mode(wint * wintab, t_win * win_in, t_win * win_out)
 	win_out->curs_pos = 0;
 	win_in->bytes = 0;
 	win_out->curs_pos = 0;
-        redrawscreen(win_in, TALKMODE, win_out);
+	redrawscreen(win_in, TALKMODE, win_out);
 	restorecursor(TALKMODE, win_out);
 	wrefresh(win_in->ptr);
 	wrefresh(win_out->ptr);
@@ -1276,150 +1276,150 @@ static void reinit_mode(int mode, wint * wintab, t_win * win_in, t_win * win_out
 
 static void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int mode, t_win *win_out)
 {
-        int n;
-        for (n=0;n<bytes;n++){
-                int width;
-                incharbuf[incharbuflen++] = buf[n];
-                if (completecharlen(incharbuf) > incharbuflen)continue;
-                if (eatchar && (incharbuf[0] == '\n')){
-                        eatchar = 0;
-                        incharbuflen = 0;
-                        continue;
-                        }
-                width = widthchar(incharbuf, incharbuflen, inbufwid);
-                eatchar = 0;
-                if (draw) {
-                        if (win_in) waddnstr(win_in->ptr, incharbuf, incharbuflen);
-                        else write(STDOUT_FILENO, incharbuf, incharbuflen);
-                }
-                if (incharbuf[0] == '\n')incharbuflen = 0;
-                else if (width + inbufwid <= COLS){
-                        if (inbuflen + incharbuflen <= MAX_BUFLEN){
-                                memcpy(&inbuf[inbuflen], incharbuf, incharbuflen);
-                                inbuflen += incharbuflen;
-                        }
-                        incharbuflen = 0;
-                        inbufwid += width;
-                        if (inbufwid >= COLS)eatchar = 1;
-                        continue;// Skip to next line when width goes over.
-                }
-                addscrollline(inbuf, inbuflen);
-                if (incharbuflen){
-                        memcpy(&inbuf[0], incharbuf, incharbuflen);
-                        inbuflen = incharbuflen;
-                        incharbuflen = 0;
-                        inbufwid = width;
-                }
-                else {
-                        inbuflen = 0;
-                        inbufwid = 0;
-                }
-                if (scrolledup && win_in && win_out){
-                        scrolledup++; // scrolledup is relative to bottom line
-                        scrolltext(win_in, 0, mode, win_out);
-                }
-        }
-        if (draw && win_in) wrefresh(win_in->ptr);
+	int n;
+	for (n=0;n<bytes;n++){
+		int width;
+		incharbuf[incharbuflen++] = buf[n];
+		if (completecharlen(incharbuf) > incharbuflen)continue;
+		if (eatchar && (incharbuf[0] == '\n')){
+			eatchar = 0;
+			incharbuflen = 0;
+			continue;
+			}
+		width = widthchar(incharbuf, incharbuflen, inbufwid);
+		eatchar = 0;
+		if (draw) {
+			if (win_in) waddnstr(win_in->ptr, incharbuf, incharbuflen);
+			else write(STDOUT_FILENO, incharbuf, incharbuflen);
+		}
+		if (incharbuf[0] == '\n')incharbuflen = 0;
+		else if (width + inbufwid <= COLS){
+			if (inbuflen + incharbuflen <= MAX_BUFLEN){
+				memcpy(&inbuf[inbuflen], incharbuf, incharbuflen);
+				inbuflen += incharbuflen;
+			}
+			incharbuflen = 0;
+			inbufwid += width;
+			if (inbufwid >= COLS)eatchar = 1;
+			continue;// Skip to next line when width goes over.
+		}
+		addscrollline(inbuf, inbuflen);
+		if (incharbuflen){
+			memcpy(&inbuf[0], incharbuf, incharbuflen);
+			inbuflen = incharbuflen;
+			incharbuflen = 0;
+			inbufwid = width;
+		}
+		else {
+			inbuflen = 0;
+			inbufwid = 0;
+		}
+		if (scrolledup && win_in && win_out){
+			scrolledup++; // scrolledup is relative to bottom line
+			scrolltext(win_in, 0, mode, win_out);
+		}
+	}
+	if (draw && win_in) wrefresh(win_in->ptr);
 
 }
 
 
 static void writeincom(int mode, int encoding, t_win * win_in, unsigned char buf[], int bytes, t_win *win_out)
 {
-        if (mode & RAWMODE) {
-                while (write(STDOUT_FILENO, buf, bytes) == -1) {
-                        if (errno == EWOULDBLOCK || errno == EAGAIN) {
-                                usleep(100000);
-                                continue;
-                        }
-                        exit(1);
-                }
-                return;
-        } else if (encoding == UTF8ENCODING)
-                waddnstrcrcheck(win_in, (char *)buf, bytes,scrolledup == 0, mode, win_out);
-        else {
-                char *inbuf = (char *) buf, out[MAX_BUFLEN], *outbuf=out;
-                size_t insize = bytes, outsize = MAX_BUFLEN;
-                iconv(ibm850toutf8, &inbuf, &insize, &outbuf, &outsize);
-                waddnstrcrcheck(win_in, out, MAX_BUFLEN-outsize,scrolledup == 0, mode, win_out);
-        }
-        return;
+	if (mode & RAWMODE) {
+		while (write(STDOUT_FILENO, buf, bytes) == -1) {
+			if (errno == EWOULDBLOCK || errno == EAGAIN) {
+				usleep(100000);
+				continue;
+			}
+			exit(1);
+		}
+		return;
+	} else if (encoding == UTF8ENCODING)
+		waddnstrcrcheck(win_in, (char *)buf, bytes,scrolledup == 0, mode, win_out);
+	else {
+		char *inbuf = (char *) buf, out[MAX_BUFLEN], *outbuf=out;
+		size_t insize = bytes, outsize = MAX_BUFLEN;
+		iconv(ibm850toutf8, &inbuf, &insize, &outbuf, &outsize);
+		waddnstrcrcheck(win_in, out, MAX_BUFLEN-outsize,scrolledup == 0, mode, win_out);
+	}
+	return;
 }
 static void writeincomstr(int mode, int encoding, t_win * win_in, char buf[], t_win *win_out)
 {
-        int len;
-        len = strlen(buf);
-        writeincom(mode, encoding, win_in, (unsigned char *)buf, len, win_out);
+	int len;
+	len = strlen(buf);
+	writeincom(mode, encoding, win_in, (unsigned char *)buf, len, win_out);
 }
 
 static int outstring(char *buf, wchar_t *string, int bytes, int encoding)
 {
-        char *inbuf = (char *) string, *outbuf = buf;
-        size_t insize = bytes * sizeof(wchar_t), outsize = MAX_BUFLEN-1;
-        if (encoding == UTF8ENCODING){
-                iconv(wcharttoutf8, &inbuf, &insize, &outbuf, &outsize);
-        }
-        else {
-                iconv(wcharttoibm850, &inbuf, &insize, &outbuf, &outsize);
+	char *inbuf = (char *) string, *outbuf = buf;
+	size_t insize = bytes * sizeof(wchar_t), outsize = MAX_BUFLEN-1;
+	if (encoding == UTF8ENCODING){
+		iconv(wcharttoutf8, &inbuf, &insize, &outbuf, &outsize);
+	}
+	else {
+		iconv(wcharttoibm850, &inbuf, &insize, &outbuf, &outsize);
 
-        }
-        buf[(MAX_BUFLEN-1)-outsize] = '\0';
-        return (MAX_BUFLEN-1)-outsize;
+	}
+	buf[(MAX_BUFLEN-1)-outsize] = '\0';
+	return (MAX_BUFLEN-1)-outsize;
 }
 
 static int getstring(wint * wintab, char text[], char buf[])
 {
-        wchar_t c;
-        int ypos = 0, xpos = 0;
-        int bytes = 0;
-        wchar_t wbuf[MAX_BUFLEN];
-        WINDOW *win = winopen(wintab, 3, COLS, 10, 0, TRUE);
-        int done = 0;
+	wchar_t c;
+	int ypos = 0, xpos = 0;
+	int bytes = 0;
+	wchar_t wbuf[MAX_BUFLEN];
+	WINDOW *win = winopen(wintab, 3, COLS, 10, 0, TRUE);
+	int done = 0;
 
-        wmove(win, 1, 2);
-        waddstr(win, text);
-        wrefresh(win);
+	wmove(win, 1, 2);
+	waddstr(win, text);
+	wrefresh(win);
 
-        do {
-                int r;
-                wint_t ci;
-                r = get_wch(&ci);
-                if (r != ERR) {
-                        c = (wchar_t) ci;
-                        if  (((r == KEY_CODE_YES) && (c == KEY_BACKSPACE))||
-                                    ((r == OK) && ((c==127)|| (c==8)))){
-                                getyx(win, ypos, xpos);
-                                if (bytes > 0) {
-                                        int width, j;
-                                        width = wcwidthcontrol(wbuf[bytes-1]);
-                                        for (j=0;j<width;j++) mvwdelch(win, ypos, xpos-width);
-                                        xpos -= width;
-                                        wmove(win, ypos, xpos);
-                                        bytes--;
-                                }
-                        }
-                        else if (( (r==KEY_CODE_YES) && (c == KEY_ENTER))||
-                                   ( (r == OK) && ((c=='\n') || (c=='\r')))){
-                                wbuf[bytes++] = (wchar_t) '\n';
-                                outstring(buf, wbuf, bytes, UTF8ENCODING);
-                                done = 1;
-                        }
-                        else if (r == KEY_CODE_YES); // Put in code for other KEYCODES here
-                        else if (bytes+2 < MAX_BUFLEN){
-                                //int width;
-                                //width = wins_nwchrmy(win, c);
-                                //getyx(win, ypos, xpos);
-                                //wmove(win, ypos, xpos+width);
-                                wbuf[bytes++] = c;
-                                drawinbuf(win, wbuf, bytes, bytes);
-                        }
-                        wrefresh(win);
-                }
-        }
-        while (!done);
-        delwin(win);
-        winclose(wintab);
-        return 0;
+	do {
+		int r;
+		wint_t ci;
+		r = get_wch(&ci);
+		if (r != ERR) {
+			c = (wchar_t) ci;
+			if  (((r == KEY_CODE_YES) && (c == KEY_BACKSPACE))||
+				    ((r == OK) && ((c==127)|| (c==8)))){
+				getyx(win, ypos, xpos);
+				if (bytes > 0) {
+					int width, j;
+					width = wcwidthcontrol(wbuf[bytes-1]);
+					for (j=0;j<width;j++) mvwdelch(win, ypos, xpos-width);
+					xpos -= width;
+					wmove(win, ypos, xpos);
+					bytes--;
+				}
+			}
+			else if (( (r==KEY_CODE_YES) && (c == KEY_ENTER))||
+				   ( (r == OK) && ((c=='\n') || (c=='\r')))){
+				wbuf[bytes++] = (wchar_t) '\n';
+				outstring(buf, wbuf, bytes, UTF8ENCODING);
+				done = 1;
+			}
+			else if (r == KEY_CODE_YES); // Put in code for other KEYCODES here
+			else if (bytes+2 < MAX_BUFLEN){
+				//int width;
+				//width = wins_nwchrmy(win, c);
+				//getyx(win, ypos, xpos);
+				//wmove(win, ypos, xpos+width);
+				wbuf[bytes++] = c;
+				drawinbuf(win, wbuf, bytes, bytes);
+			}
+			wrefresh(win);
+		}
+	}
+	while (!done);
+	delwin(win);
+	winclose(wintab);
+	return 0;
 }
 
 
@@ -1552,7 +1552,7 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 			char *inbuf = (char *)win_out->string, *outbuf = obuf;
 			size_t insize = win_out->bytes * sizeof(wchar_t), outsize = MAX_BUFLEN;
 			iconv(wcharttoutf8, &inbuf, &insize, &outbuf, &outsize);
-                        waddnstrcrcheck(win_in, obuf, MAX_BUFLEN-outsize, 0, mode, win_out);
+			waddnstrcrcheck(win_in, obuf, MAX_BUFLEN-outsize, 0, mode, win_out);
 		}
 		win_out->bytes = 0;
 		win_out->curs_pos = 0;
@@ -2681,7 +2681,7 @@ static int cmd_call(char *call[], int mode, int encoding)
 			   { */ /*      printf("\r%ld bytes sent    ", uplpos + bytes); */
 				sprintf(s, "%ld", uplpos + bytes);
 				dupdstatw(swin, s, FALSE);
-/*                      } */
+/*			} */
 
 			uplpos += bytes;
 			upldp += bytes;
