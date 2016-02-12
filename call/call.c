@@ -86,10 +86,10 @@ static char *port;
 static char *mycall;
 
 static int stdin_is_tty = 1;
-static iconv_t ibm850toutf8 = 0, wcharttoibm850 = 0, wcharttoutf8 = 0, utf8towchart = 0;
+static iconv_t ibm850toutf8, wcharttoibm850, wcharttoutf8, utf8towchart;
 
 volatile int interrupted = FALSE;
-static int sigwinchsignal = FALSE;
+static int sigwinchsignal;
 int paclen;
 int fd;
 int curson = 1;
@@ -134,9 +134,9 @@ typedef struct {
 
 
 static scrollbackstruct scrollback[SCROLLBACKSIZE];
-static int topscroll=0, lastscroll = 0, scrolledup=0, eatchar = 0;
-static char inbuf[MAX_BUFLEN];static int inbuflen = 0, inbufwid = 0;
-static char incharbuf[6];static int incharbuflen = 0;
+static int topscroll, lastscroll, scrolledup, eatchar;
+static char inbuf[MAX_BUFLEN];static int inbuflen, inbufwid;
+static char incharbuf[6];static int incharbuflen;
 void statline(int mode, char *s);
 
 void addscrollline(char *s, int len)
