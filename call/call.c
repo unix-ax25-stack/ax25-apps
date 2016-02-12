@@ -140,7 +140,6 @@ static char inbuf[MAX_BUFLEN];
 static int inbuflen, inbufwid;
 static char incharbuf[6];
 static int incharbuflen;
-static void statline(int mode, char *s);
 
 static void addscrollline(char *s, int len)
 {
@@ -325,6 +324,47 @@ static void redrawscreen(t_win *win_in, int mode, t_win *win_out)
 		updateline(y,linefrom , win_in, mode, win_out);
 	}
 	checkcursor(mode);
+}
+
+static void statline(int mode, char *s)
+{
+	static int oldlen = 0;
+	int l, cnt;
+
+	if (*s == '\0') {
+		if (mode == RAWMODE)
+			return;
+		if (oldlen > 0) {
+			move(0, STATW_STAT);
+			attron(A_REVERSE);
+			for (cnt = STATW_STAT; cnt < COLS; cnt++)
+				addch(' ');
+			oldlen = 0;
+			attroff(A_REVERSE);
+			refresh();
+		}
+		return;
+	}
+	if (mode == RAWMODE) {
+		printf(">>%s\n", s);
+		fflush(stdout);
+		return;
+	}
+	if (COLS <= STATW_STAT)
+		return;
+	l = strlen(s);
+	if (l > COLS - STATW_STAT)
+		l = COLS-STATW_STAT;
+
+	move(0, STATW_STAT);
+
+	attron(A_REVERSE);
+	addnstr(s, l);
+	for (cnt = STATW_STAT+l;cnt < COLS;cnt++)
+		addch(' ');
+	attroff(A_REVERSE);
+	oldlen = l;
+	refresh();
 }
 
 static void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
@@ -782,47 +822,6 @@ static void cmd_sigwinch(int sig)
 static void cmd_intr(int sig)
 {
 	interrupted = TRUE;
-}
-
-static void statline(int mode, char *s)
-{
-	static int oldlen = 0;
-	int l, cnt;
-
-	if (*s == '\0') {
-		if (mode == RAWMODE)
-			return;
-		if (oldlen > 0) {
-			move(0, STATW_STAT);
-			attron(A_REVERSE);
-			for (cnt = STATW_STAT; cnt < COLS; cnt++)
-				addch(' ');
-			oldlen = 0;
-			attroff(A_REVERSE);
-			refresh();
-		}
-		return;
-	}
-	if (mode == RAWMODE) {
-		printf(">>%s\n", s);
-		fflush(stdout);
-		return;
-	}
-	if (COLS <= STATW_STAT)
-		return;
-	l = strlen(s);
-	if (l > COLS - STATW_STAT)
-		l = COLS-STATW_STAT;
-
-	move(0, STATW_STAT);
-
-	attron(A_REVERSE);
-	addnstr(s, l);
-	for (cnt = STATW_STAT+l;cnt < COLS;cnt++)
-		addch(' ');
-	attroff(A_REVERSE);
-	oldlen = l;
-	refresh();
 }
 
 WINDOW *opnstatw(int mode, wint * wintab, char *s, int lines, int cols)
