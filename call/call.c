@@ -148,7 +148,7 @@ static void addscrollline(char *s, int len)
 	memcpy(scrollback[lastscroll].str, s, len);
 	scrollback[lastscroll].len = len;
 	if (++lastscroll >= SCROLLBACKSIZE)lastscroll = 0;
-	if (lastscroll == topscroll){
+	if (lastscroll == topscroll) {
 		free(scrollback[topscroll].str);
 		if (++topscroll >= SCROLLBACKSIZE)topscroll = 0;
 	}
@@ -190,7 +190,7 @@ static int widthchar(char *s, size_t bytes, int xpos)
 	 * Note:  Actually need to check if bad UTF8 characters show as ?
 	 */
 	if (iconv(utf8towchart, &s, &bytes, &outbuf, &outsize)< 0)return 0;
-	if (c == 9){
+	if (c == 9) {
 		return 8 - (xpos & 7);
 	}
 	width = wcwidth(c);
@@ -221,7 +221,7 @@ static int completecharlen(char *s)
 static int waddnstrcolcheck(WINDOW *win, char *s, int len, int twidth)
 {
 	int n;
-	for (twidth = 0,n=0;n<len;){
+	for (twidth = 0,n=0;n<len;) {
 		int cwidth = completecharlen(&s[n]), width;
 		if (n + cwidth > len)return twidth;	/* Error condition  */
 		width = widthchar(&s[n], cwidth, twidth);
@@ -239,11 +239,11 @@ static int waddnstrcolcheck(WINDOW *win, char *s, int len, int twidth)
 static void updateline(int screeny, int yfrom, t_win *win_in, int mode, t_win *win_out)
 {
 	wmove(win_in->ptr, screeny, 0);
-	if (yfrom == lastscroll){
+	if (yfrom == lastscroll) {
 		int twidth = 0;
 		if (inbuflen > 0)
 			twidth = waddnstrcolcheck(win_in->ptr, inbuf, inbuflen, 0);
-		if (mode == SLAVEMODE){
+		if (mode == SLAVEMODE) {
 			char obuf[MAX_BUFLEN];
 			char *inbuf = (char *)win_out->string, *outbuf = obuf;
 			size_t insize = win_out->bytes * sizeof(wchar_t), outsize = MAX_BUFLEN;
@@ -266,7 +266,7 @@ static void checkcursor(int mode)
 	int newcursor;
 	if ((mode == SLAVEMODE) && scrolledup)newcursor = 0;
 	else newcursor = 1;
-	if (curson != newcursor){
+	if (curson != newcursor) {
 		curs_set(newcursor);
 		curson = newcursor;
 	}
@@ -277,7 +277,7 @@ static void checkcursor(int mode)
 static void restorecursor(int mode, t_win *win_out)
 {
 	checkcursor(mode);
-	if (mode != RAWMODE){
+	if (mode != RAWMODE) {
 		int x,y;
 		getyx(win_out->ptr, y, x);	/* Must restore input cursor */
 		wmove(win_out->ptr,y, x);	/* location.		     */
@@ -293,9 +293,9 @@ static void redrawscreen(t_win *win_in, int mode, t_win *win_out)
 	/*
 	 * Note it's stored lines + 1 extra line for text input.
 	 */
-	for (y=0;(y<=win_in->max_y) && (y <= storedlines);y++){
+	for (y=0;(y<=win_in->max_y) && (y <= storedlines);y++) {
 		int linefrom;
-		if (storedlines <= win_in->max_y){
+		if (storedlines <= win_in->max_y) {
 			/*
 			 * This is a little confusing.
 			 * The screen scrolls top down at start
@@ -315,7 +315,7 @@ static void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 	int topline, storedlines;
 	int y;
 	int wasscrolledup;
-	if (scrolledup + lines < 0){
+	if (scrolledup + lines < 0) {
 		lines = -scrolledup;
 	}
 	/*
@@ -329,7 +329,7 @@ static void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 	 */
 	topline = storedlines - win_in->max_y;
 	if (topline < 0)topline = 0;
-	if (scrolledup + lines > topline){
+	if (scrolledup + lines > topline) {
 		lines = topline - scrolledup;
 	}
 	if (!lines)return;
@@ -337,8 +337,8 @@ static void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 	scrolledup += lines;
 	wscrl(win_in->ptr, -lines);
 	scrollok(win_in->ptr, FALSE);
-	if (lines > 0){
-		for (y=0;y<lines;y++){
+	if (lines > 0) {
+		for (y=0;y<lines;y++) {
 			int linefrom = lastscroll -scrolledup - (win_in->max_y) + y;
 			while (linefrom < 0)linefrom += SCROLLBACKSIZE;
 			while (linefrom >= SCROLLBACKSIZE)linefrom -= SCROLLBACKSIZE;
@@ -346,7 +346,7 @@ static void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 		}
 	}
 	else  {
-		for (y=-lines-1;y>=0;y--){
+		for (y=-lines-1;y>=0;y--) {
 			int linefrom = lastscroll -scrolledup -  y;
 			while (linefrom < 0)linefrom += SCROLLBACKSIZE;
 			while (linefrom >= SCROLLBACKSIZE)linefrom -= SCROLLBACKSIZE;
@@ -357,10 +357,10 @@ static void scrolltext(t_win *win_in, int lines, int mode, t_win *win_out)
 	scrollok(win_in->ptr, TRUE);
 	checkcursor(mode);
 	wrefresh(win_in->ptr);
-	if (wasscrolledup && !scrolledup){
+	if (wasscrolledup && !scrolledup) {
 		statline(mode, "");
 	}
-	else if (!wasscrolledup && scrolledup){
+	else if (!wasscrolledup && scrolledup) {
 		statline(mode, "Viewing Scrollback");
 	}
 }
@@ -459,7 +459,7 @@ static void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 
 	cursorx = xpos;
 	// cur_pos-1 = the chracter that was just added.
-	for (n=cur_pos-2;n>=0;n--){
+	for (n=cur_pos-2;n>=0;n--) {
 		/*
 		 * Move x position to start of string or 0
 		 */
@@ -468,14 +468,14 @@ static void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 		else x = 0;
 	}
 	wmove(w, ypos, x);
-	for (n=0;n<bytes;n++){
+	for (n=0;n<bytes;n++) {
 		char obuf[MAX_BUFLEN];
 		char *inbuf, *outbuf = obuf;
 		size_t insize, outsize = MAX_BUFLEN;
 		int len, width;
 		wchar_t *str;
 
-		if (n == cur_pos){
+		if (n == cur_pos) {
 			cursorx = x;
 		}
 		str = wunctrlwchar(string[n]);
@@ -488,7 +488,7 @@ static void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 		waddnstr(w, obuf, MAX_BUFLEN-outsize);
 		x += width;
 	}
-	if (cur_pos < bytes){
+	if (cur_pos < bytes) {
 		wmove(w,ypos, cursorx);
 	}
 }
@@ -1311,11 +1311,11 @@ static void reinit_mode(int mode, wint * wintab, t_win * win_in, t_win * win_out
 static void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int mode, t_win *win_out)
 {
 	int n;
-	for (n=0;n<bytes;n++){
+	for (n=0;n<bytes;n++) {
 		int width;
 		incharbuf[incharbuflen++] = buf[n];
 		if (completecharlen(incharbuf) > incharbuflen)continue;
-		if (eatchar && (incharbuf[0] == '\n')){
+		if (eatchar && (incharbuf[0] == '\n')) {
 			eatchar = 0;
 			incharbuflen = 0;
 			continue;
@@ -1327,8 +1327,8 @@ static void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int m
 			else write(STDOUT_FILENO, incharbuf, incharbuflen);
 		}
 		if (incharbuf[0] == '\n')incharbuflen = 0;
-		else if (width + inbufwid <= COLS){
-			if (inbuflen + incharbuflen <= MAX_BUFLEN){
+		else if (width + inbufwid <= COLS) {
+			if (inbuflen + incharbuflen <= MAX_BUFLEN) {
 				memcpy(&inbuf[inbuflen], incharbuf, incharbuflen);
 				inbuflen += incharbuflen;
 			}
@@ -1338,7 +1338,7 @@ static void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int m
 			continue; /* Skip to next line when width goes over. */
 		}
 		addscrollline(inbuf, inbuflen);
-		if (incharbuflen){
+		if (incharbuflen) {
 			memcpy(&inbuf[0], incharbuf, incharbuflen);
 			inbuflen = incharbuflen;
 			incharbuflen = 0;
@@ -1348,7 +1348,7 @@ static void waddnstrcrcheck(t_win *win_in, char *buf, int bytes, int draw, int m
 			inbuflen = 0;
 			inbufwid = 0;
 		}
-		if (scrolledup && win_in && win_out){
+		if (scrolledup && win_in && win_out) {
 			/*
 			 * scrolledup is relative to bottom line
 			 */
@@ -1393,7 +1393,7 @@ static int outstring(char *buf, wchar_t *string, int bytes, int encoding)
 {
 	char *inbuf = (char *) string, *outbuf = buf;
 	size_t insize = bytes * sizeof(wchar_t), outsize = MAX_BUFLEN-1;
-	if (encoding == UTF8ENCODING){
+	if (encoding == UTF8ENCODING) {
 		iconv(wcharttoutf8, &inbuf, &insize, &outbuf, &outsize);
 	}
 	else {
@@ -1424,7 +1424,7 @@ static int getstring(wint * wintab, char text[], char buf[])
 		if (r != ERR) {
 			c = (wchar_t) ci;
 			if  (((r == KEY_CODE_YES) && (c == KEY_BACKSPACE))||
-				    ((r == OK) && ((c==127)|| (c==8)))){
+				    ((r == OK) && ((c==127)|| (c==8)))) {
 				getyx(win, ypos, xpos);
 				if (bytes > 0) {
 					int width, j;
@@ -1437,7 +1437,7 @@ static int getstring(wint * wintab, char text[], char buf[])
 				}
 			}
 			else if (( (r==KEY_CODE_YES) && (c == KEY_ENTER))||
-				   ( (r == OK) && ((c=='\n') || (c=='\r')))){
+				   ( (r == OK) && ((c=='\n') || (c=='\r')))) {
 				wbuf[bytes++] = (wchar_t) '\n';
 				outstring(buf, wbuf, bytes, UTF8ENCODING);
 				done = 1;
@@ -1446,7 +1446,7 @@ static int getstring(wint * wintab, char text[], char buf[])
 				/*
 				 * Put in code for other KEYCODES here
 				 */
-			else if (bytes+2 < MAX_BUFLEN){
+			else if (bytes+2 < MAX_BUFLEN) {
 #if 0
 				int width;
 				width = wins_nwchrmy(win, c);
@@ -1555,9 +1555,9 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 		return 2;
 	}
 	if  (((r == KEY_CODE_YES) && (c == KEY_BACKSPACE))||
-			((r == OK) && ((c==127)|| (c==8)))){
+			((r == OK) && ((c==127)|| (c==8)))) {
 		if ((mode == SLAVEMODE) && scrolledup) return 0;
-		while(win_out->curs_pos > 0){
+		while(win_out->curs_pos > 0) {
 			int width;
 			int j;
 			getyx(win_out->ptr, ypos, xpos);
@@ -1579,7 +1579,7 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 		}
 	}
 	else if (( (r==KEY_CODE_YES) && (c == KEY_ENTER))||
-		   ( (r == OK) && ((c=='\n') || (c=='\r')))){
+		   ( (r == OK) && ((c=='\n') || (c=='\r')))) {
 		if ((mode == SLAVEMODE) && scrolledup) return 0;
 		while (win_out->curs_pos < win_out->bytes) {
 			/* Move to end of the line  */
@@ -1593,7 +1593,7 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 		win_out->string[win_out->bytes++] = (wchar_t) '\n';
 		wrefresh(win_out->ptr);
 		out_cnt = outstring(buf, win_out->string, win_out->bytes, encoding);
-		if (mode == SLAVEMODE){
+		if (mode == SLAVEMODE) {
 			char obuf[MAX_BUFLEN];
 			char *inbuf = (char *)win_out->string, *outbuf = obuf;
 			size_t insize = win_out->bytes * sizeof(wchar_t), outsize = MAX_BUFLEN;
@@ -1604,8 +1604,8 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 		win_out->curs_pos = 0;
 		return out_cnt;
 	}
-	else if (r == KEY_CODE_YES){
-		switch(c){
+	else if (r == KEY_CODE_YES) {
+		switch(c) {
 			case KEY_LEFT:	/* Character of 0 width  */
 				while (win_out->curs_pos > 0) {
 					int width;
@@ -1623,7 +1623,7 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 				while (win_out->curs_pos < win_out->bytes) {
 					int width;
 					width = wcwidthcontrol(win_out->string[win_out->curs_pos]);
-					if (width){
+					if (width) {
 						if (skipped)break;
 						skipped = 1;
 					}
@@ -1669,12 +1669,12 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 			case KEY_DC:{
 				int skipped = 0;
 				if ((mode == SLAVEMODE) && scrolledup) return 0;
-				while (win_out->curs_pos < win_out->bytes){
+				while (win_out->curs_pos < win_out->bytes) {
 					int width;
 					int j;
 					getyx(win_out->ptr, ypos, xpos);
 					width = wcwidthcontrol(win_out->string[win_out->curs_pos]);
-					if (width){
+					if (width) {
 						if (skipped)break;
 						skipped = 1;
 					}
