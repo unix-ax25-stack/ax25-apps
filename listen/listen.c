@@ -188,6 +188,34 @@ int main(int argc, char **argv)
 			if (sock == -1 || sigint)
 				break;
 			if (ifr.ifr_hwaddr.sa_family == AF_AX25) {
+                                if (size > 2 && *buffer == 0xcc) {
+                                        /* IP packets from the ax25 de-segmenter
+                                           are seen on socket "PF_PACKET,
+                                           SOCK_PACKET, ETH_P_ALL" without
+                                           AX.25 header (just the IP-frame),
+                                           prefixed by 0xcc (AX25_P_IP).
+                                           It's unclear why in the kernel code
+                                           this happens (unsegmentet AX25 PID
+                                           AX25_P_IP have not this behavior).
+                                           We have already displayed all the
+                                           segments and like to ignore this
+                                           data.
+                                           AX.25 packets start with a kiss
+                                           byte (buffer[0]); ax25_dump()
+                                           looks for it.
+                                           There's no kiss command 0xcc
+                                           defined; kiss bytes are checked
+                                           against & 0xf (= 0x0c), which is
+                                           also not defined.
+                                           Kiss commands may have one argument.
+                                           => We can make safely make the
+                                           assumption for first byte == 0xcc
+                                           and length > 2, that we safeley can
+                                           detect those IP frames, and then
+                                           ignore it.
+                                         */
+                                        continue;
+                                }
 				display_port(sa.sa_data);
 #ifdef NEW_AX25_STACK
 				ax25_dump(buffer, size, dumpstyle);
