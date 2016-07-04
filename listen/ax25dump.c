@@ -225,8 +225,7 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 			}
 			lprintf(T_AXHDR, "%s len %d ", dama, length);
 
-			if (timestamp)
-				display_timestamp();
+			display_timestamp();
 
 			if (pid == PID_SEGMENT) {
 				seg = *data++;
@@ -292,8 +291,7 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 			lprintf(T_ERROR, " Invalid seq number");
 		lprintf(T_AXHDR, "%s ", dama);
 
-		if (timestamp)
-			display_timestamp();
+		display_timestamp();
 		lprintf(T_AXHDR, "\n");
 	} else if ((type == SABM || type == UA) && length >= 2) {
 		/* FlexNet transmits the QSO "handle" for header
@@ -301,13 +299,11 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 		 */
 		lprintf(T_AXHDR, " [%d]%s ", (data[0] << 8) | data[1],
 			dama);
-		if (timestamp)
-			display_timestamp();
+		display_timestamp();
 		lprintf(T_AXHDR, "\n");
 	} else {
 		lprintf(T_AXHDR, "%s ", dama);
-		if (timestamp)
-			display_timestamp();
+		display_timestamp();
 		lprintf(T_AXHDR, "\n");
 	}
 }
