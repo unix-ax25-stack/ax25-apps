@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include <curses.h>
 #include <signal.h>
 #include <errno.h>
@@ -25,7 +26,9 @@
 #include <config.h>
 #include "listen.h"
 
-int timestamp;
+struct timeval t_recv;
+int tflag = 0;
+int32_t thiszone;               /* seconds offset from gmt to local time */
 static int sigint;
 static int sock;
 
@@ -39,17 +42,123 @@ static void display_port(char *dev)
 	lprintf(T_PORT, "%s: ", port);
 }
 
+/* from tcpdump util.c */
+
+/*
+ * Format the timestamp
+ */
+char *
+ts_format(register int sec, register int usec)
+{
+        static char buf[sizeof("00:00:00.000000")];
+        (void)snprintf(buf, sizeof(buf), "%02d:%02d:%02d.%06u",
+               sec / 3600, (sec % 3600) / 60, sec % 60, usec);
+
+        return buf;
+}
+
+/*
+ * Print the timestamp
+ */
+void
+ts_print(register const struct timeval *tvp)
+{
+        register int s;
+        struct tm *tm;
+        time_t Time;
+        static unsigned b_sec;
+        static unsigned b_usec;
+        int d_usec;
+        int d_sec;
+
+        switch (tflag) {
+
+        case 0: /* Default */
+                s = (tvp->tv_sec + thiszone) % 86400;
+                (void)lprintf(T_TIMESTAMP, "%s ", ts_format(s, tvp->tv_usec));
+                break;
+
+        case 1: /* No time stamp */
+                break;
+
+        case 2: /* Unix timeval style */
+                (void)lprintf(T_TIMESTAMP, "%u.%06u ",
+                             (unsigned)tvp->tv_sec,
+                             (unsigned)tvp->tv_usec);
+                break;
+
+        case 3: /* Microseconds since previous packet */
+        case 5: /* Microseconds since first packet */
+                if (b_sec == 0) {
+                        /* init timestamp for first packet */
+                        b_usec = tvp->tv_usec;
+                        b_sec = tvp->tv_sec;
+                }
+
+                d_usec = tvp->tv_usec - b_usec;
+                d_sec = tvp->tv_sec - b_sec;
+
+                while (d_usec < 0) {
+                    d_usec += 1000000;
+                    d_sec--;
+                }
+
+                (void)lprintf(T_TIMESTAMP, "%s ", ts_format(d_sec, d_usec));
+
+                if (tflag == 3) { /* set timestamp for last packet */
+                    b_sec = tvp->tv_sec;
+                    b_usec = tvp->tv_usec;
+                }
+                break;
+
+        case 4: /* Default + Date*/
+                s = (tvp->tv_sec + thiszone) % 86400;
+                Time = (tvp->tv_sec + thiszone) - s;
+                tm = gmtime (&Time);
+                if (!tm)
+                        lprintf(T_TIMESTAMP, "Date fail  ");
+                else
+                        lprintf(T_TIMESTAMP, "%04d-%02d-%02d %s ",
+                               tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+                               ts_format(s, tvp->tv_usec));
+                break;
+        }
+}
+
 void display_timestamp(void)
 {
-	time_t timenowx;
-	struct tm *timenow;
-
-	time(&timenowx);
-	timenow = localtime(&timenowx);
-
-	lprintf(T_TIMESTAMP, "%02d:%02d:%02d", timenow->tm_hour,
-		timenow->tm_min, timenow->tm_sec);
+	ts_print(&t_recv);
 }
+
+/* from tcpdump gmtlocal.c */
+
+int32_t gmt2local(time_t t)
+{
+        register int dt, dir;
+        register struct tm *gmt, *loc;
+        struct tm sgmt;
+
+        if (t == 0)
+                t = time(NULL);
+        gmt = &sgmt;
+        *gmt = *gmtime(&t);
+        loc = localtime(&t);
+        dt = (loc->tm_hour - gmt->tm_hour) * 60 * 60 +
+            (loc->tm_min - gmt->tm_min) * 60;
+
+        /*
+         * If the year or julian day is different, we span 00:00 GMT
+         * and must add or subtract a day. Check the year first to
+         * avoid problems when the julian day wraps.
+         */
+        dir = loc->tm_year - gmt->tm_year;
+        if (dir == 0)
+                dir = loc->tm_yday - gmt->tm_yday;
+        dt += dir * 24 * 60 * 60;
+
+        return (dt);
+}
+
 
 static void handle_sigint(int signal)
 {
@@ -77,8 +186,6 @@ int main(int argc, char **argv)
 	int proto = ETH_P_AX25;
 	int exit_code = EXIT_SUCCESS;
 
-	timestamp = 0;
-
 	while ((s = getopt(argc, argv, "8achip:rtv")) != -1) {
 		switch (s) {
 		case '8':
@@ -103,7 +210,7 @@ int main(int argc, char **argv)
 			dumpstyle = READABLE;
 			break;
 		case 't':
-			timestamp = 1;
+			tflag++;
 			break;
 		case 'v':
 			printf("listen: %s\n", VERSION);
@@ -114,10 +221,25 @@ int main(int argc, char **argv)
 			return 1;
 		case '?':
 			fprintf(stderr,
-				"Usage: listen [-8] [-a] [-c] [-h] [-i] [-p port] [-r] [-t] [-v]\n");
+				"Usage: listen [-8] [-a] [-c] [-h] [-i] [-p port] [-r] [-t..] [-v]\n");
 			return 1;
 		}
 	}
+
+	switch (tflag) {
+	case 0: /* Default */
+	case 4: /* Default + Date*/
+		thiszone = gmt2local(0);
+		break;
+	case 1: /* No time stamp */
+	case 2: /* Unix timeval style */
+	case 3: /* Microseconds since previous packet */
+	case 5: /* Microseconds since first packet */
+		break;
+	default: /* Not supported */
+		fprintf(stderr, "listen: only -t, -tt, -ttt, -tttt and -ttttt are supported\n");
+		return 1;
+        }
 
 	if (ax25_config_load_ports() == 0)
 		fprintf(stderr, "listen: no AX.25 port data configured\n");
@@ -164,6 +286,7 @@ int main(int argc, char **argv)
 			}
 			break;
 		}
+		gettimeofday(&t_recv, NULL);
 		signal(SIGINT, SIG_DFL);
 		signal(SIGTERM, SIG_DFL);
 		if (sock == -1 || sigint)
@@ -377,3 +500,4 @@ int get32(unsigned char *cp)
 
 	return x;
 }
+

@@ -15,11 +15,9 @@
 #define T_OPENTRAC	14
 
 /* In utils.c */
-extern int color;			/* Colorized mode */
+extern int color;			/* Colorized mode */
 extern int sevenbit;			/* Are we on a 7-bit terminal? */
 extern int ibmhack;			/* IBM mapping? */
-
-extern int timestamp;
 
 void display_timestamp(void);
 
