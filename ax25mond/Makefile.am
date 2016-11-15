@@ -7,7 +7,7 @@ EXTRA_DIST = ax25mond.man ax25mond.conf.man $(etcfiles)
 CLEANFILES = ax25mond.8 ax25mond.8.tmp ax25mond.conf.5 ax25mond.conf.5.tmp
 
 ax25mond.8: ax25mond.man
-	name_ax25mond=$$(echo call | sed -e '$(transform)')			\
+	name_ax25mond=$$(echo ax25mond | sed -e '$(transform)')			\
 	name_Ax25mond=$$(echo $$name_ax25mond | sed -r 's@^(.)@\U\1\E@') &&	\
 	name_AX25MOND=$$(echo $$name_ax25mond | sed -r 's@^(.*)@\U\1\E@') &&	\
 	sed -e "s/@@@ax25mond@@@/$$name_ax25mond/g"				\
@@ -17,7 +17,7 @@ ax25mond.8: ax25mond.man
 	mv ax25mond.8.tmp ax25mond.8;
 
 ax25mond.conf.5: ax25mond.conf.man
-	name_ax25mond=$$(echo call | sed -e '$(transform)')			\
+	name_ax25mond=$$(echo ax25mond | sed -e '$(transform)')			\
 	name_Ax25mond=$$(echo $$name_ax25mond | sed -r 's@^(.)@\U\1\E@') &&	\
 	name_AX25MOND=$$(echo $$name_ax25mond | sed -r 's@^(.*)@\U\1\E@') &&	\
 	sed -e "s/@@@ax25mond@@@/$$name_ax25mond/g"				\
