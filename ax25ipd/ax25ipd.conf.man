@@ -92,7 +92,7 @@ mode tnc
 .br
 # with bpqether or pty, you do not need to care about the speed
 .br
-# tun/tap: as descriped in /usr/src/linux/Documentatioa/networking/tuntap.txt,
+# tun/tap: as descriped in /usr/src/linux/Documentation/networking/tuntap.txt,
 .br
 # make a device # like this:
 .br
