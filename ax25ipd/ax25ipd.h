@@ -37,8 +37,6 @@
  *
  */
 
-#define VERS2 "Version 1.0.2"
-
 #define IPPROTO_AX25 93
 #define DEFAULT_UDP_PORT 10093
 
