@@ -20,7 +20,6 @@
 
 /*--------------------------------------------------------------------------*/
 
-#define VERSION "1.0"
 #define CONFFILE "/etc/ax25/ax25mond.conf"
 #define MAX_SOCKETS  5
 #define MAX_CONNECTS 50
@@ -46,6 +45,8 @@
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
+#include <config.h>
 
 /* For older kernels  */
 #ifndef PF_PACKET
