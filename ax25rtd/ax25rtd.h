@@ -104,8 +104,6 @@ typedef struct config_ {
 
 /* global variables */
 
-extern const char * Version;
-
 extern int reload;
 
 extern config *Config;
