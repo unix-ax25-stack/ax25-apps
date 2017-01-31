@@ -1,4 +1,3 @@
-extern int ttyfd;
 /*
  * this is a port of wampes ethertap whith my extension for bpqether
  *
@@ -55,7 +54,7 @@ struct ethertap_packet {
 	char data[MAX_FRAME];
 };
 
-unsigned char hwaddr_remote[6];
+static unsigned char hwaddr_remote[6];
 
 static int ethertap_header_len;
 

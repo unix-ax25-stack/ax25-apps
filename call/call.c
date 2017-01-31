@@ -92,12 +92,12 @@ volatile int interrupted = FALSE;
 static int sigwinchsignal;
 int paclen;
 int fd;
-int curson = 1;
+static int curson = 1;
 
-int wait_for_remote_disconnect = FALSE;
+static int wait_for_remote_disconnect = FALSE;
 static struct timespec inactivity_timeout;
-int inactivity_timeout_is_set = FALSE;
-int remote_commands_enabled = TRUE;
+static int inactivity_timeout_is_set = FALSE;
+static int remote_commands_enabled = TRUE;
 
 #define GP_FILENAME_SIZE	255
 typedef struct {
@@ -817,7 +817,7 @@ static void cmd_intr(int sig)
 	interrupted = TRUE;
 }
 
-WINDOW *opnstatw(int mode, wint * wintab, char *s, int lines, int cols)
+static WINDOW *opnstatw(int mode, wint * wintab, char *s, int lines, int cols)
 {
 	WINDOW *win;
 
@@ -835,7 +835,7 @@ WINDOW *opnstatw(int mode, wint * wintab, char *s, int lines, int cols)
 	return win;
 }
 
-void wrdstatw(WINDOW * win, char s[])
+static void wrdstatw(WINDOW * win, char s[])
 {
 	int y;
 
@@ -850,7 +850,7 @@ void wrdstatw(WINDOW * win, char s[])
 	wrefresh(win);
 }
 
-void dupdstatw(WINDOW * win, char *s, int add)
+static void dupdstatw(WINDOW * win, char *s, int add)
 {
 	static char infostr[80];
 	static int y, x;
@@ -898,7 +898,7 @@ void dupdstatw(WINDOW * win, char *s, int add)
 	oldlen = strlen(s);
 }
 
-int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
+static int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		      char parms[], int parmsbytes, char buf[], int bytes,
 		      t_gp * gp, char *address[])
 {
@@ -1069,8 +1069,8 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 	return 0;
 }
 
-int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], int *bytes,
-	    t_gp * gp)
+static int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[],
+	int *bytes, t_gp * gp)
 {
 	unsigned long extrach = 0;
 	char s[80];
@@ -1153,7 +1153,7 @@ int ab_down(int mode, WINDOW * swin, wint * wintab, char buf[], int *bytes,
 	return 0;
 }
 
-int start_screen(char *call[])
+static int start_screen(char *call[])
 {
 	int cnt;
 	char idString[12];
@@ -1186,7 +1186,7 @@ int start_screen(char *call[])
 	return 0;
 }
 
-int start_slave_mode(wint * wintab, t_win * win_in, t_win * win_out)
+static int start_slave_mode(wint * wintab, t_win * win_in, t_win * win_out)
 {
 	win_in->max_y = LINES - 2;
 	win_in->max_x = COLS;
@@ -1208,7 +1208,7 @@ int start_slave_mode(wint * wintab, t_win * win_in, t_win * win_out)
 	return 0;
 }
 
-int start_talk_mode(wint * wintab, t_win * win_in, t_win * win_out)
+static int start_talk_mode(wint * wintab, t_win * win_in, t_win * win_out)
 {
 	int cnt;
 	WINDOW *win;
@@ -1248,8 +1248,8 @@ int start_talk_mode(wint * wintab, t_win * win_in, t_win * win_out)
 	return 0;
 }
 
-int change_mode(int oldmode, int newmode, wint * wintab, t_win * win_in,
-		t_win * win_out, char *call[])
+static int change_mode(int oldmode, int newmode, wint * wintab,
+	t_win * win_in, t_win * win_out, char *call[])
 {
 	switch (oldmode) {
 	case RAWMODE:
@@ -1762,7 +1762,8 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 	return 0;
 }
 
-void remotecommand(char buf[], int bytes)
+#if 0
+static void remotecommand(char buf[], int bytes)
 {
 	int firstchar;
 	if (bytes == 0)
@@ -1785,6 +1786,7 @@ void remotecommand(char buf[], int bytes)
 		write(fd, "Unknown command\r", 16);
 	}
 }
+#endif
 
 static int compstr(const char st1[], char st2[], int maxbytes)
 {

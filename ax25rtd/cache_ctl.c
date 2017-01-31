@@ -216,7 +216,7 @@ ax25_rt_entry *update_ax25_route(config * config, ax25_address * call,
 	return bp;
 }
 
-ip_rt_entry *remove_ip_route(ip_rt_entry * bp)
+static ip_rt_entry *remove_ip_route(ip_rt_entry * bp)
 {
 	ip_rt_entry *bp2;
 
@@ -235,7 +235,7 @@ ip_rt_entry *remove_ip_route(ip_rt_entry * bp)
 	return bp2;
 }
 
-ax25_rt_entry *remove_ax25_route(ax25_rt_entry * bp)
+static ax25_rt_entry *remove_ax25_route(ax25_rt_entry * bp)
 {
 	ax25_rt_entry *bp2;
 	ip_rt_entry *iprt;

@@ -29,8 +29,8 @@ struct route_table_entry {
 	struct route_table_entry *next;
 };
 
-struct route_table_entry *route_tbl;
-struct route_table_entry *default_route;
+static struct route_table_entry *route_tbl;
+static struct route_table_entry *default_route;
 
 /* The Broadcast address structure is not visible outside this module either */
 
@@ -39,7 +39,7 @@ struct bcast_table_entry {
 	struct bcast_table_entry *next;
 };
 
-struct bcast_table_entry *bcast_tbl;
+static struct bcast_table_entry *bcast_tbl;
 
 /* Initialize the routing module */
 void route_init(void)

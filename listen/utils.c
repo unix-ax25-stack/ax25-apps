@@ -23,7 +23,7 @@ int ibmhack = 0;		/* IBM mapping? */
  * (158 and 159 are mapped to space)
  */
 
-unsigned char ibm_map[32] = {
+static unsigned char ibm_map[32] = {
 	199, 252, 233, 226, 228, 224, 229, 231,
 	234, 235, 232, 239, 238, 236, 196, 197,
 	201, 230, 198, 244, 246, 242, 251, 249,

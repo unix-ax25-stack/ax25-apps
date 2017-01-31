@@ -93,13 +93,13 @@ config *port_get_config(char *port)
 	return NULL;
 }
 
-void sig_reload(int d)
+static void sig_reload(int d)
 {
 	reload = 1;
 	signal(SIGHUP, sig_reload);
 }
 
-void sig_debug(int d)
+static void sig_debug(int d)
 {
 	fprintf(stderr, "config:\n");
 	dump_config(2);
@@ -110,7 +110,7 @@ void sig_debug(int d)
 	signal(SIGUSR1, sig_debug);
 }
 
-void sig_term(int d)
+static void sig_term(int d)
 {
 	save_cache();
 	daemon_shutdown(0);

@@ -23,19 +23,36 @@
 #include "../pathnames.h"
 #include "ax25ipd.h"
 
-jmp_buf restart_env;
+int udp_mode;			/* true if we need a UDP socket */
+int ip_mode;			/* true if we need the raw IP socket */
+unsigned short my_udp;		/* the UDP port to use (network byte order) */
+char ttydevice[PATH_MAX];	/* the tty device for serial comms */
+int ttyspeed;			/* The baud rate on the tty device */
+unsigned char mycallsign[7];	/* My callsign, shifted ASCII with SSID */
+unsigned char mycallsign2[7];	/* My seconds port callsign, shifted ASCII with SSID */
+unsigned char myalias[7];	/* An alias to use */
+unsigned char myalias2[7];	/* An alias for second port */
+char bc_text[128];		/* The text for beacon messages */
+int bc_interval;		/* The interval, in seconds, between beacons */
+int bc_every;			/* true=every, false=after */
+int digi;			/* True if we are connected to a TNC */
+int loglevel;			/* Verbosity level */
+
+int dual_port;			/* addition for dual port flag */
+
+static jmp_buf restart_env;
 
 /* Prototypes */
 void hupper(int);
 
-int opt_version;
-int opt_loglevel;
-int opt_nofork;
-int opt_help;
-char opt_configfile[PATH_MAX];
-char opt_ttydevice[PATH_MAX];
+static int opt_version;
+static int opt_loglevel;
+static int opt_nofork;
+static int opt_help;
+static char opt_configfile[PATH_MAX];
+static char opt_ttydevice[PATH_MAX];
 
-struct option options[] = {
+static struct option options[] = {
 	{"version", 0, NULL, 'v'},
 	{"loglevel", 1, NULL, 'l'},
 	{"help", 0, NULL, 'h'},
