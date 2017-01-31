@@ -563,7 +563,7 @@ static char * unix_to_sfbin_date_string(time_t gmt)
   static char buf[9];
   unsigned short s_time, s_date;
 
-  date_unix2dos(((gmt == -1) ? time(0) : gmt), &s_time, &s_date);
+  date_unix2dos(((gmt == -1) ? time(NULL) : gmt), &s_time, &s_date);
   sprintf(buf, "%X", ((s_date << 16) + s_time));
   return buf;
 }
@@ -949,7 +949,7 @@ int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 	}
 
 	if (!time_set) {
-		time_t t = time(0);
+		time_t t = time(NULL);
 		memcpy(&ft, localtime(&t), sizeof(struct tm));
 		gp->ut.actime = mktime(localtime(&t));
 		gp->ut.modtime = gp->ut.actime;
@@ -2504,7 +2504,7 @@ static int cmd_call(char *call[], int mode, int encoding)
 							if (!fstat(uploadfile, &statbuf))
 								file_time =  statbuf.st_mtime;
 							else
-								file_time = time(0);
+								file_time = time(NULL);
 
 							do {
 								upllen =
