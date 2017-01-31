@@ -45,7 +45,7 @@
 #include "../pathnames.h"
 #include "ax25rtd.h"
 
-ax25_address *asc2ax(char *call)
+static ax25_address *asc2ax(char *call)
 {
 	static ax25_address callsign;
 
@@ -65,7 +65,7 @@ static long asc2ip(char *s)
 }
 
 
-char *prepare_cmdline(char *buf)
+static char *prepare_cmdline(char *buf)
 {
 	char *p;
 	for (p = buf; *p; p++) {
@@ -87,7 +87,7 @@ char *prepare_cmdline(char *buf)
 	return buf;
 }
 
-char *get_next_arg(char **p)
+static char *get_next_arg(char **p)
 {
 	char *p2;
 
@@ -140,7 +140,7 @@ static ax25_address *get_mycall(char *port)
 }
 
 
-void load_ports(void)
+static void load_ports(void)
 {
 	config *config, *cfg, *ncfg;
 	char buf[1024];
@@ -218,7 +218,7 @@ void load_ports(void)
 	}
 }
 
-void load_listeners(void)
+static void load_listeners(void)
 {
 	config *config;
 	char buf[1024], device[14], call[10], dcall[10];

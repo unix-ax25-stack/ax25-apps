@@ -26,9 +26,9 @@
 #include <config.h>
 #include "listen.h"
 
-struct timeval t_recv;
-int tflag = 0;
-int32_t thiszone;               /* seconds offset from gmt to local time */
+static struct timeval t_recv;
+static int tflag = 0;
+static int32_t thiszone;	/* seconds offset from gmt to local time */
 static int sigint;
 static int sock;
 
@@ -47,8 +47,7 @@ static void display_port(char *dev)
 /*
  * Format the timestamp
  */
-char *
-ts_format(register int sec, register int usec)
+static char * ts_format(register int sec, register int usec)
 {
         static char buf[sizeof("00:00:00.000000")];
         (void)snprintf(buf, sizeof(buf), "%02d:%02d:%02d.%06u",
@@ -60,8 +59,7 @@ ts_format(register int sec, register int usec)
 /*
  * Print the timestamp
  */
-void
-ts_print(register const struct timeval *tvp)
+static void ts_print(register const struct timeval *tvp)
 {
         register int s;
         struct tm *tm;
@@ -132,7 +130,7 @@ void display_timestamp(void)
 
 /* from tcpdump gmtlocal.c */
 
-int32_t gmt2local(time_t t)
+static int32_t gmt2local(time_t t)
 {
         register int dt, dir;
         register struct tm *gmt, *loc;

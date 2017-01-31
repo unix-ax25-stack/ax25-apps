@@ -63,22 +63,22 @@ static union {
 
 /*--------------------------------------------------------------------------*/
 
-int sock_list[MAX_SOCKETS];
-char sock_monmode[MAX_SOCKETS];
-char sock_filename[MAX_SOCKETS][100];
-int sock_num = 0;
-int conn_list[MAX_CONNECTS];
-struct sockaddr conn_addr[MAX_CONNECTS];
-socklen_t conn_addrlen[MAX_CONNECTS];
-char conn_monmode[MAX_CONNECTS];
-int conn_num = 0;
-int highest_sock_fd;
-int end = 0;
+static int sock_list[MAX_SOCKETS];
+static char sock_monmode[MAX_SOCKETS];
+static char sock_filename[MAX_SOCKETS][100];
+static int sock_num = 0;
+static int conn_list[MAX_CONNECTS];
+static struct sockaddr conn_addr[MAX_CONNECTS];
+static socklen_t conn_addrlen[MAX_CONNECTS];
+static char conn_monmode[MAX_CONNECTS];
+static int conn_num = 0;
+static int highest_sock_fd;
+static int end = 0;
 
 /*--------------------------------------------------------------------------*/
 
 /* from buildsaddr.c */
-struct sockaddr *build_sockaddr(const char *name, int *addrlen)
+static struct sockaddr *build_sockaddr(const char *name, int *addrlen)
 {
 	char *host_name;
 	char *serv_name;
@@ -134,7 +134,7 @@ struct sockaddr *build_sockaddr(const char *name, int *addrlen)
 
 /*--------------------------------------------------------------------------*/
 
-void add_socket(char *sockname, char monmode)
+static void add_socket(char *sockname, char monmode)
 {
 	struct sockaddr *saddr;
 	int saddrlen;
@@ -190,7 +190,7 @@ void add_socket(char *sockname, char monmode)
 
 /*--------------------------------------------------------------------------*/
 
-void close_sockets(void)
+static void close_sockets(void)
 {
 	int i;
 
@@ -204,7 +204,7 @@ void close_sockets(void)
 
 /*--------------------------------------------------------------------------*/
 
-void quit_handler(int dummy)
+static void quit_handler(int dummy)
 {
 	end = 1;
 }

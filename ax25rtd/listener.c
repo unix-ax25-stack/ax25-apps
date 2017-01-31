@@ -169,7 +169,7 @@ int set_arp(config * config, long ip, ax25_address * call)
  */
 #define	RT_DEL		0
 #define	RT_ADD		1
-int iproute2(long ip, char *dev, int what)
+static int iproute2(long ip, char *dev, int what)
 {
 	char buffer[256];
 	char ipa[32];

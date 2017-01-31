@@ -70,24 +70,24 @@
 #include	<sys/types.h>
 #include	<netax25/daemon.h>
 
-int udp_mode;                   /* true if we need a UDP socket */
-int ip_mode;                    /* true if we need the raw IP socket */
-unsigned short my_udp;          /* the UDP port to use (network byte order) */
-char ttydevice[PATH_MAX];       /* the tty device for serial comms */
-int ttyspeed;                   /* The baud rate on the tty device */
-unsigned char mycallsign[7];    /* My callsign, shifted ASCII with SSID */
-unsigned char mycallsign2[7];   /* My seconds port callsign, shifted ASCII with SSID */
-unsigned char myalias[7];       /* An alias to use */
-unsigned char myalias2[7];      /* An alias for second port */
-char bc_text[128];              /* The text for beacon messages */
-int bc_interval;                /* The interval, in seconds, between beacons */
-int bc_every;                   /* true=every, false=after */
-int digi;                       /* True if we are connected to a TNC */
-int loglevel;                   /* Verbosity level */
+extern int udp_mode;		/* true if we need a UDP socket */
+extern int ip_mode;		/* true if we need the raw IP socket */
+extern unsigned short my_udp;	/* the UDP port to use (network byte order) */
+extern char ttydevice[PATH_MAX];	/* the tty device for serial comms */
+extern int ttyspeed;		/* The baud rate on the tty device */
+extern unsigned char mycallsign[7];	/* My callsign, shifted ASCII with SSID */
+extern unsigned char mycallsign2[7];	/* My seconds port callsign, shifted ASCII with SSID */
+extern unsigned char myalias[7];	/* An alias to use */
+extern unsigned char myalias2[7];	/* An alias for second port */
+extern char bc_text[128];	/* The text for beacon messages */
+extern int bc_interval;		/* The interval, in seconds, between beacons */
+extern int bc_every;		/* true=every, false=after */
+extern int digi;		/* True if we are connected to a TNC */
+extern int loglevel;		/* Verbosity level */
 /* addition for dual port flag */
-int dual_port;
+extern int dual_port;
 
-struct {
+static struct {
 	int kiss_in;            /* # packets received */
 	int kiss_toobig;        /* packet too large */
 	int kiss_badtype;       /* control byte non-zero */
@@ -184,6 +184,7 @@ void term_handler(int);
 
 /* io.c */
 extern int ttyfd_bpq;
+extern int ttyfd;
 
 /* bpqether.c */
 int send_bpq(unsigned char *buf, int len);

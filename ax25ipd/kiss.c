@@ -21,23 +21,23 @@
 #define TFEND 0xdc
 #define TFESC 0xdd
 
-unsigned char iframe[MAX_FRAME];
-unsigned char *ifptr;
-int ifcount;
-int iescaped;
+static unsigned char iframe[MAX_FRAME];
+static unsigned char *ifptr;
+static int ifcount;
+static int iescaped;
 
-unsigned char oframe[MAX_FRAME];
-unsigned char *ofptr;
-int ofcount;
+static unsigned char oframe[MAX_FRAME];
+static unsigned char *ofptr;
+static int ofcount;
 
 #define PTABLE_SIZE 10
 
-struct param_table_entry {
+static struct param_table_entry {
 	unsigned char parameter;
 	unsigned char value;
 } param_tbl[PTABLE_SIZE];
 
-int param_tbl_top;
+static int param_tbl_top;
 
 
 /*

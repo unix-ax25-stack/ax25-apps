@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "call.h"
+
 
 /* MS-DOS time/date conversion routines derived from: */
 
@@ -21,7 +23,7 @@ static int day_n[] =
 
 /* Convert a MS-DOS time/date pair to a UNIX date (seconds since 1 1 70). */
 
-int date_dos2unix(unsigned short time, unsigned short date)
+static int date_dos2unix(unsigned short time, unsigned short date)
 {
 	int month, year, secs;
 

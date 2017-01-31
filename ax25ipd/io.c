@@ -43,31 +43,31 @@
 
 #ifdef USE_TERMIOS
 #include <sys/termios.h>
-struct termios nterm;
+static struct termios nterm;
 #endif
 
 #ifdef USE_TERMIO
 #include <termio.h>
-struct termio nterm;
+static struct termio nterm;
 #endif
 
 #ifdef USE_SGTTY
 #include <sys/ioctl.h>
-struct sgttyb nterm;
+static struct sgttyb nterm;
 #endif
 
 int ttyfd = -1;
-int udpsock = -1;
-int sock = -1;
+static int udpsock = -1;
+static int sock = -1;
 #ifdef USE_ICMP
-int icmpsock = -1;
+static int icmpsock = -1;
 #endif
-struct sockaddr_in udpbind;
-struct sockaddr_in to;
-struct sockaddr_in from;
-socklen_t fromlen;
+static struct sockaddr_in udpbind;
+static struct sockaddr_in to;
+static struct sockaddr_in from;
+static socklen_t fromlen;
 
-time_t last_bc_time;
+static time_t last_bc_time;
 
 int ttyfd_bpq = 0;
 
