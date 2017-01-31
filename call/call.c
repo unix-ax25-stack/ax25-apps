@@ -1269,13 +1269,13 @@ int change_mode(int oldmode, int newmode, wint * wintab, t_win * win_in,
 			wrefresh(win_out->ptr);
 			wclear(win_in->ptr);
 			wrefresh(win_in->ptr);
-			wintab->next = 0;
+			wintab->next = NULL;
 			endwin();
 		}
 		if (newmode == SLAVEMODE) {
 			delwin(win_out->ptr);
 			delwin(win_in->ptr);
-			wintab->next = 0;
+			wintab->next = NULL;
 			start_slave_mode(wintab, win_in, win_out);
 		}
 		break;
@@ -1284,12 +1284,12 @@ int change_mode(int oldmode, int newmode, wint * wintab, t_win * win_in,
 		if (newmode == RAWMODE) {
 			wclear(win_out->ptr);
 			wrefresh(win_out->ptr);
-			wintab->next = 0;
+			wintab->next = NULL;
 			endwin();
 		}
 		if (newmode == TALKMODE) {
 			delwin(win_out->ptr);
-			wintab->next = 0;
+			wintab->next = NULL;
 			start_talk_mode(wintab, win_in, win_out);
 		}
 		break;
@@ -1309,7 +1309,7 @@ static void reinit_mode(int mode, wint * wintab, t_win * win_in, t_win * win_out
 		wrefresh(win_out->ptr);
 		wclear(win_in->ptr);
 		/* wrefresh(win_in->ptr);  */
-		wintab->next = 0;
+		wintab->next = NULL;
 		endwin();
 		start_screen(call);
 		start_talk_mode(wintab, win_in, win_out);
@@ -1318,7 +1318,7 @@ static void reinit_mode(int mode, wint * wintab, t_win * win_in, t_win * win_out
 		case SLAVEMODE:	/* Also fix me.  */
 		wclear(win_out->ptr);
 		/* wrefresh(win_out->ptr);  */
-		wintab->next = 0;
+		wintab->next = NULL;
 		endwin();
 		start_screen(call);
 		start_slave_mode(wintab, win_in, win_out);
@@ -2003,29 +2003,29 @@ static int cmd_call(char *call[], int mode, int encoding)
 	menuitem con[] = {
 		{"~Reconnect", 'R', M_ITEM, (void *) 0x01},
 		{"~Exit", 'E', M_ITEM, (void *) 0x02},
-		{"\0", 0, M_END, 0}
+		{"\0", 0, M_END, NULL}
 	};
 
 	menuitem fil[] = {
-		{"~Open Logfile", 'O', M_ITEM, 0},
-		{"~Close Logfile", 'C', M_ITEM, 0},
-		{"Send ~Textfile", 'T', M_ITEM, 0},
-		{"Send ~Binary", 'B', M_ITEM, 0},
-		{"Send ~AutoBin", 'A', M_ITEM, 0},
-		{"\0", 0, M_END, 0}
+		{"~Open Logfile", 'O', M_ITEM, NULL},
+		{"~Close Logfile", 'C', M_ITEM, NULL},
+		{"Send ~Textfile", 'T', M_ITEM, NULL},
+		{"Send ~Binary", 'B', M_ITEM, NULL},
+		{"Send ~AutoBin", 'A', M_ITEM, NULL},
+		{"\0", 0, M_END, NULL}
 	};
 
 	menuitem mod[] = {
-		{"~Slavemode", 'S', M_ITEM, 0},
-		{"~Talkmode", 'T', M_ITEM, 0},
-		{"~Rawmode", 'R', M_ITEM, 0},
-		{"\0", 0, M_END, 0}
+		{"~Slavemode", 'S', M_ITEM, NULL},
+		{"~Talkmode", 'T', M_ITEM, NULL},
+		{"~Rawmode", 'R', M_ITEM, NULL},
+		{"\0", 0, M_END, NULL}
 	};
 
 	menuitem win[] = {
-		{"~Clear", 'C', M_ITEM, 0},
-		{"~Resize", 'R', M_ITEM, 0},
-		{"\0", 0, M_END, 0}
+		{"~Clear", 'C', M_ITEM, NULL},
+		{"~Resize", 'R', M_ITEM, NULL},
+		{"\0", 0, M_END, NULL}
 	};
 
 	menuitem top[] = {
@@ -2033,7 +2033,7 @@ static int cmd_call(char *call[], int mode, int encoding)
 		{"~File", 'F', M_P_DWN, fil},
 		{"~Mode", 'M', M_P_DWN, mod},
 		{"~Window", 'W', M_P_DWN, win},
-		{"\0", 0, M_END, 0}
+		{"\0", 0, M_END, NULL}
 	};
 
 	wint wintab;
@@ -2061,9 +2061,9 @@ static int cmd_call(char *call[], int mode, int encoding)
 	int upllen = 0;
 	char *c, *t;
 	t_gp gp;
-	t_win win_in = {0};
-	t_win win_out = {0};
-	WINDOW *swin = 0;
+	t_win win_in = {};
+	t_win win_out = {};
+	WINDOW *swin = NULL;
 	int cnt;
 	int crc = 0;
 	char s[80];
@@ -2077,7 +2077,7 @@ static int cmd_call(char *call[], int mode, int encoding)
 		paclen = sizeof(buf);
 
 	gp.dwn_cnt = 0;
-	wintab.next = 0;
+	wintab.next = NULL;
 
 	if ((fd = connect_to(call)) == -1)
 		return FALSE;

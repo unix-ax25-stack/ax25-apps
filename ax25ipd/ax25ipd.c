@@ -42,7 +42,7 @@ struct option options[] = {
 	{"configfile", 1, NULL, 'c'},
 	{"ttydevice", 1, NULL, 'd'},
 	{"nofork", 0, NULL, 'f'},
-	{0, 0, 0, 0}
+	{NULL, 0, NULL, 0}
 };
 
 int main(int argc, char **argv)
