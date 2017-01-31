@@ -70,7 +70,7 @@ void lprintf(int dtype, char *fmt, ...)
 	} else {
 		for (p = str; *p != '\0'; p++)
 			if ((*p < 32 && *p != '\n')
-			    || (*p > 126 && *p < 160 && sevenbit))
+			    || (*p > 126 && (unsigned char) *p < 160 && sevenbit))
 				*p = '.';
 		if (fputs(str, stdout) == -1)
 			exit(1);
