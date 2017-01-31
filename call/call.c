@@ -189,7 +189,7 @@ static int widthchar(char *s, size_t bytes, int xpos)
 	/*
 	 * Note:  Actually need to check if bad UTF8 characters show as ?
 	 */
-	if (iconv(utf8towchart, &s, &bytes, &outbuf, &outsize)< 0)
+	if (iconv(utf8towchart, &s, &bytes, &outbuf, &outsize) == (size_t) -1)
 		return 0;
 	if (c == 9) {
 		return 8 - (xpos & 7);
