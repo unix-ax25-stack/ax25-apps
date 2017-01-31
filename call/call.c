@@ -2063,8 +2063,12 @@ static int cmd_call(char *call[], int mode, int encoding)
 	int upllen = 0;
 	char *c, *t;
 	t_gp gp;
-	t_win win_in = {};
-	t_win win_out = {};
+	t_win win_in = {
+		.ptr	= NULL,
+	};
+	t_win win_out = {
+		.ptr	= NULL,
+	};
 	WINDOW *swin = NULL;
 	int cnt;
 	int crc = 0;
