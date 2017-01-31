@@ -90,7 +90,7 @@ void winclose(wint * wtab)
 	}
 
 	doupdate();
-	lwin->next = 0;
+	lwin->next = NULL;
 	free(awin);
 }
 

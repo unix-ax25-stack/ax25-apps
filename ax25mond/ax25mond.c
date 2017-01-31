@@ -90,10 +90,10 @@ struct sockaddr *build_sockaddr(const char *name, int *addrlen)
 	host_name = strcpy(buf, name);
 	serv_name = strchr(buf, ':');
 	if (!serv_name)
-		return 0;
+		return NULL;
 	*serv_name++ = 0;
 	if (!*host_name || !*serv_name)
-		return 0;
+		return NULL;
 
 	if (!strcmp(host_name, "local") || !strcmp(host_name, "unix")) {
 		addr.su.sun_family = AF_UNIX;
@@ -113,7 +113,7 @@ struct sockaddr *build_sockaddr(const char *name, int *addrlen)
 		struct hostent *hp = gethostbyname(host_name);
 		endhostent();
 		if (!hp)
-			return 0;
+			return NULL;
 		addr.si.sin_addr.s_addr =
 		    ((struct in_addr *) (hp->h_addr))->s_addr;
 	}
@@ -124,7 +124,7 @@ struct sockaddr *build_sockaddr(const char *name, int *addrlen)
 		struct servent *sp = getservbyname(serv_name, NULL);
 		endservent();
 		if (!sp)
-			return 0;
+			return NULL;
 		addr.si.sin_port = sp->s_port;
 	}
 
@@ -324,7 +324,7 @@ int main(int argc, char *argv[])
 			FD_SET(sock_list[i], &conn_request);
 		tv.tv_sec = 0;
 		tv.tv_usec = 0;
-		select(highest_sock_fd + 1, &conn_request, 0, 0, &tv);
+		select(highest_sock_fd + 1, &conn_request, NULL, NULL, &tv);
 		for (i = 0; i < sock_num; i++)
 			if (FD_ISSET(sock_list[i], &conn_request)) {
 				conn_list[conn_num] = accept(sock_list[i],
@@ -340,7 +340,7 @@ int main(int argc, char *argv[])
 		FD_SET(monrx_fd, &monavail);
 		tv.tv_sec = 0;
 		tv.tv_usec = 10;
-		select(monrx_fd + 1, &monavail, 0, 0, &tv);
+		select(monrx_fd + 1, &monavail, NULL, NULL, &tv);
 		if (FD_ISSET(monrx_fd, &monavail)) {
 			monfromlen = sizeof(monfrom);
 			size =
@@ -371,7 +371,7 @@ int main(int argc, char *argv[])
 		FD_SET(monrxtx_fd, &monavail);
 		tv.tv_sec = 0;
 		tv.tv_usec = 10;
-		select(monrxtx_fd + 1, &monavail, 0, 0, &tv);
+		select(monrxtx_fd + 1, &monavail, NULL, NULL, &tv);
 		if (FD_ISSET(monrxtx_fd, &monavail)) {
 			monfromlen = sizeof(monfrom);
 			size =

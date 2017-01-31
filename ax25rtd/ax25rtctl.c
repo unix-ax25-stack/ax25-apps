@@ -32,18 +32,18 @@
 #include "../pathnames.h"
 
 static const struct option lopts[] = {
-	{"add", 1, 0, 'a'},
-	{"del", 1, 0, 'd'},
-	{"list", 1, 0, 'l'},
-	{"expire", 1, 0, 'e'},
-	{"save", 0, 0, 's'},
-	{"reload", 0, 0, 'r'},
-	{"shutdown", 0, 0, 'q'},
-	{"Version", 0, 0, 'V'},
-	{"help", 0, 0, 'h'},
-	{"debug", 0, 0, 'x'},
-	{"version", 0, 0, 'v'},
-	{NULL, 0, 0, 0}
+	{"add", 1, NULL, 'a'},
+	{"del", 1, NULL, 'd'},
+	{"list", 1, NULL, 'l'},
+	{"expire", 1, NULL, 'e'},
+	{"save", 0, NULL, 's'},
+	{"reload", 0, NULL, 'r'},
+	{"shutdown", 0, NULL, 'q'},
+	{"Version", 0, NULL, 'V'},
+	{"help", 0, NULL, 'h'},
+	{"debug", 0, NULL, 'x'},
+	{"version", 0, NULL, 'v'},
+	{NULL, 0, NULL, 0}
 };
 
 static const char *sopts = "a:d:l:e:srqvVh";
