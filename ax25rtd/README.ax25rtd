@@ -54,7 +54,7 @@ This is a daemon that:
 - emulates the ceased "autorouter" of Linux Kernel AX.25
 - sets up ARP entries automagically
 - may adjust IP routes and encapsulation mode
-  (although I really do not recomment to use this feature...)
+  (although I really do not recommend to use this feature...)
 
 The "autorouter" is not really an autorouter. It just listens to the AX.25
 traffic on your ports and uses this information to setup AX.25 routes. This
