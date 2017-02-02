@@ -79,9 +79,9 @@ static char * ts_format(unsigned int sec, unsigned int usec)
 /*
  * Print the timestamp
  */
-static void ts_print(register const struct timeval *tvp)
+static void ts_print(const struct timeval *tvp)
 {
-        register int s;
+        int s;
         struct tm *tm;
         time_t Time;
         static unsigned b_sec;
@@ -152,8 +152,8 @@ void display_timestamp(void)
 
 static int32_t gmt2local(time_t t)
 {
-        register int dt, dir;
-        register struct tm *gmt, *loc;
+        int dt, dir;
+        struct tm *gmt, *loc;
         struct tm sgmt;
 
         if (t == 0)
