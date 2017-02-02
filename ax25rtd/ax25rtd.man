@@ -33,6 +33,14 @@ the caches from the files /var/ax25/ax25rtd/ax25_routes and
 it saves the caches to those files.
 .SH FILES
 /etc/ax25/ax25rtd.conf
+.br
+/var/ax25/ax25rtd/ax25_routes
+.br
+/var/ax25/ax25rtd/control
+.br
+/etc/iproute/rt_tables
+.br
+/etc/iproute2/rt_protos
 .SH "SEE ALSO"
 .BR ax25rtd.conf (5),
 .BR @@@ax25rtctl@@@ (8).
