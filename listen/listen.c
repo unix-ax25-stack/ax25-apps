@@ -174,7 +174,7 @@ static int32_t gmt2local(time_t t)
                 dir = loc->tm_yday - gmt->tm_yday;
         dt += dir * 24 * 60 * 60;
 
-        return (dt);
+        return dt;
 }
 
 static void handle_sigint(int signal)
