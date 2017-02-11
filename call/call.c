@@ -1157,11 +1157,14 @@ static int start_screen(char *call[])
 {
 	int cnt;
 	char idString[12];
+	char *p;
 	struct winsize winsz = {0};
 
 	if ((ioctl(0, TIOCGWINSZ, &winsz) >= 0) && winsz.ws_row && winsz.ws_col)
 		resizeterm(winsz.ws_row, winsz.ws_col);
 	sprintf(idString, " %9.9s ", call[0]);
+	for (p = idString; *p; p++)
+		if (islower(*p)) *p = toupper(*p);
 
 	if ((win = initscr()) == NULL)
 		return -1;
