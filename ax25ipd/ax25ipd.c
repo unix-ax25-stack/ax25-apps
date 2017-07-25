@@ -60,12 +60,6 @@ static struct option options[] = {
 	{NULL, 0, NULL, 0}
 };
 
-static void hupper(int i)
-{
-	printf("\nSIGHUP!\n");
-	longjmp(restart_env, 1);
-}
-
 static void greet_world(void)
 {
 	printf("\nax25ipd %s / %s\n", VERSION);
@@ -74,6 +68,61 @@ static void greet_world(void)
 	printf
 	    ("This software may be freely used, distributed, or modified, providing\nthis header is not removed\n\n");
 	fflush(stdout);
+}
+
+static void do_stats(void)
+{
+	int save_loglevel;
+
+/* save the old loglevel, and force at least loglevel 1 */
+	save_loglevel = loglevel;
+	loglevel = 1;
+
+	printf("\nSIGUSR1 signal: statistics and configuration report\n");
+
+	greet_world();
+
+	dump_config();
+	dump_routes();
+	dump_params();
+
+	printf("\nInput stats:\n");
+	printf("KISS input packets:  %d\n", stats.kiss_in);
+	printf("           too big:  %d\n", stats.kiss_toobig);
+	printf("          bad type:  %d\n", stats.kiss_badtype);
+	printf("         too short:  %d\n", stats.kiss_tooshort);
+	printf("        not for me:  %d\n", stats.kiss_not_for_me);
+	printf("  I am destination:  %d\n", stats.kiss_i_am_dest);
+	printf("    no route found:  %d\n", stats.kiss_no_ip_addr);
+	printf("UDP  input packets:  %d\n", stats.udp_in);
+	printf("IP   input packets:  %d\n", stats.ip_in);
+	printf("   failed CRC test:  %d\n", stats.ip_failed_crc);
+	printf("         too short:  %d\n", stats.ip_tooshort);
+	printf("        not for me:  %d\n", stats.ip_not_for_me);
+	printf("  I am destination:  %d\n", stats.ip_i_am_dest);
+	printf("\nOutput stats:\n");
+	printf("KISS output packets: %d\n", stats.kiss_out);
+	printf("            beacons: %d\n", stats.kiss_beacon_outs);
+	printf("UDP  output packets: %d\n", stats.udp_out);
+	printf("IP   output packets: %d\n", stats.ip_out);
+	printf("\n");
+
+	fflush(stdout);
+
+/* restore the old loglevel */
+	loglevel = save_loglevel;
+}
+
+static void hupper(int i)
+{
+	printf("\nSIGHUP!\n");
+	longjmp(restart_env, 1);
+}
+
+static void usr1_handler(int i)
+{
+	printf("\nSIGUSR1!\n");
+	do_stats();
 }
 
 int main(int argc, char **argv)
@@ -198,55 +247,6 @@ int main(int argc, char **argv)
 	io_start();
 
 	return 0;
-}
-
-static void do_stats(void)
-{
-	int save_loglevel;
-
-/* save the old loglevel, and force at least loglevel 1 */
-	save_loglevel = loglevel;
-	loglevel = 1;
-
-	printf("\nSIGUSR1 signal: statistics and configuration report\n");
-
-	greet_world();
-
-	dump_config();
-	dump_routes();
-	dump_params();
-
-	printf("\nInput stats:\n");
-	printf("KISS input packets:  %d\n", stats.kiss_in);
-	printf("           too big:  %d\n", stats.kiss_toobig);
-	printf("          bad type:  %d\n", stats.kiss_badtype);
-	printf("         too short:  %d\n", stats.kiss_tooshort);
-	printf("        not for me:  %d\n", stats.kiss_not_for_me);
-	printf("  I am destination:  %d\n", stats.kiss_i_am_dest);
-	printf("    no route found:  %d\n", stats.kiss_no_ip_addr);
-	printf("UDP  input packets:  %d\n", stats.udp_in);
-	printf("IP   input packets:  %d\n", stats.ip_in);
-	printf("   failed CRC test:  %d\n", stats.ip_failed_crc);
-	printf("         too short:  %d\n", stats.ip_tooshort);
-	printf("        not for me:  %d\n", stats.ip_not_for_me);
-	printf("  I am destination:  %d\n", stats.ip_i_am_dest);
-	printf("\nOutput stats:\n");
-	printf("KISS output packets: %d\n", stats.kiss_out);
-	printf("            beacons: %d\n", stats.kiss_beacon_outs);
-	printf("UDP  output packets: %d\n", stats.udp_out);
-	printf("IP   output packets: %d\n", stats.ip_out);
-	printf("\n");
-
-	fflush(stdout);
-
-/* restore the old loglevel */
-	loglevel = save_loglevel;
-}
-
-void usr1_handler(int i)
-{
-	printf("\nSIGUSR1!\n");
-	do_stats();
 }
 
 void int_handler(int i)
