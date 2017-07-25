@@ -244,17 +244,17 @@ void io_init(void)
 	}
 
 /*
- * The bzero is not strictly required - it simply zeros out the
+ * The memset is not strictly required - it simply zeros out the
  * address structure.  Since both to and from are static, they are
  * already clear.
  */
-	bzero(&to, sizeof(struct sockaddr));
+	memset(&to, 0, sizeof(struct sockaddr));
 	to.sin_family = AF_INET;
 
-	bzero(&from, sizeof(struct sockaddr));
+	memset(&from, 0, sizeof(struct sockaddr));
 	from.sin_family = AF_INET;
 
-	bzero(&udpbind, sizeof(struct sockaddr));
+	memset(&udpbind, 0, sizeof(struct sockaddr));
 	udpbind.sin_family = AF_INET;
 }
 
