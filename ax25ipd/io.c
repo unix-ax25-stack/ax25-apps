@@ -31,9 +31,6 @@
 #include <errno.h>
 #include <syslog.h>
 
-#ifdef __bsdi__
-#define USE_TERMIOS
-#endif
 
 #ifndef USE_TERMIOS
 #ifndef USE_TERMIO
