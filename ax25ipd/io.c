@@ -88,6 +88,168 @@ int ttyfd_bpq = 0;
 #define FNDELAY O_NDELAY
 #endif
 
+
+/*
+ * process an I/O error; return true if a retry is needed
+ *
+ * oops		- the error flag; < 0 indicates a problem
+ * buf		- the data in question
+ * bufsize	- the size of the data buffer
+ * dir		- the direction; input or output
+ * mode		- the fd on which we got the error
+ * where	- line in the code where this function was called
+ */
+static int io_error( int oops, unsigned char *buf, int bufsize, int dir,
+	int mode, int where)
+{
+
+	/* if (oops >= 0)
+		return 0; */	/* do we have an error ? */
+	/* dl9sau: nobody has set fd's to O_NONBLOCK.
+	 * thus EAGAIN (below) or EWOULDBLOCK are never be set.
+	 * Has someone removed this behaviour previously?
+	 * Anyway, in the current implementation, with blocking
+	 * read/writes, a read or write of 0 bytes means EOF,
+	 * for e.g. if the attached tty is closed.
+	 * We have to exit then. We've currentlsy no mechanism
+	 * for regulary reconnects.
+	 */
+	if (oops > 0)
+		return 0;       /* do we have an error ? */
+
+	if (oops == 0) {
+		if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
+			return 0;
+		fprintf(stderr, "Close event on mode 0x%2.2x (during %s). LINE %d. Terminating normaly.\n", mode, (dir == READ_MSG ? "READ" : "WRITE"), where);
+		exit(1);
+	}
+
+#ifdef EAGAIN
+	if (errno == EAGAIN) {
+#ifdef	notdef
+		/* select() said that data is available, but recvfrom sais
+		 * EAGAIN - i really do not know what's the sense in this.. */
+		if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
+			return 0;
+		perror("System 5 I/O error!");
+		fprintf(stderr, "A System 5 style I/O error was detected.  This rogram requires BSD 4.2\n");
+		fprintf(stderr, "behaviour.  This is probably a result of compile-time environment.\n");
+		fprintf(stderr, "Mode 0x%2.2x, LINE: %d. During %s\n", mode, where, (dir == READ_MSG ? "READ" : "WRITE"));
+		exit(3);
+#else
+		int ret = 0;
+		if (dir == READ_MSG) {
+			LOGL4("read / recv returned -1 EAGAIN\n");
+			ret = 0;
+		} else if (dir == SEND_MSG) {
+			LOGL4("write / send returned -1 EAGAIN, sleeping and retrying!\n");
+			usleep(100000);
+			ret = 1;
+		}
+		return ret;
+#endif
+	}
+#endif
+
+	if (dir == READ_MSG) {
+		if (errno == EINTR)
+			return 0;	/* never retry read */
+		if (errno == EWOULDBLOCK) {
+			LOGL4("READ would block (?!), sleeping and retrying!\n");
+			usleep(100000);	/* sleep a bit */
+			return 1;	/* and retry */
+		}
+		if (mode == IP_MODE) {
+			perror("reading from raw ip socket");
+			exit(2);
+		} else if (mode == UDP_MODE) {
+			perror("reading from udp socket");
+			exit(2);
+		} else if (mode == TTY_MODE) {
+			perror("reading from tty device");
+			exit(2);
+		} else {
+			perror("reading from unknown I/O");
+			exit(2);
+		}
+	} else if (dir == SEND_MSG) {
+		if (errno == EINTR)
+			return 1;	/* always retry on writes */
+		if (mode == IP_MODE) {
+			if (errno == EMSGSIZE) {	/* msg too big, drop it */
+				perror("message dropped on raw ip socket");
+				fprintf (stderr, "message was %d bytes long.\n", bufsize);
+				return 0;
+			}
+			if (errno == ENETDOWN || errno == ENETRESET ||
+			    errno == ENETUNREACH || errno == EHOSTDOWN ||
+			    errno == EHOSTUNREACH || errno == ENONET ||
+			    errno == EPERM) {
+				/* host closed his axip receiver or dropped the line */
+				perror("error after sending on to axip partner. ignoring.");
+				LOGL4("error after sending on to axip partner: %s; ignoring!\n", strerror(errno));
+
+				return 0;
+			}
+			if (errno == ENOBUFS) {	/* congestion; sleep + retry */
+				LOGL4("send congestion on raw ip, sleeping and retrying!\n");
+				usleep(100000);
+				return 1;
+			}
+			if (errno == EWOULDBLOCK) {
+				LOGL4("send on raw ip would block, sleeping and retrying!\n");
+				usleep(100000);	/* sleep a bit */
+				return 1;	/* and retry */
+			}
+			perror("writing to raw ip socket");
+			exit(2);
+		} else if (mode == UDP_MODE) {
+			if (errno == EMSGSIZE) {	/* msg too big, drop it */
+				perror("message dropped on udp socket");
+				fprintf(stderr, "message was %d bytes long.\n", bufsize);
+				return 0;
+			}
+			if (errno == ENETDOWN || errno == ENETRESET ||
+			    errno == ENETUNREACH || errno == EHOSTDOWN ||
+			    errno == EHOSTUNREACH || errno == ENONET ||
+			    errno == EPERM) {
+				/* host closed his axudp receiver or dropped the line */
+				perror("error after sending to axudp partner. ignoring.");
+				LOGL4("error after sending to axudp partner: %s; ignoring!\n", strerror(errno));
+
+				return 0;
+			}
+			if (errno == ENOBUFS) {	/* congestion; sleep + retry */
+				LOGL4("send congestion on udp, sleeping and retrying!\n");
+				usleep(100000);
+				return 1;
+			}
+			if (errno == EWOULDBLOCK) {
+				LOGL4("send on udp would block, sleeping and retrying!\n");
+				usleep(100000);	/* sleep a bit */
+				return 1;	/* and retry */
+			}
+			perror("writing to udp socket");
+			exit(2);
+		} else if (mode == TTY_MODE) {
+			if (errno == EWOULDBLOCK) {
+				LOGL4("write to tty would block, sleeping and retrying!\n");
+				usleep(100000);	/* sleep a bit */
+				return 1;	/* and retry */
+			}
+			perror("writing to tty device");
+			exit(2);
+		} else {
+			perror("writing to unknown I/O");
+			exit(2);
+		}
+	} else {
+		perror("Unknown direction and I/O");
+		exit(2);
+	}
+	return 0;
+}
+
 /*
  * Initialize the io variables
  */
@@ -606,161 +768,4 @@ void send_tty(unsigned char *buf, int l)
 		}
 	}
 	while (((n > 0) && (n < nc)) || (io_error(n, p, nc, SEND_MSG, TTY_MODE, __LINE__)));
-}
-
-/* process an I/O error; return true if a retry is needed */
-int io_error(
-	int oops,	/* the error flag; < 0 indicates a problem */
-	unsigned char *buf,	/* the data in question */
-	int bufsize,	/* the size of the data buffer */
-	int dir,	/* the direction; input or output */
-	int mode,	/* the fd on which we got the error */
-	int where)	/* line in the code where this function was called */
-{
-
-	/* if (oops >= 0)
-		return 0; */	/* do we have an error ? */
-	/* dl9sau: nobody has set fd's to O_NONBLOCK.
-	 * thus EAGAIN (below) or EWOULDBLOCK are never be set.
-	 * Has someone removed this behaviour previously?
-	 * Anyway, in the current implementation, with blocking
-	 * read/writes, a read or write of 0 bytes means EOF,
-	 * for e.g. if the attached tty is closed.
-	 * We have to exit then. We've currentlsy no mechanism
-	 * for regulary reconnects.
-	 */
-	if (oops > 0)
-		return 0;       /* do we have an error ? */
-
-	if (oops == 0) {
-		if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
-			return 0;
-		fprintf(stderr, "Close event on mode 0x%2.2x (during %s). LINE %d. Terminating normaly.\n", mode, (dir == READ_MSG ? "READ" : "WRITE"), where);
-		exit(1);
-	}
-
-#ifdef EAGAIN
-	if (errno == EAGAIN) {
-#ifdef	notdef
-		/* select() said that data is available, but recvfrom sais
-		 * EAGAIN - i really do not know what's the sense in this.. */
-		if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
-			return 0;
-		perror("System 5 I/O error!");
-		fprintf(stderr, "A System 5 style I/O error was detected.  This rogram requires BSD 4.2\n");
-		fprintf(stderr, "behaviour.  This is probably a result of compile-time environment.\n");
-		fprintf(stderr, "Mode 0x%2.2x, LINE: %d. During %s\n", mode, where, (dir == READ_MSG ? "READ" : "WRITE"));
-		exit(3);
-#else
-		int ret = 0;
-		if (dir == READ_MSG) {
-			LOGL4("read / recv returned -1 EAGAIN\n");
-			ret = 0;
-		} else if (dir == SEND_MSG) {
-			LOGL4("write / send returned -1 EAGAIN, sleeping and retrying!\n");
-			usleep(100000);
-			ret = 1;
-		}
-		return ret;
-#endif
-	}
-#endif
-
-	if (dir == READ_MSG) {
-		if (errno == EINTR)
-			return 0;	/* never retry read */
-		if (errno == EWOULDBLOCK) {
-			LOGL4("READ would block (?!), sleeping and retrying!\n");
-			usleep(100000);	/* sleep a bit */
-			return 1;	/* and retry */
-		}
-		if (mode == IP_MODE) {
-			perror("reading from raw ip socket");
-			exit(2);
-		} else if (mode == UDP_MODE) {
-			perror("reading from udp socket");
-			exit(2);
-		} else if (mode == TTY_MODE) {
-			perror("reading from tty device");
-			exit(2);
-		} else {
-			perror("reading from unknown I/O");
-			exit(2);
-		}
-	} else if (dir == SEND_MSG) {
-		if (errno == EINTR)
-			return 1;	/* always retry on writes */
-		if (mode == IP_MODE) {
-			if (errno == EMSGSIZE) {	/* msg too big, drop it */
-				perror("message dropped on raw ip socket");
-				fprintf (stderr, "message was %d bytes long.\n", bufsize);
-				return 0;
-			}
-			if (errno == ENETDOWN || errno == ENETRESET ||
-			    errno == ENETUNREACH || errno == EHOSTDOWN ||
-			    errno == EHOSTUNREACH || errno == ENONET ||
-			    errno == EPERM) {
-				/* host closed his axip receiver or dropped the line */
-				perror("error after sending on to axip partner. ignoring.");
-				LOGL4("error after sending on to axip partner: %s; ignoring!\n", strerror(errno));
-
-				return 0;
-			}
-			if (errno == ENOBUFS) {	/* congestion; sleep + retry */
-				LOGL4("send congestion on raw ip, sleeping and retrying!\n");
-				usleep(100000);
-				return 1;
-			}
-			if (errno == EWOULDBLOCK) {
-				LOGL4("send on raw ip would block, sleeping and retrying!\n");
-				usleep(100000);	/* sleep a bit */
-				return 1;	/* and retry */
-			}
-			perror("writing to raw ip socket");
-			exit(2);
-		} else if (mode == UDP_MODE) {
-			if (errno == EMSGSIZE) {	/* msg too big, drop it */
-				perror("message dropped on udp socket");
-				fprintf(stderr, "message was %d bytes long.\n", bufsize);
-				return 0;
-			}
-			if (errno == ENETDOWN || errno == ENETRESET ||
-			    errno == ENETUNREACH || errno == EHOSTDOWN ||
-			    errno == EHOSTUNREACH || errno == ENONET ||
-			    errno == EPERM) {
-				/* host closed his axudp receiver or dropped the line */
-				perror("error after sending to axudp partner. ignoring.");
-				LOGL4("error after sending to axudp partner: %s; ignoring!\n", strerror(errno));
-
-				return 0;
-			}
-			if (errno == ENOBUFS) {	/* congestion; sleep + retry */
-				LOGL4("send congestion on udp, sleeping and retrying!\n");
-				usleep(100000);
-				return 1;
-			}
-			if (errno == EWOULDBLOCK) {
-				LOGL4("send on udp would block, sleeping and retrying!\n");
-				usleep(100000);	/* sleep a bit */
-				return 1;	/* and retry */
-			}
-			perror("writing to udp socket");
-			exit(2);
-		} else if (mode == TTY_MODE) {
-			if (errno == EWOULDBLOCK) {
-				LOGL4("write to tty would block, sleeping and retrying!\n");
-				usleep(100000);	/* sleep a bit */
-				return 1;	/* and retry */
-			}
-			perror("writing to tty device");
-			exit(2);
-		} else {
-			perror("writing to unknown I/O");
-			exit(2);
-		}
-	} else {
-		perror("Unknown direction and I/O");
-		exit(2);
-	}
-	return 0;
 }
