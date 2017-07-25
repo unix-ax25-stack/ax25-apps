@@ -125,6 +125,13 @@ static void usr1_handler(int i)
 	do_stats();
 }
 
+static void int_handler(int i)
+{
+	printf("\nSIGINT!\n");
+	do_stats();
+	exit(1);
+}
+
 int main(int argc, char **argv)
 {
 	if (setjmp(restart_env) == 0) {
@@ -247,13 +254,6 @@ int main(int argc, char **argv)
 	io_start();
 
 	return 0;
-}
-
-void int_handler(int i)
-{
-	printf("\nSIGINT!\n");
-	do_stats();
-	exit(1);
 }
 
 void term_handler(int i)
