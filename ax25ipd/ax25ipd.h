@@ -167,7 +167,6 @@ void io_open(void);
 void io_start(void);
 void send_ip(unsigned char *, int, unsigned char *);
 void send_tty(unsigned char *, int);
-int io_error(int, unsigned char *, int, int, int, int);
 
 /* crc.c */
 unsigned short int compute_crc(unsigned char *, int);
