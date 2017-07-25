@@ -37,10 +37,6 @@
 #include <termio.h>
 static struct termio nterm;
 
-#ifdef USE_SGTTY
-#include <sys/ioctl.h>
-static struct sgttyb nterm;
-#endif
 
 int ttyfd = -1;
 static int udpsock = -1;
@@ -371,9 +367,6 @@ void io_open(void)
 		goto behind_normal_tty;
 	}
 	if (ioctl(ttyfd, TCGETA, &nterm) < 0) {
-#ifdef USE_SGTTY
-	if (ioctl(ttyfd, TIOCGETP, &nterm) < 0) {
-#endif
 		perror("fetching tty device parameters");
 		exit(1);
 	}
@@ -503,23 +496,14 @@ void io_open(void)
 	else
 		baudrate = B9600;
 
-#ifdef USE_SGTTY
-	nterm.sg_flags = (RAW | ANYP);
-	nterm.sg_ispeed = baudrate;
-	nterm.sg_ospeed = baudrate;
-#else
 	nterm.c_iflag = 0;
 	nterm.c_oflag = 0;
 	nterm.c_cflag = baudrate | CS8 | CREAD | CLOCAL;
 	nterm.c_lflag = 0;
 	nterm.c_cc[VMIN] = 0;
 	nterm.c_cc[VTIME] = 0;
-#endif /* USE_SGTTY */
 
 	if (ioctl(ttyfd, TCSETA, &nterm) < 0) {
-#ifdef USE_SGTTY
-	if (ioctl (ttyfd, TIOCSETP, &nterm) < 0) {
-#endif /* USE_SGTTY */
 		perror("setting tty device parameters");
 		exit(1);
 	}
