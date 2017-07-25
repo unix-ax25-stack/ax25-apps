@@ -40,35 +40,7 @@
 #define IPPROTO_AX25 93
 #define DEFAULT_UDP_PORT 10093
 
-/* local includes */
-#include	"../pathnames.h"
-
-/* system includes */
-#include	<ctype.h>
-#include	<errno.h>
-#include	<fcntl.h>
-#include	<memory.h>
-#include	<netdb.h>
-#include	<setjmp.h>
-#include	<signal.h>
-#include	<stdio.h>
-#define __USE_XOPEN
-#include	<stdlib.h>
-#include	<string.h>
-#include	<unistd.h>
-#include	<limits.h>
-#include	<arpa/inet.h>
-#include	<netinet/in.h>
-#include	<netinet/in_systm.h>
-#include	<netinet/ip.h>
-#include	<netinet/ip_icmp.h>
-#include	<sys/ioctl.h>
-#include	<sys/socket.h>
-#include	<termio.h>
-#include	<sys/termios.h>
-#include	<sys/time.h>
-#include	<sys/types.h>
-#include	<netax25/daemon.h>
+#include <limits.h>
 
 extern int udp_mode;		/* true if we need a UDP socket */
 extern int ip_mode;		/* true if we need the raw IP socket */

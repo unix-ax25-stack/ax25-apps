@@ -5,16 +5,17 @@
  * License: GPL
  */
 
-#include <sys/types.h>
-
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
+#include <string.h>
+#include <syslog.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <unistd.h>
-#include <syslog.h>
+#include <sys/types.h>
 
 #ifdef  linux
 
