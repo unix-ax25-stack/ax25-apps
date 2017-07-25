@@ -112,7 +112,6 @@ int initcolor(void)
 	init_pair(T_FLEXNET, COLOR_BLUE, COLOR_BLACK);
 	init_pair(T_OPENTRAC, COLOR_YELLOW, COLOR_BLACK);
 
-
 	return 1;
 }
 

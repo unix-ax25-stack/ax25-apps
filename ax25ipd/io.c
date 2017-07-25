@@ -26,12 +26,8 @@
 #include <errno.h>
 #include <syslog.h>
 
-
-
-
 #include <termio.h>
 static struct termio nterm;
-
 
 int ttyfd = -1;
 static int udpsock = -1;
@@ -58,7 +54,6 @@ int ttyfd_bpq = 0;
 #ifndef FNDELAY
 #define FNDELAY O_NDELAY
 #endif
-
 
 /*
  * process an I/O error; return true if a retry is needed

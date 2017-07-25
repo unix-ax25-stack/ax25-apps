@@ -157,7 +157,6 @@ static int32_t gmt2local(time_t t)
         return (dt);
 }
 
-
 static void handle_sigint(int signal)
 {
 	sigint++;

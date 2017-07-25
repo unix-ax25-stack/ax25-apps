@@ -27,8 +27,6 @@ static unsigned char entity_ssid;
 static unsigned int  entity_serial;
 static unsigned int  entity_sequence;
 
-
-
 static int extract_ssid(char *call)
 {
 	/* Strip the SSID from the callsign and return it  */
@@ -324,7 +322,6 @@ static int decode_gpsquality(unsigned char *element, int element_len)
 	return 0;
 }
 
-
 static int decode_acreg(unsigned char *element, int element_len)
 {
 	char nnumber[9];	/* 0x35 Aircraft Registration - ASCII text  */
@@ -352,7 +349,6 @@ static int decode_rivergauge(unsigned char *element, int element_len)
 
 	return 0;
 }
-
 
 static int decode_units(unsigned int unitnum, unsigned char *element,
 	int element_len)
@@ -434,7 +430,6 @@ static int decode_maidenhead(unsigned char *element, int element_len)
    return 0;
 }
 
-
 static struct {
 	unsigned int element_id;
 	unsigned char min_size;
@@ -463,7 +458,6 @@ static struct {
 					  {0x101, 0, 127, flag_attention},
 					  {0x300, 0, 2, decode_hazmat},
 					  {0, 0, 0, NULL}}, *element_decode_ptr;
-
 
 /* Dump an OpenTRAC packet */
 void opentrac_dump(unsigned char *data, int length, int hexdump)

@@ -199,7 +199,6 @@ int p_dwn_menu(wint * wtab, menuitem * menustr, int starty, int startx)
 	if (c == 0x1b)
 		return 0;
 
-
 	if (c == KEY_RIGHT || c == KEY_LEFT)
 		return c;
 	else
@@ -234,7 +233,6 @@ void menu_write_item(WINDOW * win, int xpos, int reverse, const char st[])
 	if (reverse)
 		wattroff(win, A_REVERSE);
 }
-
 
 int top_menu(wint * wtab, menuitem menustr[], int ystart)
 {

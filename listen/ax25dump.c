@@ -62,7 +62,6 @@ static char *decode_type(int);
 #define NDAMA_STRING ""
 #define DAMA_STRING " [DAMA]"
 
-
 /* FlexNet header compression display by Thomas Sailer t.sailer@alumni.ethz.ch */
 
 /* Dump an AX.25 packet header */

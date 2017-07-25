@@ -50,7 +50,6 @@
 #define AXLEN		7
 #define IPLEN		20
 
-
 /* structs for the caches */
 
 typedef struct ip_rt_entry_ {

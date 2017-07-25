@@ -45,7 +45,6 @@
 
 #include <stdlib.h>
 
-
 /* FIXME */
 static unsigned long get_from_arp(unsigned char *data, int size)
 {
@@ -471,7 +470,6 @@ void ax25_receive(int sock)
 			memcpy(&digipeater[ndigi++], data, AXLEN);
 		else
 			return;
-
 
 		SKIP(ALEN);
 	}

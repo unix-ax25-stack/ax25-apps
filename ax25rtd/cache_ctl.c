@@ -123,7 +123,6 @@ int update_ip_route(config * config, unsigned long ip, int ipmode,
 	return action;
 }
 
-
 ax25_rt_entry *update_ax25_route(config * config, ax25_address * call,
 				 int ndigi, ax25_address * digi,
 				 time_t timestamp)
@@ -301,7 +300,6 @@ int del_ax25_route(config * config, ax25_address * call)
 
 	return 1;
 }
-
 
 void expire_ax25_route(time_t when)
 {
