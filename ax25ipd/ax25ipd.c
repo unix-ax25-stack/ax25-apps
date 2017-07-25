@@ -63,6 +63,16 @@ static struct option options[] = {
 	{NULL, 0, NULL, 0}
 };
 
+static void greet_world(void)
+{
+	printf("\nax25ipd %s / %s\n", VERSION);
+	printf
+	    ("Copyright 1991, Michael Westerhof, Sun Microsystems, Inc.\n");
+	printf
+	    ("This software may be freely used, distributed, or modified, providing\nthis header is not removed\n\n");
+	fflush(stdout);
+}
+
 int main(int argc, char **argv)
 {
 	if (setjmp(restart_env) == 0) {
@@ -185,17 +195,6 @@ int main(int argc, char **argv)
 	io_start();
 
 	return 0;
-}
-
-
-void greet_world(void)
-{
-	printf("\nax25ipd %s / %s\n", VERSION);
-	printf
-	    ("Copyright 1991, Michael Westerhof, Sun Microsystems, Inc.\n");
-	printf
-	    ("This software may be freely used, distributed, or modified, providing\nthis header is not removed\n\n");
-	fflush(stdout);
 }
 
 static void do_stats(void)
