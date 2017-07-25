@@ -37,6 +37,7 @@ int bc_interval;		/* The interval, in seconds, between beacons */
 int bc_every;			/* true=every, false=after */
 int digi;			/* True if we are connected to a TNC */
 int loglevel;			/* Verbosity level */
+struct ax25ipd_stats stats;	/* Usage statistics */
 
 int dual_port;			/* addition for dual port flag */
 

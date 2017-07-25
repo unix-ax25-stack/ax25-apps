@@ -87,7 +87,7 @@ extern int loglevel;		/* Verbosity level */
 /* addition for dual port flag */
 extern int dual_port;
 
-static struct {
+struct ax25ipd_stats {
 	int kiss_in;            /* # packets received */
 	int kiss_toobig;        /* packet too large */
 	int kiss_badtype;       /* control byte non-zero */
@@ -105,7 +105,9 @@ static struct {
 	int ip_tooshort;        /* packet too short to be a valid frame */
 	int ip_not_for_me;      /* packet not for me (in digi mode) */
 	int ip_i_am_dest;       /* I am destination (in digi mode) */
-} stats;
+};
+
+extern struct ax25ipd_stats stats;
 
 #define MAX_FRAME 2048
 
