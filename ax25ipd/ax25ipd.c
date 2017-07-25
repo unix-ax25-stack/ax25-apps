@@ -43,9 +43,6 @@ int dual_port;			/* addition for dual port flag */
 
 static jmp_buf restart_env;
 
-/* Prototypes */
-void hupper(int);
-
 static int opt_version;
 static int opt_loglevel;
 static int opt_nofork;
@@ -62,6 +59,12 @@ static struct option options[] = {
 	{"nofork", 0, NULL, 'f'},
 	{NULL, 0, NULL, 0}
 };
+
+static void hupper(int i)
+{
+	printf("\nSIGHUP!\n");
+	longjmp(restart_env, 1);
+}
 
 static void greet_world(void)
 {
@@ -238,12 +241,6 @@ static void do_stats(void)
 
 /* restore the old loglevel */
 	loglevel = save_loglevel;
-}
-
-void hupper(int i)
-{
-	printf("\nSIGHUP!\n");
-	longjmp(restart_env, 1);
 }
 
 void usr1_handler(int i)
