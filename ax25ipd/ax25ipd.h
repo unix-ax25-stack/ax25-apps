@@ -175,9 +175,6 @@ unsigned short int pppfcs(unsigned short, unsigned char *, int);
 unsigned short int compute_crc(unsigned char *, int);
 int ok_crc(unsigned char *, int);
 
-/* ax25ipd.c */
-void term_handler(int);
-
 /* io.c */
 extern int ttyfd_bpq;
 extern int ttyfd;

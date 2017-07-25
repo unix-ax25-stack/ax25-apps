@@ -132,6 +132,13 @@ static void int_handler(int i)
 	exit(1);
 }
 
+static void term_handler(int i)
+{
+	printf("\nSIGTERM!\n");
+	do_stats();
+	exit(1);
+}
+
 int main(int argc, char **argv)
 {
 	if (setjmp(restart_env) == 0) {
@@ -254,11 +261,4 @@ int main(int argc, char **argv)
 	io_start();
 
 	return 0;
-}
-
-void term_handler(int i)
-{
-	printf("\nSIGTERM!\n");
-	do_stats();
-	exit(1);
 }
