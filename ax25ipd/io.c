@@ -8,6 +8,8 @@
  * This is also the key dispatching module, so it knows about a lot more
  * than just I/O stuff.
  */
+#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE_EXTENDED
 
 #include <errno.h>
 #include <fcntl.h>
