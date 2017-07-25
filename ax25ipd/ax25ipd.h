@@ -176,7 +176,6 @@ unsigned short int compute_crc(unsigned char *, int);
 int ok_crc(unsigned char *, int);
 
 /* ax25ipd.c */
-void int_handler(int);
 void term_handler(int);
 
 /* io.c */
