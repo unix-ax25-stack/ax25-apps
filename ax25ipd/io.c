@@ -32,16 +32,10 @@
 #include <syslog.h>
 
 
-#ifndef USE_TERMIOS
 #ifndef USE_TERMIO
 #define USE_SGTTY
 #endif
-#endif
 
-#ifdef USE_TERMIOS
-#include <sys/termios.h>
-static struct termios nterm;
-#endif
 
 #ifdef USE_TERMIO
 #include <termio.h>
@@ -381,9 +375,6 @@ void io_open(void)
 		set_bpq_dev_call_and_up(ttydevice);
 		goto behind_normal_tty;
 	}
-#ifdef USE_TERMIOS
-	if (ioctl(ttyfd, TCGETS, &nterm) < 0) {
-#endif
 #ifdef USE_TERMIO
 	if (ioctl(ttyfd, TCGETA, &nterm) < 0) {
 #endif
@@ -532,9 +523,6 @@ void io_open(void)
 	nterm.c_cc[VTIME] = 0;
 #endif /* USE_SGTTY */
 
-#ifdef USE_TERMIOS
-	if (ioctl(ttyfd, TCSETS, &nterm) < 0) {
-#endif /* USE_TERMIOS */
 #ifdef USE_TERMIO
 	if (ioctl(ttyfd, TCSETA, &nterm) < 0) {
 #endif /* USE_TERMIO */
