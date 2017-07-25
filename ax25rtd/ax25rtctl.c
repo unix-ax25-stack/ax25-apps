@@ -265,7 +265,6 @@ static void debug(void)
 	fd_set read_fds, write_fds;
 	struct timeval tv;
 
-
 	sock = open_socket();
 
 	while (1) {

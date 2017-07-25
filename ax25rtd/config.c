@@ -64,7 +64,6 @@ static long asc2ip(char *s)
 	return addr.s_addr;
 }
 
-
 static char *prepare_cmdline(char *buf)
 {
 	char *p;
@@ -138,7 +137,6 @@ static ax25_address *get_mycall(char *port)
 
 	return asc2ax(addr);
 }
-
 
 static void load_ports(void)
 {
@@ -226,7 +224,6 @@ static void load_listeners(void)
 	int k;
 	FILE *fp;
 	ax25_address *axcall;
-
 
 	fp = fopen(PROC_AX25_FILE, "r");
 
@@ -509,7 +506,6 @@ void reload_config(void)
 	load_config();
 }
 
-
 /* commands:
    ---------
 
@@ -539,7 +535,6 @@ void reload_config(void)
    Note that in conflicting cases the network device name has precedence
    over the port name.
 */
-
 
 void interpret_command(int fd, char *buf)
 {

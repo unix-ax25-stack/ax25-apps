@@ -192,7 +192,6 @@ void netrom_dump(unsigned char *data, int length, int hexdump, int type)
 	}
 }
 
-
 static void netrom_flags(int flags)
 {
 	if (flags & NR4CHOKE)
