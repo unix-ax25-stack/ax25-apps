@@ -17,6 +17,10 @@
 /* 02.02.1997 removed NETROM_PACLEN setting to match Jonathon removing it
 	      from kernel (VK2KTJ) */
 
+#define _DEFAULT_SOURCE
+#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE_EXTENDED
+
 #include <sys/types.h>
 #include <utime.h>
 #include <limits.h>
@@ -36,10 +40,8 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
-#define __USE_XOPEN
 #include <wchar.h>
 #include <wctype.h>
-#define _XOPEN_SOURCE_EXTENDED 1
 #include <ncursesw/ncurses.h>
 #include <locale.h>
 #include <iconv.h>
