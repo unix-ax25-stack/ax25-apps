@@ -66,7 +66,7 @@ static struct option options[] = {
 
 static void greet_world(void)
 {
-	printf("\nax25ipd %s / %s\n", VERSION);
+	printf("\nax25ipd %s\n", VERSION);
 	printf
 	    ("Copyright 1991, Michael Westerhof, Sun Microsystems, Inc.\n");
 	printf
