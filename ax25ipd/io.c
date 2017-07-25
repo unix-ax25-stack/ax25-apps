@@ -9,8 +9,6 @@
  * than just I/O stuff.
  */
 
-#undef USE_ICMP			/* not implemented yet, sorry */
-
 #include "ax25ipd.h"
 
 #include <sys/types.h>
@@ -20,9 +18,6 @@
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
-#ifdef USE_ICMP
-#include <netinet/ip_icmp.h>
-#endif
 #include <netdb.h>
 #include <fcntl.h>
 #include <memory.h>
@@ -41,9 +36,6 @@ static struct termio nterm;
 int ttyfd = -1;
 static int udpsock = -1;
 static int sock = -1;
-#ifdef USE_ICMP
-static int icmpsock = -1;
-#endif
 static struct sockaddr_in udpbind;
 static struct sockaddr_in to;
 static struct sockaddr_in from;
@@ -62,9 +54,6 @@ int ttyfd_bpq = 0;
 #define IP_MODE		0x10
 #define UDP_MODE	0x20
 #define TTY_MODE	0x30
-#ifdef USE_ICMP
-#define ICMP_MODE	0x40
-#endif
 
 #ifndef FNDELAY
 #define FNDELAY O_NDELAY
@@ -258,12 +247,6 @@ void io_init(void)
 		close(udpsock);
 		udpsock = -1;
 	}
-#ifdef USE_ICMP
-	if (icmpsock >= 0) {
-		close(icmpsock);
-		icmpsock = -1;
-	}
-#endif
 
 /*
  * The bzero is not strictly required - it simply zeros out the
@@ -301,17 +284,6 @@ void io_open(void)
 			perror("setting non-blocking I/O on raw socket");
 			exit(1);
 		}
-#ifdef USE_ICMP
-		icmpsock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-		if (icmpsock < 0) {
-			perror("opening raw ICMP socket");
-			exit(1);
-		}
-		if (fcntl(icmpsock, F_SETFL, FNDELAY) < 0) {
-			perror("setting non-blocking I/O on ICMP socket");
-			exit(1);
-		}
-#endif
 	}
 
 	if (udp_mode) {
@@ -555,9 +527,6 @@ void io_start(void) {
 
 		if (ip_mode) {
 			FD_SET(sock, &readfds);
-#ifdef USE_ICMP
-			FD_SET(icmpsock, &readfds);
-#endif
 		}
 
 		if (udp_mode) {
@@ -637,19 +606,6 @@ out_ttyfd:
 				if (n > hdr_len)
 					from_ip(buf + hdr_len, n - hdr_len);
 			}
-#ifdef USE_ICMP
-			if (FD_ISSET(icmpsock, &readfds)) {
-				do {
-					fromlen = sizeof from;
-					n = recvfrom(icmpsock, buf, MAX_FRAME, 0, (struct sockaddr *) &from, &fromlen);
-				}
-				while (io_error(n, buf, n, READ_MSG, ICMP_MODE, __LINE__));
-				ipptr = (struct iphdr *) buf;
-				hdr_len = 4 * ipptr-> ihl;
-				LOGL4("icmpdata from=%s l=%d, hl=%d\n",
-				      inet_ntoa(from.  sin_addr), n, hdr_len);
-			}
-#endif
 		}
 		/* if ip_mode */
 	}	/* for forever */
