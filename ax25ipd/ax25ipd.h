@@ -178,7 +178,6 @@ int ok_crc(unsigned char *, int);
 /* ax25ipd.c */
 int main(int, char **);
 void greet_world(void);
-void do_stats(void);
 void hupper(int);
 void usr1_handler(int);
 void int_handler(int);
