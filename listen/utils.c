@@ -82,7 +82,8 @@ void lprintf(int dtype, char *fmt, ...)
 int initcolor(void)
 {
 	initscr();		/* Start ncurses */
-	if (!has_colors()) {	endwin();
+	if (!has_colors()) {
+		endwin();
 		fprintf(stderr, "Your terminal does not support color\n");
 		exit(1);
 	}
