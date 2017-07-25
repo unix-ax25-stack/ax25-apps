@@ -28,7 +28,6 @@ ax25ipd.conf.5: ax25ipd.conf.man
 
 doc_DATA = README.ax25ipd HISTORY.ax25ipd COPYING.ax25ipd
 
-AM_CFLAGS = -DUSE_TERMIO
 ax25ipd_LDADD = $(AX25_LIB)
 
 ax25ipd_SOURCES =	\
