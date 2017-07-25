@@ -338,20 +338,12 @@ int main(int argc, char **argv)
                                         continue;
                                 }
 				display_port(sa.sa_data);
-#ifdef NEW_AX25_STACK
-				ax25_dump(buffer, size, dumpstyle);
-#else
 				ki_dump(buffer, size, dumpstyle);
-#endif
 /*				lprintf(T_DATA, "\n");  */
 			}
 		} else {
 			display_port(sa.sa_data);
-#ifdef NEW_AX25_STACK
-			ax25_dump(buffer, size, dumpstyle);
-#else
 			ki_dump(buffer, size, dumpstyle);
-#endif
 /*                      lprintf(T_DATA, "\n");  */
 		}
 		if (color)
