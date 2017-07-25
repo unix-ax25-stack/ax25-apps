@@ -198,7 +198,7 @@ void greet_world(void)
 	fflush(stdout);
 }
 
-void do_stats(void)
+static void do_stats(void)
 {
 	int save_loglevel;
 
