@@ -6,12 +6,21 @@
  *
  */
 
-#include <stdio.h>
-#include "ax25ipd.h"
-#include <sys/types.h>
-#include <netinet/in.h>
 #include <memory.h>
+#include <stdio.h>
 #include <syslog.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/types.h>
+
+#include "ax25ipd.h"
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+#ifndef TRUE
+#define TRUE 1
+#endif
 
 /* The routing table structure is not visible outside this module. */
 

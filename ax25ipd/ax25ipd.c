@@ -11,10 +11,14 @@
  * toolset in january 1997 by rob mayfield, vk5xxx/vk5zeu
  */
 
-#include <stdio.h>
-#include <signal.h>
+#include <limits.h>
 #include <setjmp.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
+#include <unistd.h>
 
 #include <netax25/daemon.h>
 #include <config.h>

@@ -12,9 +12,12 @@
  * Dual port additions by M.Durrant VE3PNX and D.J.Dionne Feb 4, 1995
  */
 
-#include "ax25ipd.h"
 #include <stdio.h>
+#include <string.h>
 #include <syslog.h>
+
+#include "ax25ipd.h"
+
 /* if dual port the upper nibble will have a value of 1 (not 0) */
 #define FROM_PORT2(p)   (((*(p+1))&0x10)!=0)
 #define FOR_PORT2(p)    (addrmatch(p,mycallsign2) || addrmatch(p,myalias2))
