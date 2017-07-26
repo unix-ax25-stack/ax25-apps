@@ -910,7 +910,7 @@ static int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 	int cnt;
 	int date = 0;
 	struct tm ft;
-	char s[80];
+	char s[GP_FILENAME_SIZE + 18];
 	int time_set = 0;
 
 	for (crcst = 2; crcst < parmsbytes - 1 &&
@@ -1005,7 +1005,7 @@ static int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 		sprintf(s, "size of file    : %lu",
 			(unsigned long) gp->dwn_cnt);
 		wrdstatw(*swin, s);
-		sprintf(s, "filename        : %s", gp->file_name);
+		snprintf(s, sizeof(s), "filename        : %s", gp->file_name);
 		wrdstatw(*swin, s);
 		sprintf(s, "last mod. date  : %02i.%02i.%04i", ft.tm_mday,
 			ft.tm_mon+1 , ft.tm_year + 1900);
@@ -1019,7 +1019,7 @@ static int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 
 	if ((gp->dwn_file =
 	     open(gp->file_name, O_RDWR | O_CREAT, 0666)) == -1) {
-		sprintf(s, "Unable to open %s", gp->file_name);
+		snprintf(s, sizeof(s), "Unable to open %s", gp->file_name);
 		statline(mode, s);
 		if (write(fd, "#ABORT#\r", 8) == -1) {
 			perror("write");
