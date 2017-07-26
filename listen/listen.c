@@ -47,13 +47,33 @@ static void display_port(char *dev)
 /*
  * Format the timestamp
  */
-static char * ts_format(register int sec, register int usec)
+static char * ts_format(unsigned int sec, unsigned int usec)
 {
-        static char buf[sizeof("00:00:00.000000")];
-        (void)snprintf(buf, sizeof(buf), "%02d:%02d:%02d.%06u",
-               sec / 3600, (sec % 3600) / 60, sec % 60, usec);
+	static char buf[sizeof("00:00:00.000000")];
+	unsigned int hours, minutes, seconds;
 
-        return buf;
+	hours = sec / 3600;
+	minutes = (sec % 3600) / 60;
+	seconds  = sec % 60;
+
+	/*
+	 * The real purpose of these checks is to let GCC figure out the
+	 * value range of all variables thus avoid bogus warnings.  For any
+	 * halfway modern GCC the checks will be optimized away.
+	 */
+	if (hours >= 60)
+		unreachable();
+	if (minutes >= 60)
+		unreachable();
+	if (seconds >= 60)
+		unreachable();
+	if (usec >= 1000000)
+		unreachable();
+
+	snprintf(buf, sizeof(buf), "%02d:%02d:%02d.%06u",
+		 hours, minutes, seconds, usec);
+
+	return buf;
 }
 
 /*
