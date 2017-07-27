@@ -6,6 +6,9 @@
    created: Mark Wahl DL4YBG 94/01/17
    updated: Mark Wahl DL4YBG 94/01/17
 */
+#define _DEFAULT_SOURCE
+#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE_EXTENDED
 
 #include "crc.h"
 

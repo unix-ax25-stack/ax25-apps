@@ -1,3 +1,7 @@
+#define _DEFAULT_SOURCE
+#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE_EXTENDED
+
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
