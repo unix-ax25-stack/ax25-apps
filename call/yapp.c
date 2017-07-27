@@ -11,6 +11,9 @@
  * as published by the Free Software Foundation; either version
  * 2 of the license, or (at your option) any later version.
  */
+#define _DEFAULT_SOURCE
+#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE_EXTENDED
 
 /*
  * Yapp C and Resume support added by S N Henson.

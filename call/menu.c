@@ -5,6 +5,9 @@
  * 22.07.1995  wininfo->wint (vector->single chain) Alexander Tietzel (DG6XA)
  * 25.07.1995  some minor changes                   Alexander Tietzel (DG6XA)
  */
+#define _DEFAULT_SOURCE
+#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE_EXTENDED
 
 #include <curses.h>
 #include <stdlib.h>
