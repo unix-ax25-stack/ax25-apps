@@ -144,12 +144,14 @@ int main(int argc, char **argv)
 	if (fork())
 		return 0;
 
-	if ((s = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_AX25))) == -1) {
+	s = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_AX25));
+	if (s == -1) {
 		perror("AX.25 socket");
 		return 1;
 	}
 
-	if ((cntrl_s = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+	cntrl_s = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (cntrl_s < 0) {
 		perror("Control socket");
 		return 1;
 	}
@@ -215,10 +217,10 @@ int main(int argc, char **argv)
 				}
 			}
 		} else if (FD_ISSET(cntrl_s, &read_fds)) {
-			if ((cntrl_fd =
-			     accept(cntrl_s,
-				    (struct sockaddr *) &cntrl_addr,
-				    &cntrl_len)) < 0) {
+			cntrl_fd = accept(cntrl_s,
+					  (struct sockaddr *)&cntrl_addr,
+					  &cntrl_len);
+			if (cntrl_fd < 0) {
 				perror("accept Control");
 				save_cache();
 				daemon_shutdown(1);

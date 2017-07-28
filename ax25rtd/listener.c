@@ -395,7 +395,8 @@ void ax25_receive(int sock)
 	socklen_t asize;
 
 	asize = sizeof(sa);
-	if ((size = recvfrom(sock, buf, sizeof(buf), 0, &sa, &asize)) < 0) {
+	size = recvfrom(sock, buf, sizeof(buf), 0, &sa, &asize);
+	if (size < 0) {
 		perror("recvfrom");
 		save_cache();
 		daemon_shutdown(1);

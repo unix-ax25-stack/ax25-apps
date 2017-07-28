@@ -126,7 +126,8 @@ static int tun_alloc(char *dev)
 	struct ifreq ifr;
 	int fd, err;
 
-	if ((fd = open("/dev/net/tun", O_RDWR)) < 0)
+	fd = open("/dev/net/tun", O_RDWR);
+	if (fd < 0)
 		 return -1;
 
 	memset(&ifr, 0, sizeof(ifr));
@@ -142,7 +143,8 @@ static int tun_alloc(char *dev)
 		ifr.ifr_name[IFNAMSIZ-1] = 0;
 	}
 
-	if ((err = ioctl(fd, TUNSETIFF, (void *) &ifr)) < 0 ) {
+	err = ioctl(fd, TUNSETIFF, (void *)&ifr);
+	if (err < 0) {
 		close(fd);
 		return err;
 	}
@@ -191,7 +193,8 @@ int open_ethertap(char *ifname)
 #ifdef  TRY_TUNTAP
 	} else {
 		strcpy(devname, ifname);
-		if ((fd = tun_alloc(devname)) < 0) {
+		fd = tun_alloc(devname);
+		if (fd < 0) {
 			LOGL2("%s: %s\n", devname, strerror(errno));
 			return -1;
 		}
@@ -201,7 +204,8 @@ int open_ethertap(char *ifname)
 	}
 	ethertap_header_len = (tuntap ? ETHERTAP_HEADER_LEN_TUN : ETHERTAP_HEADER_LEN_ETHERTAP);
 
-	if ((skfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+	skfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (skfd < 0) {
 		perror("socket()");
 		close(fd);
 		return -1;
@@ -308,7 +312,8 @@ int set_bpq_dev_call_and_up(char *ifname)
 
 	LOGL1("found bpq device %s for %s\n", bpq_name, dev_name);
 
-	if ((skfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+	skfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (skfd < 0) {
 		perror("socket()");
 		return -1;
 	}

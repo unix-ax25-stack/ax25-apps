@@ -36,7 +36,8 @@ static void display_port(char *dev)
 {
 	char *port;
 
-	if ((port = ax25_config_get_name(dev)) == NULL)
+	port = ax25_config_get_name(dev);
+	if (port == NULL)
 		port = dev;
 
 	lprintf(T_PORT, "%s: ", port);
@@ -262,14 +263,16 @@ int main(int argc, char **argv)
 		fprintf(stderr, "listen: no AX.25 port data configured\n");
 
 	if (port != NULL) {
-		if ((dev = ax25_config_get_dev(port)) == NULL) {
+		dev = ax25_config_get_dev(port);
+		if (dev == NULL) {
 			fprintf(stderr, "listen: invalid port name - %s\n",
 				port);
 			return 1;
 		}
 	}
 
-	if ((sock = socket(PF_PACKET, SOCK_PACKET, htons(proto))) == -1) {
+	sock = socket(PF_PACKET, SOCK_PACKET, htons(proto));
+	if (sock == -1) {
 		perror("socket");
 		return 1;
 	}
@@ -287,9 +290,8 @@ int main(int argc, char **argv)
 
 		signal(SIGINT, handle_sigint);
 		signal(SIGTERM, handle_sigint);
-		if ((size =
-		     recvfrom(sock, buffer, sizeof(buffer), 0, &sa,
-			      &asize)) == -1) {
+		size = recvfrom(sock, buffer, sizeof(buffer), 0, &sa, &asize);
+		if (size == -1) {
 			/*
 			 * Signals are cared for by the handler, and we
 			 * don't want to abort on SIGWINCH
