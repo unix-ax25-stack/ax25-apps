@@ -132,7 +132,8 @@ static ax25_address *get_mycall(char *port)
 {
 	char *addr;
 
-	if ((addr = ax25_config_get_addr(port)) == NULL)
+	addr = ax25_config_get_addr(port);
+	if (addr == NULL)
 		return NULL;
 
 	return asc2ax(addr);
@@ -146,7 +147,8 @@ static void load_ports(void)
 	struct ifreq ifr, *ifrp;
 	int k, fd;
 
-	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0) {
 		fprintf(stderr, "Unable to open socket\n");
 		exit(1);
 	}
@@ -557,13 +559,17 @@ void interpret_command(int fd, char *buf)
 	if (!strcmp(cmd, "add")) {
 		if (arg == NULL)
 			return;
-		if ((arg2 = get_next_arg(&p)) == NULL)
+		arg2 = get_next_arg(&p);
+		if (arg2 == NULL)
 			return;
-		if ((dev = get_next_arg(&p)) == NULL)
+		dev = get_next_arg(&p);
+		if (dev == NULL)
 			return;
-		if ((time = get_next_arg(&p)) == NULL)
+		time = get_next_arg(&p);
+		if (time == NULL)
 			return;
-		if ((config = dev_get_config(dev)) == NULL)
+		config = dev_get_config(dev);
+		if (config == NULL)
 			return;
 
 		sscanf(time, "%lx", &stamp);
@@ -588,10 +594,12 @@ void interpret_command(int fd, char *buf)
 		} else if (!strcmp(arg, "ip")) {
 			ip = asc2ip(arg2);
 
-			if ((arg2 = get_next_arg(&p)) == NULL)
+			arg2 = get_next_arg(&p);
+			if (arg2 == NULL)
 				return;
 
-			if ((arg = get_next_arg(&p)) == NULL)
+			arg = get_next_arg(&p);
+			if (arg == NULL)
 				return;
 
 			if (*arg == 'x')

@@ -109,13 +109,15 @@ static struct sockaddr *build_sockaddr(const char *name, int *addrlen)
 		addr.si.sin_addr.s_addr = INADDR_ANY;
 	} else if (!strcmp(host_name, "loopback")) {
 		addr.si.sin_addr.s_addr = inet_addr("127.0.0.1");
-	} else if ((addr.si.sin_addr.s_addr = inet_addr(host_name)) == -1) {
-		struct hostent *hp = gethostbyname(host_name);
-		endhostent();
-		if (!hp)
-			return NULL;
-		addr.si.sin_addr.s_addr =
-		    ((struct in_addr *) (hp->h_addr))->s_addr;
+	} else {addr.si.sin_addr.s_addr = inet_addr(host_name);
+		if (addr.si.sin_addr.s_addr == -1) {
+			struct hostent *hp = gethostbyname(host_name);
+			endhostent();
+			if (!hp)
+				return NULL;
+			addr.si.sin_addr.s_addr =
+			    ((struct in_addr *) (hp->h_addr))->s_addr;
+		}
 	}
 
 	if (isdigit(*serv_name & 0xff)) {
@@ -157,8 +159,8 @@ static void add_socket(char *sockname, char monmode)
 	else
 		sock_filename[sock_num][0] = 0;
 
-	if ((sock_list[sock_num] =
-	     socket(saddr->sa_family, SOCK_STREAM, 0)) < 0) {
+	sock_list[sock_num] = socket(saddr->sa_family, SOCK_STREAM, 0);
+	if (sock_list[sock_num] < 0) {
 		fprintf(stderr,
 			"WARNING: Error opening socket \"%s\": %s\n",
 			sockname, strerror(errno));

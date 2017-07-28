@@ -579,7 +579,8 @@ static int nr_convert_call(char *address, struct full_sockaddr_ax25 *addr)
 	for (call = address; *call != '\0'; call++)
 		*call = toupper(*call);
 
-	if ((fp = fopen(PROC_NR_NODES_FILE, "r")) == NULL) {
+	fp = fopen(PROC_NR_NODES_FILE, "r");
+	if (fp == NULL) {
 		fprintf(stderr,
 			"call: NET/ROM not included in the kernel\n");
 		return -1;
@@ -624,7 +625,8 @@ static int connect_to(char *address[])
 				"call: too few arguments for Rose\n");
 			return -1;
 		}
-		if ((fd = socket(AF_ROSE, SOCK_SEQPACKET, 0)) < 0) {
+		fd = socket(AF_ROSE, SOCK_SEQPACKET, 0);
+		if (fd < 0) {
 			perror("socket");
 			return -1;
 		}
@@ -636,7 +638,8 @@ static int connect_to(char *address[])
 				"call: too few arguments for NET/ROM\n");
 			return -1;
 		}
-		if ((fd = socket(AF_NETROM, SOCK_SEQPACKET, 0)) < 0) {
+		fd = socket(AF_NETROM, SOCK_SEQPACKET, 0);
+		if (fd < 0) {
 			perror("socket");
 			return -1;
 		}
@@ -651,7 +654,8 @@ static int connect_to(char *address[])
 				"call: too few arguments for AX.25\n");
 			return -1;
 		}
-		if ((fd = socket(AF_AX25, SOCK_SEQPACKET, 0)) < 0) {
+		fd = socket(AF_AX25, SOCK_SEQPACKET, 0);
+		if (fd < 0) {
 			perror("socket");
 			return -1;
 		}
@@ -1017,8 +1021,8 @@ static int start_ab_download(int mode, WINDOW ** swin, wint * wintab,
 
 	dupdstatw(*swin, "Bytes to receive: ", TRUE);
 
-	if ((gp->dwn_file =
-	     open(gp->file_name, O_RDWR | O_CREAT, 0666)) == -1) {
+	gp->dwn_file = open(gp->file_name, O_RDWR | O_CREAT, 0666);
+	if (gp->dwn_file == -1) {
 		snprintf(s, sizeof(s), "Unable to open %s", gp->file_name);
 		statline(mode, s);
 		if (write(fd, "#ABORT#\r", 8) == -1) {
@@ -1168,7 +1172,8 @@ static int start_screen(char *call[])
 	for (p = idString; *p; p++)
 		if (islower(*p)) *p = toupper(*p);
 
-	if ((win = initscr()) == NULL)
+	win = initscr();
+	if (win == NULL)
 		return -1;
 
 	attron(A_REVERSE);
@@ -1509,7 +1514,8 @@ static int readoutg(t_win * win_out, wint * wintab, menuitem * top, char buf[],
 
 	c = (wchar_t) ci;
 	if (c == keyesc) {
-		if ((value = top_menu(wintab, top, 1)) == 0) {
+		value = top_menu(wintab, top, 1);
+		if (value == 0) {
 			restorecursor(mode, win_out);
 			return 0;
 		}
@@ -1854,9 +1860,9 @@ static int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbyte
 
 			t = -1;
 			while (*pkey_words[command] != '\0') {
-				if ((t =
-				     compstr(pkey_words[command], &buf[cnt],
-					     *bytes - cnt)) != -1)
+				t = compstr(pkey_words[command], &buf[cnt],
+					    *bytes - cnt);
+				if (t != -1)
 					break;
 				command++;
 			}
@@ -2090,7 +2096,8 @@ static int cmd_call(char *call[], int mode, int encoding)
 	gp.dwn_cnt = 0;
 	wintab.next = NULL;
 
-	if ((fd = connect_to(call)) == -1)
+	fd = connect_to(call);
+	if (fd == -1)
 		return FALSE;
 
 	interrupted = FALSE;
@@ -2275,17 +2282,16 @@ static int cmd_call(char *call[], int mode, int encoding)
 					break;
 				case 2:
 					{
-						if ((sevenplcnt =
-						     sevenplname(mode,
-								 &swin,
-								 &wintab,
-								 &downloadfile,
-								 &logfile,
-								 parms,
-								 parmsbytes,
-								 buf,
-								 bytes)) !=
-						    -1)
+						sevenplcnt = sevenplname(mode,
+									 &swin,
+									 &wintab,
+									 &downloadfile,
+									 &logfile,
+									 parms,
+									 parmsbytes,
+									 buf,
+									 bytes);
+						if (sevenplcnt != -1)
 							sevenplus = TRUE;
 					}
 					break;
@@ -2371,14 +2377,12 @@ static int cmd_call(char *call[], int mode, int encoding)
 					if (buf[2] != '\0'
 							&& buf[2] != '\n') {
 						c = buf + 2;
-						if ((t =
-									strchr(c,
-										'\n')) != NULL)
+						t = strchr(c, '\n');
+						if (t != NULL)
 							*t = '\0';
 					} else {
-						if ((c =
-									getenv("SHELL")) ==
-								NULL)
+						c = getenv("SHELL");
+						if (c == NULL)
 							c = "/bin/sh";
 					}
 
@@ -2453,8 +2457,8 @@ static int cmd_call(char *call[], int mode, int encoding)
 						restorecursor(mode, &win_out);
 						continue;
 					}
-					if ((t =
-								strchr(buf, '\n')) != NULL)
+					t = strchr(buf, '\n');
+					if (t != NULL)
 						*t = '\0';
 					t = buf + 2;
 					while (*t != '\0' && isspace(*t))
@@ -2581,8 +2585,8 @@ static int cmd_call(char *call[], int mode, int encoding)
 					continue;
 				case 'O':
 				case 'o':
-					if ((t =
-								strchr(buf, '\n')) != NULL)
+					t = strchr(buf, '\n');
+					if (t != NULL)
 						*t = '\0';
 					if (logfile != -1) {
 						close(logfile);
@@ -2873,7 +2877,8 @@ int main(int argc, char **argv)
 			ax25mode = *optarg == 'e';
 			break;
 		case 'p':
-			if ((paclen = atoi(optarg)) == 0) {
+			paclen = atoi(optarg);
+			if (paclen == 0) {
 				fprintf(stderr,
 					"call: option '-p' requires a numeric argument\n");
 				return 1;
@@ -2920,7 +2925,8 @@ int main(int argc, char **argv)
 			printf("call: %s\n", VERSION);
 			return 0;
 		case 'w':
-			if ((window = atoi(optarg)) == 0) {
+			window = atoi(optarg);
+			if (window == 0) {
 				fprintf(stderr,
 					"call: option '-w' requires a numeric argument\n");
 				return 1;

@@ -323,7 +323,8 @@ void io_open(void)
 
 	if (i_am_unix98_pty_master) {
 		/* get name of pts-device */
-		if ((namepts = ptsname(ttyfd)) == NULL) {
+		namepts = ptsname(ttyfd);
+		if (namepts == NULL) {
 			perror("Cannot get name of pts-device.");
 			exit(1);
 		}
