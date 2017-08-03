@@ -1907,8 +1907,7 @@ static int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbyte
 }
 
 static int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
-		int *logfile, char parms[], int parmsbytes, char buf[],
-		int bytes)
+		int *logfile, char parms[], int parmsbytes)
 {
 	int cnt;
 	int part;
@@ -2288,9 +2287,7 @@ static int cmd_call(char *call[], int mode, int encoding)
 									 &downloadfile,
 									 &logfile,
 									 parms,
-									 parmsbytes,
-									 buf,
-									 bytes);
+									 parmsbytes);
 						if (sevenplcnt != -1)
 							sevenplus = TRUE;
 					}
