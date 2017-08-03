@@ -428,7 +428,7 @@ static void readable_dump(unsigned char *data, int length)
 	}
 	if (cr)
 		buf[i++] = '\n';
-	buf[i++] = '\0';
+	buf[i] = '\0';
 	lprintf(T_DATA, "%s", buf);
 }
 
