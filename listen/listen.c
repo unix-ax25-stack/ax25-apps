@@ -1,5 +1,4 @@
 #include <sys/types.h>
-#include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <netdb.h>
 
