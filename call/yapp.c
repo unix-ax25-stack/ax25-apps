@@ -40,7 +40,6 @@
 #include <termios.h>
 #include <unistd.h>
 #include <linux/ax25.h>
-#include <sys/stat.h>
 
 #include "call.h"
 
