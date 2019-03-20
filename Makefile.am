@@ -1,3 +1,4 @@
+ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = ax25ipd ax25rtd call listen ax25mond
 
 EXTRA_DIST = pathnames.h ax25-apps.spec
