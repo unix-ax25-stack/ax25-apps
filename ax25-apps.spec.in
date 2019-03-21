@@ -1,6 +1,6 @@
 Name:           ax25-apps
 Version:        @BASEVERSION@.@EXTRAVERSION@
-Release:        1
+Release:        1%{?dist}
 Summary:        AX.25 ham radio applications
 
 Group:          Applications/Communications
