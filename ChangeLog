@@ -1,5 +1,4 @@
 ax25-apps (0.0.8)
-	* Fix numerous build warnings and errors on modern systems.
 	* Switch to more modern autoconf and automake to fix build issues on
 	  many modern systems.
 	* Fix various application crashes.
@@ -18,6 +17,16 @@ ax25-apps (0.0.8)
 	  with ax25ipd.
 	* call: Do not exit when running in curses mode and the window is
 	  resized. call now relies on libncursesw and is UTF8-capable.
+	* Lots of small cleanup and fixes to silence warnings and issues
+	  raised by modern compilers, code checkers and manual review.
+	* Improvments to git usage.
+	* Update to work without warnings with latest autotools.
+	* Lots of stylistic cleanups to the code trying to follow the
+	  coding style of the kernel.
+	* Many distributions have changed the names of call to axcall and
+	  listen to axlisten.  Change the rpm spec file to do that by default.
+	  For now however the defaults when building straight from source will
+	  stay unchanged.
 
 ax25-apps (0.0.7)
 	* Added opentrac to listen, Thanks to Scott Miller
