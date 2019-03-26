@@ -34,8 +34,8 @@ Removes the entries older than <minutes> from the caches and
 the kernel routing tables.
 .TP
 .B -s, --save
-Saves the AX.25 and IP cache to /var/ax25/ax25rtd/ax25_routes and
-/var/ax25/ax25rtd/ip_routes (or the files specified in
+Saves the AX.25 and IP cache to /var/ax25/ax25rtd/ax25_route and
+/var/ax25/ax25rtd/ip_route (or the files specified in
 /etc/ax25/ax25rtd.conf).
 .TP
 .B -r, --reload
@@ -60,7 +60,7 @@ is equivalent to
    @@@ax25rtctl@@@ --add ax25 dl0tha 9k6 0 dbpra
 
 All commands return port names in their output, though.
-With one exception: ax25_routes and ip_routes use interface names.
+With one exception: ax25_route and ip_route use interface names.
 
 .SH FILES
 /etc/ax25/ax25rtd.conf
