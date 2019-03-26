@@ -9,6 +9,9 @@ License:        GPLv2+ and BSD
 URL:            http://www.linux-ax25.org/
 Source0:        http://www.linux-ax25.org/pub/%{name}/%{name}-@VERSION@.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-@VERSION@-%{release}-root-%(%{__id_u} -n)
+BuildRequires:  gcc gcc-c++
+BuildRequires:  libax25-devel
+BuildRequires:  ncurses-devel
 
 %description
 This package provides specific user applications for hamradio that use AX.25
