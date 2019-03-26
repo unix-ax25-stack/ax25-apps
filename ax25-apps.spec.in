@@ -28,7 +28,7 @@ Net/ROM or ROSE network protocols:
 %setup -q -n %{name}-@VERSION@
 
 %build
-%configure
+%configure --program-transform-name='s@^call$@ax&@;s@^listen$@ax&@'
 make %{?_smp_mflags}
 
 %install
