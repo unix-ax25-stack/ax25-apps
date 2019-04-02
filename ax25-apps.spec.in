@@ -40,7 +40,6 @@ make DESTDIR=$RPM_BUILD_ROOT installconf
 rm -rf $RPM_BUILD_ROOT
 
 %files
-%defattr(-,root,root,-)
 %doc AUTHORS ChangeLog COPYING README
 %doc ax25ipd/COPYING.ax25ipd ax25ipd/HISTORY.ax25ipd ax25ipd/README.ax25ipd
 %doc ax25rtd/TODO.ax25rtd ax25rtd/README.ax25rtd
