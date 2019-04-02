@@ -3,7 +3,6 @@ Version:        @BASEVERSION@.@EXTRAVERSION@
 Release:        1%{?dist}
 Summary:        AX.25 ham radio applications
 
-Group:          Applications/Communications
 #ax25ipd is BSD licensed, rest is GPLv2+
 License:        GPLv2+ and BSD
 URL:            http://www.linux-ax25.org/
