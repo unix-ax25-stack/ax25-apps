@@ -48,7 +48,6 @@ AC_STRUCT_TM
 
 dnl Checks for library functions.
 AC_FUNC_MEMCMP
-AC_TYPE_SIGNAL
 AC_FUNC_UTIME_NULL
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS(gettimeofday mktime select socket strdup strerror strspn strstr strtol strtoul uname)
