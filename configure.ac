@@ -1,5 +1,5 @@
-AC_PREREQ(2.59)
-AC_INIT(ax25-apps, 0.0.8-rc5, linux-hams@vger.kernel.org)
+AC_PREREQ([2.59])
+AC_INIT([ax25-apps],[0.0.8-rc5],[linux-hams@vger.kernel.org])
 AC_CONFIG_SRCDIR(ax25ipd/config.c)
 AM_INIT_AUTOMAKE([1.7])
 
