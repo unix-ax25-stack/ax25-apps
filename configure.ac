@@ -1,6 +1,5 @@
 AC_PREREQ(2.59)
 AC_INIT(ax25-apps, 0.0.8-rc5, linux-hams@vger.kernel.org)
-AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_SRCDIR(ax25ipd/config.c)
 AM_INIT_AUTOMAKE([1.7])
 
@@ -12,7 +11,6 @@ AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_GCC_TRADITIONAL
-AC_PROG_LIBTOOL
 
 dnl Checks for libraries.
 AC_SUBST(AX25_LIB)
