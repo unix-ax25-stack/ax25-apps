@@ -72,5 +72,5 @@ With one exception: ax25_route and ip_route use interface names.
 .nf
 Joerg Reuter <jreuter@poboxes.com>
 .br
-Llaus Kudielka OE1KIB
+Klaus Kudielka OE1KIB
 .fi
