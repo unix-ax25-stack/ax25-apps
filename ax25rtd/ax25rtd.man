@@ -49,5 +49,5 @@ it saves the caches to those files.
 .nf
 Joerg Reuter <jreuter@poboxes.com>
 .br
-Llaus Kudielka OE1KIB
+Klaus Kudielka OE1KIB
 .fi
