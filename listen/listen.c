@@ -61,7 +61,7 @@ static char * ts_format(unsigned int sec, unsigned int usec)
 	 * value range of all variables thus avoid bogus warnings.  For any
 	 * halfway modern GCC the checks will be optimized away.
 	 */
-	if (hours >= 60)
+	if (hours >= 24)
 		unreachable();
 	if (minutes >= 60)
 		unreachable();
