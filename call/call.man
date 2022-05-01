@@ -62,6 +62,7 @@ Selects Slave mode.
 .TP 10
 .BI \-i
 Use IBM850 encoding
+.TP 10
 .BI "\-m s|e"
 Sets the AX.25 mode to use. The default is taken from the port
 specification, but can be overridden by this option. Valid values are
