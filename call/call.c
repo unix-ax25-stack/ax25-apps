@@ -671,6 +671,16 @@ static int connect_to(char *address[])
 			ax25_aton_entry(mycall, sockaddr.ax25.fsa_ax25.sax25_call.ax25_call);
 		addrlen = sizeof(struct full_sockaddr_ax25);
 
+		if (ax25mode != -1) {
+			if (setsockopt
+			    (fd, SOL_AX25, AX25_EXTSEQ, &ax25mode,
+			     sizeof(ax25mode)) == -1) {
+				perror("AX25_EXTSEQ");
+				close(fd);
+				fd = -1;
+				return -1;
+			}
+		}
 		if (setsockopt
 		    (fd, SOL_AX25, AX25_WINDOW, &window,
 		     sizeof(window)) == -1) {
@@ -692,16 +702,6 @@ static int connect_to(char *address[])
 			    (fd, SOL_AX25, AX25_BACKOFF, &backoff,
 			     sizeof(backoff)) == -1) {
 				perror("AX25_BACKOFF");
-				close(fd);
-				fd = -1;
-				return -1;
-			}
-		}
-		if (ax25mode != -1) {
-			if (setsockopt
-			    (fd, SOL_AX25, AX25_EXTSEQ, &ax25mode,
-			     sizeof(ax25mode)) == -1) {
-				perror("AX25_EXTSEQ");
 				close(fd);
 				fd = -1;
 				return -1;
