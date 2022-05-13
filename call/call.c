@@ -618,6 +618,15 @@ static int connect_to(char *address[])
 	char *digi;
 	int one = debug;
 
+	if (debug
+	    && setsockopt(fd, SOL_SOCKET, SO_DEBUG, &one,
+			  sizeof(one)) == -1) {
+		perror("SO_DEBUG");
+		close(fd);
+		fd = -1;
+		return -1;
+	}
+
 	switch (af_mode) {
 	case AF_ROSE:
 		if (address[0] == NULL || address[1] == NULL) {
@@ -646,6 +655,12 @@ static int connect_to(char *address[])
 		ax25_aton(nr_config_get_addr(port), &sockaddr.ax25);
 		sockaddr.ax25.fsa_ax25.sax25_family = AF_NETROM;
 		addrlen = sizeof(struct full_sockaddr_ax25);
+		if (bind(fd, (struct sockaddr *) &sockaddr, addrlen) == -1) {
+			perror("bind");
+			close(fd);
+			fd = -1;
+			return -1;
+		}
 		break;
 
 	case AF_AX25:
@@ -670,6 +685,12 @@ static int connect_to(char *address[])
 		if (mycall)
 			ax25_aton_entry(mycall, sockaddr.ax25.fsa_ax25.sax25_call.ax25_call);
 		addrlen = sizeof(struct full_sockaddr_ax25);
+		if (bind(fd, (struct sockaddr *) &sockaddr, addrlen) == -1) {
+			perror("bind");
+			close(fd);
+			fd = -1;
+			return -1;
+		}
 
 		if (ax25mode != -1) {
 			if (setsockopt
@@ -710,22 +731,6 @@ static int connect_to(char *address[])
 		break;
 	}
 
-	if (debug
-	    && setsockopt(fd, SOL_SOCKET, SO_DEBUG, &one,
-			  sizeof(one)) == -1) {
-		perror("SO_DEBUG");
-		close(fd);
-		fd = -1;
-		return -1;
-	}
-	if (af_mode != AF_ROSE) {	/* Let Rose autobind */
-		if (bind(fd, (struct sockaddr *) &sockaddr, addrlen) == -1) {
-			perror("bind");
-			close(fd);
-			fd = -1;
-			return -1;
-		}
-	}
 	switch (af_mode) {
 	case AF_ROSE:
 		memset(&sockaddr.rose, 0x00, sizeof(struct sockaddr_rose));
