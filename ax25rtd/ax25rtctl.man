@@ -57,7 +57,7 @@ interface name has precedence over the port name.  Example:
 
 is equivalent to
 
-   @@@ax25rtctl@@@ --add ax25 dl0tha 9k6 0 dbpra
+   @@@ax25rtctl@@@ --add ax25 dl0tha 9k6 0 db0pra
 
 All commands return port names in their output, though.
 With one exception: ax25_route and ip_route use interface names.
