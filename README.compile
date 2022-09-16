@@ -1,0 +1,12 @@
+After checkout:
+
+  autoreconf --install --force
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --mandir=/usr/share/man 
+
+Compile:
+  make
+
+Onle once (if you did not have configuration files in /etc; if you have, they
+will be overwritten!):
+  make installconf
+
