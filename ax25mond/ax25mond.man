@@ -7,7 +7,7 @@ where the received data will be retransmitted
 .SH DESCRIPTION
 .LP
 .B Ax25mond
-will first read it's configuration file /etc/ax25/ax25mond.conf. It will
+will first read its configuration file /etc/ax25/ax25mond.conf. It will
 then wait for connects on the sockets specified in this file. When
 connected, it will transmit all data which it has received on the AX.25
 monitor socket.

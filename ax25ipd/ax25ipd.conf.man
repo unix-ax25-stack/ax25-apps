@@ -72,7 +72,7 @@ mode tnc
 .br
 # if you use tun/tap or ethertap instead of kissattach you may say, without
 .br
-# leading slashes (!! - that's how @@@ax25ipd@@@ consideres using the tty kiss
+# leading slashes (!! - that's how @@@ax25ipd@@@ considers using the tty kiss
 .br
 # driver or tun/tap or ethertap):
 .br
@@ -92,7 +92,7 @@ mode tnc
 .br
 # with bpqether or pty, you do not need to care about the speed
 .br
-# tun/tap: as descriped in /usr/src/linux/Documentation/networking/tuntap.txt,
+# tun/tap: as described in /usr/src/linux/Documentation/networking/tuntap.txt,
 .br
 # make a device # like this:
 .br
@@ -106,7 +106,7 @@ mode tnc
 .br
 # If the tty argument is "/dev/ptmx", then Unix98 behaviour
 .br
-# will automaticaly take effekt. With Unix98 pty's, the slave tty name
+# will automatically take effect. With Unix98 pty's, the slave tty name
 .br
 # could not be forseen. That's why @@@ax25ipd@@@ will print the corresponding
 .br

@@ -100,7 +100,7 @@ This is useful for scripting where you just don't like the remote site to trigge
 Set idle timeout seconds after a connection will be closed automatically when there's no data being transferred (in- and outbound). If timeout is set to 3600, the connection will close after 1h inactivity. A value of 0.5 is 500ms.
 .TP 10
 .BI "\-W"
-Wait for remote disconnect even if stdin is closed. Normaly, "echo q | @@@call@@@ ax0 db0fhn" closes immediately after "echo q" terminates; thus we never see the greeting from db0fhn. With the -W option, @@@call@@@ waits until the ax25-connection is disconnected (i.e. db0fhn disconnects after "q" command). Very useful for scripting. You might like to combine it with the -T option.
+Wait for remote disconnect even if stdin is closed. Normally, "echo q | @@@call@@@ ax0 db0fhn" closes immediately after "echo q" terminates; thus we never see the greeting from db0fhn. With the -W option, @@@call@@@ waits until the ax25-connection is disconnected (i.e. db0fhn disconnects after "q" command). Very useful for scripting. You might like to combine it with the -T option.
 .LP
 The @@@call@@@ program interprets lines beginning with a '~' specially.
 The following '~' escapes are available.
