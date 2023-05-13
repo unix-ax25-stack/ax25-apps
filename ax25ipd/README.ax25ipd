@@ -234,7 +234,7 @@ myalias2 uhfdjf
 
 Everything else is the same.  Note that if you leave out the mycall2 and
 myalias2 defines, it works just like the original in single port mode.  For
-recieving on the KISS (dual) port, packets are checked against both callsigns
+receiving on the KISS (dual) port, packets are checked against both callsigns
 and aliases.  Whoever is on the other end of the AXIP link can find out what
 port it came from by looking at the who it got digi'd through, although
 I can't think of any reason to do that... For transmiting, you go out the
@@ -443,7 +443,7 @@ route vk5wsr-0 44.136.202.241
 route vk5dj-15 44.136.202.241
 route vk5ham* 44.136.202.241
 #
-# a default route. Carefull here, all undefined traffic end's up here.
+# a default route. Careful here, all undefined traffic end's up here.
 #
 route default 44.136.202.241
 #
