@@ -6,8 +6,8 @@
 .SH DESCRIPTION
 .LP
 .B @@@ax25ipd@@@
-is an RFC1226 compliant daemon capable of providing the encapsualtion
-neccessary to send and receive AX.25 traffic across an IP transport.
+is an RFC1226 compliant daemon capable of providing the encapsulation
+necessary to send and receive AX.25 traffic across an IP transport.
 .LP
 Normally invoked as part of the boot order network initialisation,
 .B @@@ax25ipd@@@
@@ -40,7 +40,7 @@ Use the configuration file named by FILE instead of the default.
 .TP 10
 .BI \-d,--ttydevice TTYDEV
 Use ttydevice instead of the configured. This is useful because on systems
-with unix98 PTYs the device is allocated dynamicaly and thus the name is
+with unix98 PTYs the device is allocated dynamically and thus the name is
 not predictable.
 .TP 10
 .BI \-f,--nofork

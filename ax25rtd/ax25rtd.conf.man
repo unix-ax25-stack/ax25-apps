@@ -38,7 +38,7 @@ where "radio" is the name of the table, (for the configuration example above).
 This option is disabled by default.
 .TP
 ip-encaps-dev ipax0
-This option was for a patched kernel of the 2.2.x series. Multible interfaces
+This option was for a patched kernel of the 2.2.x series. Multiple interfaces
 were aggregated to one interface when sending IP frames. This option is
 disabled by default.
 .TP

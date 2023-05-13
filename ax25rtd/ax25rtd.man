@@ -21,7 +21,7 @@ can be turned on or off by altering the configuration file
 /etc/ax25/ax25rtd.conf.
 .LP
 @@@Ax25rtd@@@ provides a socket /var/ax25/ax25rtd/control which is used for
-runtime maintainance through
+runtime maintenance through
 .B @@@ax25rtctl@@@
 or to set up new routes by other
 daemons (a Flexnet router, perhaps?)
