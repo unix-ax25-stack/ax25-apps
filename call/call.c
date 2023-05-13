@@ -520,7 +520,7 @@ static void drawinbuf(WINDOW *w, wchar_t *string, int bytes, int cur_pos)
 	x = xpos;
 
 	cursorx = xpos;
-	// cur_pos-1 = the chracter that was just added.
+	// cur_pos-1 = the character that was just added.
 	for (n=cur_pos-2;n>=0;n--) {
 		/*
 		 * Move x position to start of string or 0

@@ -19,7 +19,7 @@ ax25-apps (0.0.8)
 	  resized. call now relies on libncursesw and is UTF8-capable.
 	* Lots of small cleanup and fixes to silence warnings and issues
 	  raised by modern compilers, code checkers and manual review.
-	* Improvments to git usage.
+	* Improvements to git usage.
 	* Update to work without warnings with latest autotools.
 	* Lots of stylistic cleanups to the code trying to follow the
 	  coding style of the kernel.

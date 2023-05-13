@@ -1,5 +1,5 @@
 /*
- * this is a port of wampes ethertap whith my extension for bpqether
+ * this is a port of wampes ethertap with my extension for bpqether
  *
  * (c) 20020630 Thomas Osterried  dl9sau
  * License: GPL
