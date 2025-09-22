@@ -91,7 +91,7 @@ static int io_error( int oops, unsigned char *buf, int bufsize, int dir,
 	if (oops == 0) {
 		if (dir == READ_MSG && oops != TTY_MODE /* && != TCP_MODE, if we'd implement this */ )
 			return 0;
-		fprintf(stderr, "Close event on mode 0x%2.2x (during %s). LINE %d. Terminating normaly.\n", mode, (dir == READ_MSG ? "READ" : "WRITE"), where);
+		fprintf(stderr, "Close event on mode 0x%2.2x (during %s). LINE %d. Terminating normally.\n", mode, (dir == READ_MSG ? "READ" : "WRITE"), where);
 		exit(1);
 	}
 
