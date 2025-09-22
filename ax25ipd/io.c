@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
-#include <termio.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -32,7 +32,7 @@
 
 #include "ax25ipd.h"
 
-static struct termio nterm;
+static struct termios nterm;
 
 int ttyfd = -1;
 static int udpsock = -1;
@@ -339,7 +339,7 @@ void io_open(void)
 		set_bpq_dev_call_and_up(ttydevice);
 		goto behind_normal_tty;
 	}
-	if (ioctl(ttyfd, TCGETA, &nterm) < 0) {
+	if (tcgetattr(ttyfd, &nterm) < 0) {
 		perror("fetching tty device parameters");
 		exit(1);
 	}
@@ -476,7 +476,7 @@ void io_open(void)
 	nterm.c_cc[VMIN] = 0;
 	nterm.c_cc[VTIME] = 0;
 
-	if (ioctl(ttyfd, TCSETA, &nterm) < 0) {
+	if (tcsetattr(ttyfd, TCSADRAIN, &nterm) < 0) {
 		perror("setting tty device parameters");
 		exit(1);
 	}
