@@ -2335,7 +2335,7 @@ static int cmd_call(char *call[], int mode, int encoding)
 				bytes = read(STDIN_FILENO, buf, paclen);
 				/* bytes == 0? select() indicated that there
 				 * is data to read, but read() returned 0
-				 * bytes. -> terminate normaly
+				 * bytes. -> terminate normally
 				 */
 				if (bytes == 0)
 					EOF_on_STDIN = TRUE;
