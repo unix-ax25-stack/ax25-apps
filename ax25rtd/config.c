@@ -33,7 +33,9 @@
 #ifdef __GLIBC__
 #include <net/ethernet.h>
 #else
+#if defined(__linux__)
 #include <linux/if_ether.h>
+#endif
 #endif
 #include <net/if_arp.h>
 
@@ -142,7 +144,22 @@ static ax25_address *get_mycall(char *port)
 
 static void load_ports(void)
 {
-	config *config, *cfg, *ncfg;
+	config *config;
+
+	/* AGWPE ports have no kernel interface to scan for: the axports
+	 * name (== config->port) is their only identity and the raw
+	 * monitor reports exactly that name in sa_data.  */
+	if (agwpe_mode) {
+		for (config = Config; config; config = config->next) {
+			strncpy(config->dev, config->port,
+				sizeof(config->dev) - 1);
+			config->dev[sizeof(config->dev) - 1] = '\0';
+		}
+		return;
+	}
+
+#ifdef HAVE_KERNEL_AX25
+	struct config_ *cfg, *ncfg;
 	char buf[1024];
 	struct ifconf ifc;
 	struct ifreq ifr, *ifrp;
@@ -203,6 +220,14 @@ static void load_ports(void)
 	config = cfg = Config;
 
 	while (config) {
+		/* An AGWPE port never matches a kernel interface; its dev
+		 * is the port name.  */
+		if (!*config->dev && config->agwpe) {
+			strncpy(config->dev, config->port,
+				sizeof(config->dev) - 1);
+			config->dev[sizeof(config->dev) - 1] = '\0';
+		}
+
 		if (!*config->dev) {
 			if (config == Config) {
 				Config = config->next;
@@ -217,10 +242,12 @@ static void load_ports(void)
 			config = config->next;
 		}
 	}
+#endif	/* HAVE_KERNEL_AX25 */
 }
 
 static void load_listeners(void)
 {
+#ifdef HAVE_KERNEL_AX25
 	config *config;
 	char buf[1024], device[14], call[10], dcall[10];
 	char dummy[1024];
@@ -264,6 +291,7 @@ static void load_listeners(void)
 		}
 	}
 	fclose(fp);
+#endif	/* HAVE_KERNEL_AX25 */
 }
 
 void load_config(void)
@@ -324,6 +352,8 @@ void load_config(void)
 			cfg->next = NULL;
 			config = cfg;
 			strcpy(config->port, cmd);
+			config->agwpe = agwpe_mode ||
+				!strncmp(cmd, "agwpe-", 6);
 			memcpy(&config->mycalls[0], axcall, AXLEN);
 			config->nmycalls = 1;
 		} else if (config && !strcmp(cmd, "ax25-learn-routes")) {
@@ -667,6 +697,19 @@ void interpret_command(int fd, char *buf)
 			dump_ax25_routes(fd, 0);
 		else if (!strcmp(arg, "ip"))
 			dump_ip_routes(fd, 0);
+	} else if (!strcmp(cmd, "get")) {
+		/* get ax25 <callsign>: all cached routes for this callsign,
+		 * one line per (port, callsign), terminated by ".\n".  Used
+		 * by the libax25 shim to resolve a digipeater path for a
+		 * connect() on the socket's own port.  */
+		if (arg == NULL)
+			return;
+		arg2 = get_next_arg(&p);
+		if (arg2 == NULL)
+			return;
+
+		if (!strcmp(arg, "ax25"))
+			get_ax25_routes(fd, asc2ax(arg2));
 	} else if (!strcmp(cmd, "shutdown")) {
 		save_cache();
 		daemon_shutdown(0);
@@ -690,7 +733,7 @@ void load_cache(void)
 		while (fgets(buf, sizeof(buf), fp) != NULL)
 			interpret_command(2, buf);
 		fclose(fp);
-	} else
+	} else if (errno != ENOENT)
 		perror("open AX.25 route cache file");
 
 	fp = fopen(DATA_AX25ROUTED_IPRT_FILE, "r");
@@ -698,7 +741,7 @@ void load_cache(void)
 		while (fgets(buf, sizeof(buf), fp) != NULL)
 			interpret_command(2, buf);
 		fclose(fp);
-	} else
+	} else if (errno != ENOENT)
 		perror("open IP route cache file");
 }
 

@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <time.h>
 #include <sys/types.h>
@@ -114,6 +115,39 @@ void dump_ax25_routes(int fd, int cmd)
 
 	if (!cmd)
 		write(fd, ".\n", 2);
+}
+
+void get_ax25_routes(int fd, ax25_address *call)
+{
+	ax25_rt_entry *bp;
+	config *config;
+	char buf[256], *dev;
+	int k, len;
+
+	for (bp = ax25_routes; bp; bp = bp->next) {
+		if (memcmp(call, &bp->call, AXLEN))
+			continue;
+
+		len = 0;
+		config = dev_get_config(bp->iface);
+		if (config != NULL)
+			dev = config->port;
+		else
+			dev = bp->iface;
+
+		len +=
+		    sprintf(buf + len, "%-9s %-4s %8.8lx",
+			    ax25_ntoa(&bp->call), dev, bp->timestamp);
+
+		for (k = 0; k < bp->ndigi; k++)
+			len +=
+			    sprintf(buf + len, " %s",
+				    ax25_ntoa(&bp->digipeater[k]));
+		len += sprintf(buf + len, "\n");
+		write(fd, buf, len);
+	}
+
+	write(fd, ".\n", 2);
 }
 
 void dump_config(int fd)

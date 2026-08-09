@@ -28,12 +28,12 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <stddef.h>
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
@@ -47,7 +47,24 @@
 #ifdef __GLIBC__
 #include <net/ethernet.h>
 #else
+#if defined(__linux__)
 #include <linux/if_ether.h>
+#endif
+#endif
+
+/* The raw monitor socket ax25rtd listens on.  On platforms without a
+ * kernel packet socket (macOS, BSD) the constants below are not provided
+ * by the system headers; the userspace AGWPE shim (libax25/axsock.c)
+ * intercepts the call and backs it with a monitor fed from the AGWPE raw
+ * frames, delivering the AX.25 port name in sa_data.  */
+#ifndef PF_PACKET
+#define	PF_PACKET	17
+#endif
+#ifndef SOCK_PACKET
+#define	SOCK_PACKET	10
+#endif
+#ifndef ETH_P_AX25
+#define	ETH_P_AX25	0x0803
 #endif
 
 #include <netax25/ax25.h>
@@ -59,6 +76,8 @@
 #include "ax25rtd.h"
 
 config *Config = NULL;
+
+int agwpe_mode = AGWPE_BY_DEFAULT;
 
 int reload = 0;
 
@@ -161,9 +180,12 @@ int main(int argc, char **argv)
 
 	cntrl_addr.sun_family = AF_UNIX;
 	strcpy(cntrl_addr.sun_path, DATA_AX25ROUTED_CTL_SOCK);
+	/* The Linux-style "sizeof(sun_family) + strlen" length truncates the
+	 * trailing byte of the path on macOS/BSD (whose sockaddr_un carries
+	 * an extra sun_len byte); offsetof() makes this portable.  */
 	cntrl_len =
-	    sizeof(cntrl_addr.sun_family) +
-	    strlen(DATA_AX25ROUTED_CTL_SOCK);
+	    offsetof(struct sockaddr_un, sun_path) +
+	    strlen(DATA_AX25ROUTED_CTL_SOCK) + 1;
 
 	if (bind(cntrl_s, (struct sockaddr *) &cntrl_addr, cntrl_len) < 0) {
 		perror("bind Control socket");

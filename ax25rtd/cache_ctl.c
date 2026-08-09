@@ -134,7 +134,13 @@ ax25_rt_entry *update_ax25_route(config * config, ax25_address * call,
 	int action = 0;
 
 	while (bp) {
-		if (!memcmp(call, &bp->call, AXLEN)) {
+		/* On AGWPE the cache is the route store and a route is
+		 * keyed by (port, callsign): the same station reached
+		 * through different ports is a separate entry.  On kernel
+		 * AX.25 the cache mirrors the kernel table (callsign
+		 * only).  */
+		if (!memcmp(call, &bp->call, AXLEN) &&
+		    (!agwpe_mode || !strcmp(iface, bp->iface))) {
 			if (bp->timestamp == 0 && timestamp != 0)
 				return NULL;
 
@@ -214,6 +220,37 @@ ax25_rt_entry *update_ax25_route(config * config, ax25_address * call,
 	ax25_routes = bp;
 
 	return bp;
+}
+
+ax25_rt_entry *ax25_route_lookup(config *config, ax25_address *call)
+{
+	ax25_rt_entry *bp;
+
+	for (bp = ax25_routes; bp; bp = bp->next)
+		if (!memcmp(call, &bp->call, AXLEN) &&
+		    (!agwpe_mode || !strcmp(config->dev, bp->iface)))
+			return bp;
+	return NULL;
+}
+
+void ax25_route_touch(ax25_rt_entry *bp, time_t timestamp)
+{
+	if (bp->timestamp == 0)
+		return;
+
+	bp->timestamp = timestamp;
+
+	if (bp != ax25_routes) {
+		if (bp->next)
+			bp->next->prev = bp->prev;
+		if (bp->prev)
+			bp->prev->next = bp->next;
+
+		bp->next = ax25_routes;
+		bp->prev = NULL;
+		ax25_routes->prev = bp;
+		ax25_routes = bp;
+	}
 }
 
 static ip_rt_entry *remove_ip_route(ip_rt_entry * bp)
