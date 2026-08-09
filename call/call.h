@@ -4,6 +4,9 @@
 #ifndef TRUE
 #define	TRUE	1
 #endif
+
+#include <time.h>
+
 extern int fd;
 extern volatile int interrupted;
 extern int paclen;

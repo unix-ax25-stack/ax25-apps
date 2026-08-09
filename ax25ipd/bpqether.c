@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#ifdef  linux
+#if defined(linux) || defined(__linux__)
 
 #include <linux/version.h>
 #ifndef KERNEL_VERSION
@@ -179,6 +179,7 @@ static int tun_alloc(char *dev)
 
 /*---------------------------------------------------------------------------*/
 
+#if defined(linux) || defined(__linux__)
 int open_ethertap(char *ifname)
 {
 
@@ -270,9 +271,18 @@ int open_ethertap(char *ifname)
 	return fd;
 
 }
+#else
+int open_ethertap(char *ifname)
+{
+	/* No kernel AX.25 / ethertap / TUN-TAP support on this platform. */
+	(void)ifname;
+	return -1;
+}
+#endif /* linux || __linux__ */
 
 /*---------------------------------------------------------------------------*/
 
+#if defined(linux) || defined(__linux__)
 int set_bpq_dev_call_and_up(char *ifname)
 {
 	FILE * fp;
@@ -363,3 +373,11 @@ int set_bpq_dev_call_and_up(char *ifname)
 
 	return err;
 }
+#else
+int set_bpq_dev_call_and_up(char *ifname)
+{
+	/* No kernel AX.25 / bpqether support on this platform. */
+	(void)ifname;
+	return -1;
+}
+#endif /* linux || __linux__ */

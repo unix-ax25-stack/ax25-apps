@@ -28,7 +28,7 @@ call.1 : call.man
 	    $(srcdir)/call.man > call.1.tmp &&				\
 	mv call.1.tmp call.1;
 
-call_LDADD = $(NCURSES_LIB) $(AX25_LIB)
+call_LDADD = $(NCURSES_LIB) $(AX25_LIB) $(ICONV_LIB)
 
 call_SOURCES =		\
 	call.c		\

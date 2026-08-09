@@ -64,12 +64,18 @@ Selects Slave mode.
 Use IBM850 encoding
 .TP 10
 .BI "\-m s|e"
-Sets the AX.25 mode to use. The default is taken from the port
-specification, but can be overridden by this option. Valid values are
+Sets the AX.25 mode to use. Valid values are
 .B s
 for normal (modulus 8) AX.25 operation, or
 .B e
-for extended (modulus 128) AX.25 operation.
+for extended (modulus 128) AX.25 operation.  This option is only effective
+on native kernel AX.25 sockets.  When the port is an
+.B ax25netd
+loop port the mode cannot be carried by the AGWPE protocol and is ignored;
+the level 2 mode of such connections is configured on the upstream server
+(see
+.BR ax25netd (8),
+section "AX.25 LEVEL 2").
 .TP 10
 .BI "\-p paclen"
 Specify a specific maximum amount of data to be sent in each AX.25 packet.
