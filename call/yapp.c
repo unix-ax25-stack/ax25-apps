@@ -39,7 +39,9 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
+#if defined(linux) || defined(__linux__)
 #include <linux/ax25.h>
+#endif
 
 #include "call.h"
 
