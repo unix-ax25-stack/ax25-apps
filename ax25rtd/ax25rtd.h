@@ -47,9 +47,26 @@
 #define LAPB_UI		0x03
 #define LAPB_PF         0x10
 
+#define LAPB_SABM	0x2f
+#define LAPB_SABME	0x6f
+#define LAPB_UA		0x63
+#define LAPB_DISC	0x43
+#define LAPB_DM		0x0f
+#define LAPB_FRMR	0x87
+
 #define ALEN		6
 #define AXLEN		7
 #define IPLEN		20
+
+/* AGWPE ports have no kernel interface: the port name is their only
+ * identity.  On platforms without a kernel AX.25 stack (macOS, BSD) every
+ * port is an AGWPE port; on Linux a port is an AGWPE port when its
+ * axports device field carries the 'agwpe-' prefix.  */
+#ifdef HAVE_KERNEL_AX25
+#define	AGWPE_BY_DEFAULT	0
+#else
+#define	AGWPE_BY_DEFAULT	1
+#endif
 
 /* structs for the caches */
 
@@ -79,6 +96,7 @@ typedef struct config_ {
 	struct config_ *next;
 	char port[128];
 	char dev[14];
+	int agwpe;		/* AGWPE port: no kernel interface */
 
 	char ax25_add_route;
 	char ax25_for_me;
@@ -105,6 +123,8 @@ typedef struct config_ {
 /* global variables */
 
 extern int reload;
+
+extern int agwpe_mode;
 
 extern config *Config;
 
@@ -150,11 +170,14 @@ config * port_get_config(char *port);
 void dump_ip_routes(int fd, int cmd);
 void dump_ax25_routes(int fd, int cmd);
 void dump_config(int fd);
+void get_ax25_routes(int fd, ax25_address *call);
 
 /* cache_ctl.c */
 
 int update_ip_route(config *config, unsigned long ip, int ipmode, ax25_address *call, time_t timestamp);
 ax25_rt_entry * update_ax25_route(config *config, ax25_address *call, int ndigi, ax25_address *digi, time_t timestamp);
+ax25_rt_entry * ax25_route_lookup(config *config, ax25_address *call);
+void ax25_route_touch(ax25_rt_entry *bp, time_t timestamp);
 int del_ip_route(unsigned long ip);
 int invalidate_ip_route(unsigned long ip);
 int del_ax25_route(config * config, ax25_address *call);
