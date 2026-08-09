@@ -30,6 +30,11 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 
+/* ENONET is a Linux specific errno.  */
+#ifndef ENONET
+#define ENONET 64
+#endif
+
 #include "ax25ipd.h"
 
 static struct termios nterm;
@@ -505,7 +510,9 @@ void io_start(void) {
 	fd_set readfds;
 	unsigned char buf[MAX_FRAME];
 	struct timeval wait;
-	struct iphdr *ipptr;
+	/* struct iphdr is Linux specific; struct ip with ip_hl exists on
+	 * both Linux and the BSD derived platforms. */
+	struct ip *ipptr;
 	time_t now;
 
 	for (;;) {
@@ -599,8 +606,8 @@ out_ttyfd:
 					n = recvfrom(sock, buf, MAX_FRAME, 0, (struct sockaddr *) &from, &fromlen);
 				}
 				while (io_error(n, buf, n, READ_MSG, IP_MODE, __LINE__));
-				ipptr = (struct iphdr *) buf;
-				hdr_len = 4 * ipptr-> ihl;
+				ipptr = (struct ip *) buf;
+				hdr_len = 4 * ipptr->ip_hl;
 				LOGL4("ipdata from=%s l=%d, hl=%d\n",
 				      inet_ntoa(from.  sin_addr), n, hdr_len);
 				stats.ip_in++;

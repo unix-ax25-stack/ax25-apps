@@ -14,16 +14,43 @@
 
 #include <sys/socket.h>
 #include <net/if.h>
-#ifdef __GLIBC__
-#include <net/ethernet.h>
-#else
-#include <linux/if_ether.h>
-#endif
 #include <netax25/ax25.h>
 #include <netax25/axconfig.h>
 
 #include <config.h>
 #include "listen.h"
+
+/* No packet socket on macOS/BSD: the shim in libax25 intercepts
+ * socket(PF_PACKET, SOCK_PACKET, ...) and feeds raw AX.25 frames from
+ * the AGWPE server into it.  */
+#ifndef PF_PACKET
+#define	PF_PACKET	17
+#endif
+#ifndef AF_PACKET
+#define	AF_PACKET	PF_PACKET
+#endif
+#ifndef SOCK_PACKET
+#define	SOCK_PACKET	10
+#endif
+
+#ifndef ETH_P_AX25
+#define	ETH_P_AX25	0x0800
+#endif
+#ifndef ETH_P_ALL
+#define	ETH_P_ALL	0x0003
+#endif
+
+#ifndef SIOCGIFHWADDR
+#define	SIOCGIFHWADDR	0x8927
+#endif
+
+/* The hardware address member of struct ifreq is ifr_hwaddr on Linux
+ * and ifr_addr on the BSDs and macOS.  */
+#if defined(__linux__)
+#define	LISTEN_IFR_HWADDR	ifr_hwaddr
+#else
+#define	LISTEN_IFR_HWADDR	ifr_addr
+#endif
 
 static struct timeval t_recv;
 static int tflag = 0;
@@ -278,6 +305,19 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	/* Restrict the monitor to a single port: on Linux this binds the
+	 * SOCK_PACKET socket to the device; on macOS/BSD the libax25 shim
+	 * intercepts it and filters the AGWPE raw stream accordingly.  */
+	if (dev != NULL) {
+		memset(&sa, 0, sizeof(sa));
+		sa.sa_family = AF_PACKET;
+		strncpy(sa.sa_data, dev, sizeof(sa.sa_data) - 1);
+		if (bind(sock, &sa, sizeof(sa)) == -1) {
+			perror("bind");
+			return 1;
+		}
+	}
+
 	if (color) {
 		color = initcolor();	/* Initialize color support */
 		if (!color)
@@ -330,7 +370,7 @@ int main(int argc, char **argv)
 			signal(SIGTERM, SIG_DFL);
 			if (sock == -1 || sigint)
 				break;
-			if (ifr.ifr_hwaddr.sa_family == AF_AX25) {
+			if (ifr.LISTEN_IFR_HWADDR.sa_family == AF_AX25) {
                                 if (size > 2 && *buffer == 0xcc) {
                                         /* IP packets from the ax25 de-segmenter
                                            are seen on socket "PF_PACKET,

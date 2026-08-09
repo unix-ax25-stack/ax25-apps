@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <time.h>
@@ -82,8 +83,11 @@ static int open_socket(void)
 
 	addr.sun_family = AF_UNIX;
 	strcpy(addr.sun_path, DATA_AX25ROUTED_CTL_SOCK);
+	/* Must match the length the daemon binds with (see ax25rtd.c):
+	 * offsetof-based so the path is not truncated on macOS/BSD.  */
 	addrlen =
-	    strlen(DATA_AX25ROUTED_CTL_SOCK) + sizeof(addr.sun_family);
+	    offsetof(struct sockaddr_un, sun_path) +
+	    strlen(DATA_AX25ROUTED_CTL_SOCK) + 1;
 
 	if (connect(sock, (struct sockaddr *) &addr, addrlen) < 0) {
 		perror("ax25rtctl connect");
