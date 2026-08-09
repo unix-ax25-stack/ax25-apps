@@ -1,0 +1,17 @@
+# Credentials for ax25netd.
+#
+# This file must be readable only by root and the account ax25netd runs
+# under; keep it mode 0600.  The "installconf" target installs a copy
+# with mode 0600 and never overwrites an existing file.
+#
+# Format:  <target>  <user>  <password>
+#
+# Target "ax25netd": client authentication of this instance (requires
+#   "auth required" in agwpe.conf).  Every AGWPE client connecting to
+#   the loop port must log in with one of these credentials.
+#
+# Any other target: optional login sent to the upstream of that name
+#   after connecting (AGWPE on Windows, a second ax25netd in a chain).
+#   Servers such as Direwolf need no entry and receive no credentials.
+
+# ax25netd	dl9sau		geheim

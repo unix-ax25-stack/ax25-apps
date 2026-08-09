@@ -12,11 +12,31 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_GCC_TRADITIONAL
 
+dnl Kernel AX.25 support exists on Linux only.  The kernel-only tools
+dnl (ax25rtd, listen, ax25mond) cannot work without the native Linux
+dnl kernel AX.25 stack and are only built on Linux.
+AC_MSG_CHECKING(whether native kernel AX.25 support is available)
+case `uname -s` in
+	Linux) ac_have_kernel_ax25=yes ;;
+	*)     ac_have_kernel_ax25=no ;;
+esac
+AC_MSG_RESULT($ac_have_kernel_ax25)
+AM_CONDITIONAL([HAVE_KERNEL_AX25], [test "$ac_have_kernel_ax25" = "yes"])
+if test "$ac_have_kernel_ax25" = "yes"; then
+	AC_DEFINE([HAVE_KERNEL_AX25], [1],
+		[Define to 1 if native kernel AX.25 support is available])
+fi
+
 dnl Checks for libraries.
 AC_SUBST(AX25_LIB)
 AC_SUBST(NCURSES_LIB)
 AC_CHECK_LIB(ax25, ax25_config_load_ports, AX25_LIB="-lax25", AC_MSG_ERROR(Could not find the libax25 libraries; aborting))
-AC_CHECK_LIB(ncursesw, initscr,NCURSES_LIB="-lncursesw", AC_MSG_ERROR(Could not find the ncursesw library; aborting))
+AC_CHECK_LIB(ncursesw, initscr, NCURSES_LIB="-lncursesw",
+	AC_CHECK_LIB(ncurses, initscr, NCURSES_LIB="-lncurses",
+		AC_MSG_ERROR(Could not find the ncursesw or ncurses library; aborting)))
+dnl iconv is part of glibc on Linux, but a separate library elsewhere.
+AC_SUBST(ICONV_LIB)
+AC_CHECK_FUNC(iconv_open, , AC_CHECK_LIB(iconv, iconv_open, ICONV_LIB="-liconv"))
 
 dnl Checks for working glibc 2.1 headers
 AC_CHECK_TYPES([struct ax25_fwd_struct], [],
@@ -63,5 +83,5 @@ AC_SUBST(BASEVERSION, [$basever])
 extraver=$(echo $PACKAGE_VERSION | sed -e 's@@<:@^-@:>@*-@@' -e 's@-@_@')
 AC_SUBST(EXTRAVERSION, [$extraver])
 
-AC_CONFIG_FILES([call/Makefile ax25ipd/Makefile listen/Makefile Makefile ax25rtd/Makefile ax25mond/Makefile ax25-apps.spec])
+AC_CONFIG_FILES([call/Makefile ax25ipd/Makefile ax25netd/Makefile listen/Makefile Makefile ax25rtd/Makefile ax25mond/Makefile ax25-apps.spec])
 AC_OUTPUT
