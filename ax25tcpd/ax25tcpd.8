@@ -1,0 +1,147 @@
+.\" Man page for ax25tcpd
+.\"
+.TH AX25TCPD 8 "11 Aug 2026" "ax25-apps" "Linux System Administration"
+.SH NAME
+ax25tcpd \- interactive AX.25 frontend to an AGWPE multiplexer
+.SH SYNOPSIS
+.B ax25tcpd
+.RB [ \-c
+.IR file ]
+.RB [ \-C
+.IR file ]
+.RB [ \-f ]
+.RB [ \-d ]
+.SH DESCRIPTION
+.B ax25tcpd
+is an interactive frontend to an
+.BR ax25netd (8)
+loop port.  Each client connection is a session: the first line is a
+command, the bytes after it are packet data.  It is useful for scripts
+and for talking to AX.25 services by hand.
+.SH PORTS
+Every
+.B listen tcp
+line creates two TCP listeners.  The binary port
+.I X
+passes the raw stream: everything sent after the command line is
+accumulated and delivered as one packet when the connection closes,
+split into
+.B mtu
+sized chunks.  The text port
+.I X+1
+sends each CR, LF or CRLF terminated line as one packet.  A
+.B listen unix
+socket behaves like a text port.
+.SH COMMANDS
+Unambiguous prefixes of the commands are accepted.  The end of a
+session is signalled by closing the connection, or, on the text ports,
+by the
+.B quit
+or
+.B bye
+commands.
+.TP
+.BI "connect [" options "] " port [ : chan ] " " dest [, digi , ...] " [< SRC]"
+Start an AX.25 connection.  The port is a name from the netd port list,
+optionally with a channel number, or a flat port number;
+.B loop
+names the virtual loopback port.  While connecting, input is held and
+delivered once the connection is up.  On the binary port the connection
+ends when the client closes the connection; on the text ports it ends
+when the remote disconnects, or after
+.B quit
+.
+.TP
+.BI "datagram [" options "] " port [ : chan ] " [" dest [, digi , ...] "] " [< SRC]"
+Send unconnected (UI) frames.  On the binary port the whole remaining
+stream is one datagram, split into mtu sized chunks when the connection
+closes; on the text ports every line is one frame.
+With a
+.IR dest
+the header is fixed for the whole session and every line is payload.
+Without one, every line is a whole TNC2 frame
+.RB ( "SRC>DEST,DIGI,...:payload" )
+whose source and path come out of the line itself.
+.PP
+Commas and spaces both separate a path, and mix freely:
+.I "DB0AAA-8 DB0BBB"
+means the same as
+.IR "DB0AAA-8,DB0BBB" .
+.PP
+Replies are written in the client's own line convention: a client whose
+lines end with a carriage return (CR or CRLF) gets CRLF replies, any
+other gets bare LF.  Data is never rewritten.
+.TP
+.B quit
+.BR bye
+Close the session.
+.TP
+.B help
+List the commands.
+.SH OPTIONS
+.TP
+.B \-\-silent
+Suppress the "*** CONNECTED" and "*** DISCONNECTED" status lines.
+.TP
+.B \-\-keep
+Do not end the session when a connection closes; the command prompt
+returns and a new connect or datagram may be issued.
+.TP
+.BI \-\-pid= XX
+Set the protocol identifier.  Accepts
+.BR text ,
+.BR netrom ,
+.BR rose ,
+.BR flexnet ,
+.BR l3
+or a number.  The default is text (0xF0).
+.TP
+.BI \-\-port " port"
+Give the port separately, allowing the destination as the first
+argument.
+.TP
+.BI \-\-mycall " call"
+Give the source call, exactly like the
+.B < SRC
+argument.
+.SH SOURCE CALL
+The source call comes from the optional
+.B < SRC
+argument, from
+.B \-\-mycall
+or from the
+.B default-call
+directive in
+.BR ax25tcpd.conf (5).
+Without either, the command is refused.
+.SH GENERAL OPTIONS
+.TP
+.BI \-c " file"
+Use
+.I file
+instead of the default configuration file.
+.TP
+.BI \-C " file"
+Shared loop port configuration, default
+\fI/usr/local/etc/ax25/ax25common.conf\fR; the back side is taken
+from it (see
+.BR ax25common.conf (5))
+unless a
+.B target
+line overrides it.
+.TP
+.B \-f
+Stay in the foreground.
+.TP
+.B \-d
+Log to standard error.
+.SH FILES
+.I /usr/local/etc/ax25/ax25tcpd.conf
+.br
+.I /usr/local/etc/ax25/ax25common.conf
+(back side unless overridden)
+.SH SEE ALSO
+.BR ax25tcpd.conf (5),
+.BR ax25netd (8),
+.BR ax25common.conf (5),
+.BR agwpe.conf (5)

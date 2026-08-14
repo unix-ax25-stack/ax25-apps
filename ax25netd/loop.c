@@ -25,9 +25,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <grp.h>
 #include <syslog.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/un.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
@@ -80,6 +83,66 @@ struct netd_client *client_by_fd(int fd)
 	return NULL;
 }
 
+/*
+ * True if the sockaddr is a loopback address.  The whole IPv4 127/8
+ * counts as local, not just 127.0.0.1.
+ */
+int addr_is_loopback(const struct sockaddr *sa, socklen_t len)
+{
+	if (sa == NULL)
+		return 0;
+
+	if (sa->sa_family == AF_INET) {
+		const struct sockaddr_in *in = (const struct sockaddr_in *)sa;
+
+		return len >= sizeof(*in) &&
+		       (ntohl(in->sin_addr.s_addr) & 0xff000000) == 0x7f000000;
+	}
+	if (sa->sa_family == AF_INET6) {
+		const struct sockaddr_in6 *in6 =
+			(const struct sockaddr_in6 *)sa;
+
+		return len >= sizeof(*in6) && IN6_IS_ADDR_LOOPBACK(&in6->sin6_addr);
+	}
+	return 0;
+}
+
+/*
+ * True if the host string names a loopback address.  Resolves the name
+ * with getaddrinfo so that every spelling (127.0.0.1, 127.0.0.2, ::1,
+ * "localhost", ...) is covered; unresolvable names count as remote so
+ * that the caller warns on the safe side.
+ */
+int host_is_loopback(const char *host)
+{
+	struct addrinfo hints, *res;
+	int ret, loopback = 0;
+
+	if (host == NULL)
+		return 0;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+
+	ret = getaddrinfo(host, NULL, &hints, &res);
+	if (ret != 0)
+		return 0;
+
+	{
+		struct addrinfo *ai;
+
+		for (ai = res; ai != NULL; ai = ai->ai_next) {
+			if (addr_is_loopback(ai->ai_addr, ai->ai_addrlen)) {
+				loopback = 1;
+				break;
+			}
+		}
+	}
+	freeaddrinfo(res);
+	return loopback;
+}
+
 int loop_init(const char *bindaddr, int port)
 {
 	struct addrinfo hints, *res, *ai;
@@ -121,29 +184,200 @@ int loop_init(const char *bindaddr, int port)
 	 * can reach this address.  That is only acceptable together with
 	 * client authentication, so warn loudly when it is disabled.
 	 */
-	{
-		int is_loop = 0;
-
-		if (ai->ai_family == AF_INET) {
-			const struct sockaddr_in *in =
-				(const struct sockaddr_in *)ai->ai_addr;
-
-			is_loop = in->sin_addr.s_addr == htonl(INADDR_LOOPBACK);
-		} else if (ai->ai_family == AF_INET6) {
-			const struct sockaddr_in6 *in6 =
-				(const struct sockaddr_in6 *)ai->ai_addr;
-
-			is_loop = IN6_IS_ADDR_LOOPBACK(&in6->sin6_addr);
-		}
-
-		if (!is_loop && !netd.auth)
-			netd_log(LOG_WARNING,
-				 "listening on non-loopback %s:%d without authentication: anyone who can reach this address controls your radio; consider 'auth required' in %s",
-				 bindaddr, port, "agwpe.conf");
-	}
+	if (!addr_is_loopback(ai->ai_addr, ai->ai_addrlen) && !netd.auth)
+		netd_log(LOG_WARNING,
+			 "listening on non-loopback %s:%d without authentication: anyone who can reach this address controls your radio; consider 'auth required' in %s",
+			 bindaddr, port, "agwpe.conf");
 
 	netd.listener_fd = s;
 	netd_log(LOG_INFO, "listening for AGWPE clients on %s:%d", bindaddr, port);
+	return 0;
+}
+
+/*
+ * Create the parent directory of a unix socket path.  Runtime
+ * directories are volatile (/run on Linux is tmpfs and empty after
+ * every reboot), so the daemon creates it itself.  Returns 0 on
+ * success.  mode and the owning (uid, gid) apply to a directory this
+ * call creates; an existing directory is left alone.
+ */
+static int loop_mkdir_parent(const char *path, mode_t mode,
+			     uid_t uid, gid_t gid)
+{
+	char *dup, *slash, *dir;
+	struct stat st;
+
+	if (path[0] == '\0')
+		return -1;
+
+	dup = strdup(path);
+	if (dup == NULL)
+		return -1;
+
+	slash = strrchr(dup, '/');
+	if (slash == NULL)
+		dir = ".";
+	else if (slash == dup)
+		dir = "/";
+	else {
+		*slash = '\0';
+		dir = dup;
+	}
+
+	if (stat(dir, &st) == 0) {
+		if (!S_ISDIR(st.st_mode)) {
+			free(dup);
+			errno = ENOTDIR;
+			return -1;
+		}
+		free(dup);
+		return 0;
+	}
+	if (errno != ENOENT) {
+		free(dup);
+		return -1;
+	}
+
+	if (mkdir(dir, mode) != 0) {
+		free(dup);
+		return -1;
+	}
+	if (chown(dir, uid, gid) != 0) {
+		free(dup);
+		return -1;
+	}
+
+	free(dup);
+	return 0;
+}
+
+/*
+ * Set up the unix domain socket listener for AGWPE clients.
+ *
+ * group_mode / group_name follow agwpe.conf's "group" directive:
+ *
+ *   AGWPE_GROUP_DEFAULT  the socket belongs to the daemon run user
+ *                        (run_uid:run_gid), mode 0660;
+ *   AGWPE_GROUP_NAMED    the socket belongs to run_uid and the given
+ *                        group (name or numeric gid), mode 0660, so
+ *                        only members of that group can connect;
+ *   AGWPE_GROUP_ALL      mode 0666, every local user can connect.
+ *
+ * The parent directory is created with mode 0750 (0755 for
+ * AGWPE_GROUP_ALL) and owned by (run_uid, gid); its setgid bit makes
+ * the socket inherit the group even when it is recreated by another
+ * process.  A stale socket file from a previous run is removed.
+ * Returns 0 on success and stores the descriptor and path in netd.
+ */
+int loop_init_unix(const char *path, int group_mode, const char *group_name,
+		   uid_t run_uid, gid_t run_gid)
+{
+	struct sockaddr_un sa;
+	struct stat st;
+	gid_t gid = run_gid;
+	mode_t dir_mode = 0750, sock_mode = 0660;
+	int s;
+
+	if (path == NULL || path[0] == '\0')
+		return -1;
+
+	if (strlen(path) >= sizeof(sa.sun_path)) {
+		netd_log(LOG_ERR, "loop: unix socket path too long: %s", path);
+		return -1;
+	}
+
+	if (group_mode == AGWPE_GROUP_ALL) {
+		dir_mode = 0755;
+		sock_mode = 0666;
+	} else if (group_mode == AGWPE_GROUP_NAMED) {
+		long num;
+		char *end;
+		struct group *gr;
+
+		errno = 0;
+		num = strtol(group_name, &end, 10);
+		if (errno == 0 && *end == '\0' && num > 0 && num < 65536)
+			gid = (gid_t)num;
+		else {
+			gr = getgrnam(group_name);
+			if (gr == NULL) {
+				netd_log(LOG_ERR,
+					 "loop: no such group '%s' for the unix socket",
+					 group_name);
+				return -1;
+			}
+			gid = gr->gr_gid;
+		}
+		dir_mode |= S_ISGID;
+	}
+
+	if (loop_mkdir_parent(path, dir_mode, run_uid, gid) != 0) {
+		netd_log(LOG_ERR, "loop: cannot create directory for %s: %s",
+			 path, strerror(errno));
+		return -1;
+	}
+
+	/* A stale socket from a previous run blocks the bind.  Only
+	 * remove it when it really is a socket, never another file.  */
+	if (lstat(path, &st) == 0) {
+		if (!S_ISSOCK(st.st_mode)) {
+			netd_log(LOG_ERR,
+				 "loop: %s exists and is not a socket; not removing it",
+				 path);
+			return -1;
+		}
+		if (unlink(path) != 0) {
+			netd_log(LOG_ERR, "loop: cannot remove stale socket %s: %s",
+				 path, strerror(errno));
+			return -1;
+		}
+	} else if (errno != ENOENT) {
+		netd_log(LOG_ERR, "loop: cannot inspect %s: %s", path,
+			 strerror(errno));
+		return -1;
+	}
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sun_family = AF_UNIX;
+	strncpy(sa.sun_path, path, sizeof(sa.sun_path) - 1);
+
+	s = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (s < 0) {
+		netd_log(LOG_ERR, "loop: unix socket: %s", strerror(errno));
+		return -1;
+	}
+
+	if (bind(s, (struct sockaddr *)&sa, SUN_LEN(&sa)) != 0 ||
+	    listen(s, 16) != 0) {
+		netd_log(LOG_ERR, "loop: cannot listen on %s: %s", path,
+			 strerror(errno));
+		close(s);
+		return -1;
+	}
+
+	/* Set the permissions through the path: macOS does not allow
+	 * fchmod(2)/fchown(2) on socket descriptors, while chmod(2) on
+	 * the path works everywhere.  A non-root daemon already owns
+	 * its own socket, so only chown when privileged.  */
+	if (chmod(path, sock_mode) != 0 ||
+	    (geteuid() == 0 && chown(path, run_uid, gid) != 0)) {
+		netd_log(LOG_ERR, "loop: cannot set ownership of %s: %s",
+			 path, strerror(errno));
+		close(s);
+		unlink(path);
+		return -1;
+	}
+
+	if (geteuid() == 0 && run_uid == 0 && group_mode == AGWPE_GROUP_DEFAULT)
+		netd_log(LOG_WARNING,
+			 "unix socket %s is root-only; the daemon should drop privileges with -u so its own user can connect",
+			 path);
+
+	netd.unix_fd = s;
+	strncpy(netd.unix_path, path, sizeof(netd.unix_path) - 1);
+	netd.unix_group_mode = group_mode;
+	netd.unix_group_gid = gid;
+	netd_log(LOG_INFO, "listening for AGWPE clients on unix socket %s", path);
 	return 0;
 }
 
@@ -200,11 +434,16 @@ static int loop_peer_trusted(int fd)
 	if (getpeername(fd, (struct sockaddr *)&ss, &slen) != 0)
 		return 0;
 
+	if (ss.ss_family == AF_UNIX) {
+		/* A unix domain socket is gated by the file permissions
+		 * of the socket: connecting requires write access.  That
+		 * is the authentication, so no login is needed.  */
+		return 1;
+	}
 	if (ss.ss_family == AF_INET) {
 		const struct sockaddr_in *in =
 			(const struct sockaddr_in *)&ss;
 
-		/* The whole 127/8 is local, not just 127.0.0.1.  */
 		return (ntohl(in->sin_addr.s_addr) & 0xff000000) == 0x7f000000;
 	}
 	if (ss.ss_family == AF_INET6) {
@@ -216,12 +455,12 @@ static int loop_peer_trusted(int fd)
 	return 0;
 }
 
-void loop_accept(void)
+void loop_accept(int lfd)
 {
 	struct netd_client *cl;
 	int fd;
 
-	fd = accept(netd.listener_fd, NULL, NULL);
+	fd = accept(lfd, NULL, NULL);
 	if (fd < 0) {
 		netd_log(LOG_WARNING, "loop: accept: %s", strerror(errno));
 		return;
@@ -357,6 +596,9 @@ void loop_close_client(struct netd_client *cl)
 	free(cl->rbuf);
 	cl->rbuf = NULL;
 	cl->rlen = cl->ra = 0;
+	free(cl->obuf);
+	cl->obuf = NULL;
+	cl->olen = cl->oa = 0;
 }
 
 void loop_reap_dead(void)
@@ -369,37 +611,85 @@ void loop_reap_dead(void)
 	}
 }
 
+/*
+ * Send as much of a client's output queue as the socket accepts.  The
+ * client descriptor is non-blocking, so a full socket buffer simply
+ * leaves the remainder queued; the main loop calls this again when the
+ * descriptor reports writable.  Returns 0 while the queue is empty or
+ * blocked without error, -1 when the connection is broken.
+ */
+void loop_flush_client(struct netd_client *cl)
+{
+	while (cl != NULL && cl->fd >= 0 && cl->olen > 0 && !cl->dead) {
+		ssize_t n;
+
+		n = send(cl->fd, cl->obuf, cl->olen, 0);
+		if (n < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				return;
+			netd_log(LOG_WARNING, "client %d: send: %s",
+				 cl->fd, strerror(errno));
+			cl->dead = 1;
+			return;
+		}
+		if (n == 0) {
+			cl->dead = 1;
+			return;
+		}
+		cl->olen -= n;
+		memmove(cl->obuf, cl->obuf + n, cl->olen);
+	}
+}
+
 int loop_send_client(struct netd_client *cl, const struct agwpe_s *hdr,
 		     const unsigned char *data, size_t len)
 {
 	struct agwpe_s out;
-	ssize_t n;
+	size_t total;
+	unsigned char *p;
 
-	if (cl == NULL || cl->fd < 0)
+	if (cl == NULL || cl->fd < 0 || cl->dead)
 		return -1;
 
-	out = *hdr;
-	out.data_len = agwpe_host2netle(out.data_len);
-
-	n = send(cl->fd, &out, AGWPE_HEADER_LEN, 0);
-	if (n != AGWPE_HEADER_LEN)
-		goto fail;
-
-	if (len > 0 && data != NULL) {
-		size_t sent = 0;
-
-		while (sent < len) {
-			n = send(cl->fd, data + sent, len - sent, 0);
-			if (n <= 0)
-				goto fail;
-			sent += n;
-		}
+	total = AGWPE_HEADER_LEN + len;
+	if (cl->olen + total > NETD_OUT_MAX) {
+		netd_log(LOG_ERR,
+			 "client %d: output queue exceeds %d bytes, dropping",
+			 cl->fd, NETD_OUT_MAX);
+		cl->dead = 1;
+		return -1;
 	}
 
-	return 0;
+	/* Grow the queue buffer to hold the whole frame.  */
+	if (cl->olen + total > cl->oa) {
+		size_t ns = cl->oa ? cl->oa : 4096;
+		unsigned char *nb;
 
-fail:
-	/* Cannot keep up; drop the client.  */
-	cl->dead = 1;
-	return -1;
+		while (ns < cl->olen + total)
+			ns *= 2;
+		nb = realloc(cl->obuf, ns);
+		if (nb == NULL) {
+			netd_log(LOG_ERR, "client %d: out of memory queueing %zu bytes",
+				 cl->fd, total);
+			cl->dead = 1;
+			return -1;
+		}
+		cl->obuf = nb;
+		cl->oa = ns;
+	}
+
+	out = *hdr;
+	out.data_len = agwpe_host2netle(len);
+	p = cl->obuf + cl->olen;
+	memcpy(p, &out, AGWPE_HEADER_LEN);
+	if (len > 0 && data != NULL)
+		memcpy(p + AGWPE_HEADER_LEN, data, len);
+	cl->olen += total;
+
+	/* Try to get the frame out now; whatever the socket cannot take
+	 * stays queued and is sent from the main loop once the descriptor
+	 * is writable again.  */
+	loop_flush_client(cl);
+
+	return cl->dead ? -1 : 0;
 }

@@ -1091,6 +1091,35 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 
 			session_add(u, hdr->call_from, hdr->call_to,
 				    pid, cl->fd, port_chan(u, port));
+
+			/*
+			 * Autoroute: a connect that names no digipeaters
+			 * asks the ax25rtd route cache for a learned
+			 * path to the destination on this port.  A
+			 * connect with an explicit digipeater path ('v')
+			 * is never touched.  No route, or an
+			 * unresponsive route daemon, falls back to the
+			 * plain connect.
+			 */
+			if (netd.autoroute &&
+			    (hdr->datakind == AGWPE_CMD_CONNECT ||
+			     hdr->datakind == AGWPE_CMD_CONNECT_PID)) {
+				struct agwpe_s vh;
+				unsigned char digis[1 +
+					(AGWPE_MAX_DIGIS - 1) * AGWPE_MAX_CALL];
+				int ndigi;
+
+				ndigi = netd_route_lookup(u, hdr->call_to,
+							  digis, sizeof(digis));
+				if (ndigi > 0) {
+					vh = *hdr;
+					vh.datakind = AGWPE_CMD_CONNECT_VIA;
+					vh.data_len = agwpe_host2netle(
+						1 + ndigi * AGWPE_MAX_CALL);
+					client_send_upstream(u, &vh, digis);
+					break;
+				}
+			}
 			client_send_upstream(u, hdr, data);
 		}
 		break;

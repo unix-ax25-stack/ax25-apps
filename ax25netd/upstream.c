@@ -79,10 +79,22 @@ static void on_ports(agwpe_client_t *c, struct agwpe_port_list *list)
 
 static void upstream_connect(struct netd_upstream *u)
 {
+	int unixup = (u->host[0] == '/');
+
 	if (u->virtual)
 		return;
 
-	if (agwpe_client_connect_host(u->cli, u->host, u->tcp_port) < 0) {
+	if (unixup) {
+		if (agwpe_client_connect_unix(u->cli, u->host) < 0) {
+			netd_log(LOG_WARNING, "upstream %s: connect to %s failed: %s",
+				 u->name, u->host,
+				 strerror(agwpe_client_err(u->cli)));
+			u->connected = 0;
+			u->dead = 1;
+			u->dead_since = time(NULL);
+			return;
+		}
+	} else if (agwpe_client_connect_host(u->cli, u->host, u->tcp_port) < 0) {
 		netd_log(LOG_WARNING, "upstream %s: connect to %s:%d failed: %s",
 			 u->name, u->host, u->tcp_port,
 			 strerror(agwpe_client_err(u->cli)));
@@ -104,8 +116,9 @@ static void upstream_connect(struct netd_upstream *u)
 		agwpe_client_login(u->cli, "", "");
 	mux_upstream_reconnected(u);
 
-	netd_log(LOG_INFO, "upstream %s: connected to %s:%d",
-		 u->name, u->host, u->tcp_port);
+	netd_log(LOG_INFO, "upstream %s: connected to %s%s%d",
+		 u->name, u->host, unixup ? "" : ":",
+		 unixup ? 0 : u->tcp_port);
 }
 
 int upstream_init_all(void)

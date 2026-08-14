@@ -23,6 +23,26 @@ and
 .I tcp-port
 are where the AGWPE server listens (Direwolf defaults to port 8000).
 .PP
+The
+.I host
+accepts IPv4 and IPv6 addresses and host names; IPv6 literals may be
+written in the bracketed notation
+.B [2001:db8::1]
+(brackets are stripped before lookup).  A host beginning with
+.B /
+names a unix domain socket instead of a TCP port, useful to reach an
+AGWPE server on the same machine without TCP; in that case the
+.I tcp-port
+column is ignored and may be written as
+.B \-
+or left out:
+.PP
+.RS
+.nf
+radio0	/var/run/agwpe/radio.sock	-
+.fi
+.RE
+.PP
 The AGWPE port numbers handed out to the local clients are flat and depend
 only on the order of the upstreams in this file, never on the channel
 layout of the upstreams: upstream \fIi\fR (counting from 0) owns the ports
@@ -78,19 +98,49 @@ are synonyms for
 for
 .BR extern .
 .PP
+The loop port endpoint itself (the unix domain socket, the TCP port and
+the socket group) is not configured here but in the shared
+.BR ax25common.conf (5),
+which
+.BR ax25netd (8)
+and its local clients read alike.
+.PP
+An optional line
+.PP
+.RS
+.B autoroute
+.I yes|no
+.RE
+.PP
+controls automatic digipeater resolution for connects that name no
+digipeaters ("connect port dest", the AGWPE "C" and "c" commands).
+When enabled (the default, mirroring the kernel AX.25 stack) the daemon
+asks the
+.BR ax25rtd (8)
+route cache for the destination on the target port and uses the learned
+path.  A connect that names its digipeaters (the "v" command) is never
+touched, and a connect to the loop port is never resolved.  An absent
+or unresponsive route daemon is not an error: the plain connect is sent
+instead.
+.PP
 Blank lines and lines beginning with
 .B #
 are ignored.
 .SH EXAMPLE
 .nf
 	auth	extern
+	autoroute	yes
 	radio0	localhost	8000
 	radio1	192.168.1.20	8000
+	radio2	[2001:db8::1]	8000
+	radio3	/var/run/agwpe/radio.sock	-
 	loop	-	-
 .fi
 .SH FILES
 .I /usr/local/etc/ax25/agwpe.conf
 .SH SEE ALSO
 .BR ax25netd (8),
+.BR ax25rtd (8),
+.BR ax25common.conf (5),
 .BR agwpe_shadow.conf (5),
 .BR axports (5)

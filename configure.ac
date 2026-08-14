@@ -83,5 +83,5 @@ AC_SUBST(BASEVERSION, [$basever])
 extraver=$(echo $PACKAGE_VERSION | sed -e 's@@<:@^-@:>@*-@@' -e 's@-@_@')
 AC_SUBST(EXTRAVERSION, [$extraver])
 
-AC_CONFIG_FILES([call/Makefile ax25ipd/Makefile ax25netd/Makefile listen/Makefile Makefile ax25rtd/Makefile ax25mond/Makefile ax25-apps.spec])
+AC_CONFIG_FILES([call/Makefile ax25ipd/Makefile ax25netd/Makefile listen/Makefile Makefile ax25rtd/Makefile ax25mond/Makefile ax25tcpd/Makefile ax25-apps.spec])
 AC_OUTPUT

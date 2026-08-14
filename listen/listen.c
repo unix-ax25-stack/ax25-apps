@@ -16,6 +16,7 @@
 #include <net/if.h>
 #include <netax25/ax25.h>
 #include <netax25/axconfig.h>
+#include <netax25/axmon.h>
 
 #include <config.h>
 #include "listen.h"
@@ -219,6 +220,79 @@ static void handle_sigint(int signal)
 
 #define BUFSIZE		1500
 
+/* The libax25 AGWPE shim backs SOCK_PACKET monitors with an AF_UNIX
+ * stream and delivers every frame as one length prefixed unit (see
+ * netax25/axmon.h).  Detect it via getsockopt: the shim answers
+ * ENOPROTOOPT for SOL_SOCKET options on its virtual sockets, while a
+ * kernel packet socket reports its real SO_DOMAIN and is read one
+ * frame per recvfrom() as before.  */
+static int monitor_framed(int fd)
+{
+	int type;
+	socklen_t len = sizeof(type);
+
+	return getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &len) == -1 &&
+	       errno == ENOPROTOOPT;
+}
+
+/* recvfrom() through the shim, retrying signals: a partial length
+ * prefix must not be lost to EINTR or the frame stream desynchronizes.  */
+static ssize_t mon_read(int fd, void *buf, size_t len,
+			struct sockaddr *sa, socklen_t *asize)
+{
+	for (;;) {
+		ssize_t n = recvfrom(fd, buf, len, 0, sa, asize);
+
+		if (n >= 0)
+			return n;
+		if (errno != EINTR)
+			return -1;
+	}
+}
+
+/* Read one monitor frame.  On the shim backend a frame is [4 byte
+ * big-endian length][payload]; on a kernel packet socket each recvfrom
+ * returns exactly one frame.  Returns the payload length, or -1.  */
+static int recv_frame(int fd, unsigned char *buf, size_t buflen,
+		      struct sockaddr *sa, socklen_t *asize, int framed)
+{
+	unsigned char hdr[AXMON_PREFIX_LEN];
+	size_t plen = 0;
+	size_t off;
+	ssize_t n;
+
+	if (!framed)
+		return (int)mon_read(fd, buf, buflen, sa, asize);
+
+	for (off = 0; off < AXMON_PREFIX_LEN; ) {
+		n = mon_read(fd, hdr + off, AXMON_PREFIX_LEN - off, sa, asize);
+		if (n <= 0) {
+			if (n == 0)
+				errno = ECONNRESET;
+			return -1;
+		}
+		off += (size_t)n;
+		sa = NULL;	/* the source is fixed within one frame */
+		asize = NULL;
+	}
+	for (size_t i = 0; i < AXMON_PREFIX_LEN; i++)
+		plen = (plen << 8) | hdr[i];
+	if (plen == 0 || plen > buflen) {
+		errno = E2BIG;
+		return -1;
+	}
+	for (off = 0; off < plen; ) {
+		n = mon_read(fd, buf + off, plen - off, NULL, NULL);
+		if (n <= 0) {
+			if (n == 0)
+				errno = ECONNRESET;
+			return -1;
+		}
+		off += (size_t)n;
+	}
+	return (int)plen;
+}
+
 int main(int argc, char **argv)
 {
 	unsigned char buffer[BUFSIZE];
@@ -230,6 +304,7 @@ int main(int argc, char **argv)
 	socklen_t asize = sizeof(sa);
 	struct ifreq ifr;
 	int proto = ETH_P_AX25;
+	int framed;
 	int exit_code = EXIT_SUCCESS;
 
 	while ((s = getopt(argc, argv, "8achip:rtv")) != -1) {
@@ -305,6 +380,11 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	framed = monitor_framed(sock);
+	if (framed)
+		fprintf(stderr, "listen: raw monitor via libax25 AGWPE shim "
+			"(framed)\n");
+
 	/* Restrict the monitor to a single port: on Linux this binds the
 	 * SOCK_PACKET socket to the device; on macOS/BSD the libax25 shim
 	 * intercepts it and filters the AGWPE raw stream accordingly.  */
@@ -331,7 +411,8 @@ int main(int argc, char **argv)
 
 		signal(SIGINT, handle_sigint);
 		signal(SIGTERM, handle_sigint);
-		size = recvfrom(sock, buffer, sizeof(buffer), 0, &sa, &asize);
+		size = recv_frame(sock, buffer, sizeof(buffer), &sa, &asize,
+				   framed);
 		if (size == -1) {
 			/*
 			 * Signals are cared for by the handler, and we

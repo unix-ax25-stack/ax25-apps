@@ -19,6 +19,8 @@
 
 #include <stdint.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 #include <netax25/agwpe.h>
 #include <netax25/agwpe_client.h>
@@ -46,6 +48,13 @@
 
 #define	NETD_BUF_MAX		(16 * 1024 * 1024)
 
+/*
+ * Bound on the per-client output queue.  A client that cannot keep up is
+ * allowed to fall behind for this much traffic before it is dropped;
+ * beyond it the backlog is a real failure, not a burst.
+ */
+#define	NETD_OUT_MAX		(1 * 1024 * 1024)
+
 struct netd_client {
 	int			fd;
 	int			dead;
@@ -53,6 +62,9 @@ struct netd_client {
 	unsigned char		*rbuf;
 	size_t			rlen;
 	size_t			ra;
+	unsigned char		*obuf;		/* pending output, netle on wire */
+	size_t			olen;
+	size_t			oa;
 	int			monitor;	/* wants monitored frames */
 	int			raw;		/* wants raw frames */
 	int			want_ports;	/* 'G' request deferred */
@@ -98,7 +110,7 @@ struct netd_session {
 struct netd_upstream {
 	int			index;
 	char			name[24];
-	char			host[64];
+	char			host[AGWPE_UPSTREAM_HOST_MAX];
 	int			tcp_port;
 	int			virtual;	/* virtual loop upstream, port 255 */
 
@@ -150,13 +162,21 @@ struct netd_ctx {
 	int			capclients;
 	struct netd_client	*clients;
 
-	int			listener_fd;
+	int			listener_fd;	/* TCP listener, -1 when disabled */
+	int			unix_fd;	/* unix socket listener, -1 when disabled */
+	char			unix_path[108];
+	int			unix_group_mode;	/* AGWPE_GROUP_* */
+	gid_t			unix_group_gid;		/* resolved group, 0 for default */
 
 	int			nup;
 	struct netd_upstream	*ups;
 
 	struct netd_upstream	loop;		/* virtual loop upstream */
 	int			loop_enabled;
+
+	/* "autoroute yes|no": resolve a digipeater path for connects
+	 * without one by asking the ax25rtd route cache.  */
+	int			autoroute;
 };
 
 extern struct netd_ctx netd;
@@ -165,13 +185,25 @@ extern void netd_log(int prio, const char *fmt, ...);
 
 /* loop.c */
 extern int loop_init(const char *bindaddr, int port);
-extern void loop_accept(void);
+extern int loop_init_unix(const char *path, int group_mode,
+			  const char *group_name, uid_t run_uid,
+			  gid_t run_gid);
+extern void loop_accept(int lfd);
 extern void loop_read_client(struct netd_client *cl);
+extern void loop_flush_client(struct netd_client *cl);
 extern void loop_close_client(struct netd_client *cl);
 extern void loop_reap_dead(void);
 extern int loop_send_client(struct netd_client *cl, const struct agwpe_s *hdr,
 			    const unsigned char *data, size_t len);
 extern struct netd_client *client_by_fd(int fd);
+
+/* True if the sockaddr is a loopback address.  The whole IPv4 127/8
+ * counts, not just 127.0.0.1.  */
+extern int addr_is_loopback(const struct sockaddr *sa, socklen_t len);
+
+/* True if the host string names a loopback address, resolved with
+ * getaddrinfo (also understands "localhost").  */
+extern int host_is_loopback(const char *host);
 
 /* mux.c */
 extern void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
@@ -193,5 +225,9 @@ extern void upstream_reconnect_tick(time_t now);
 extern int netd_mheard_init(void);
 extern void netd_mheard_frame(struct netd_upstream *u,
 			      const unsigned char *frame, size_t len);
+
+/* route.c */
+extern int netd_route_lookup(struct netd_upstream *u, const char *call,
+			     unsigned char *buf, size_t bufsz);
 
 #endif
