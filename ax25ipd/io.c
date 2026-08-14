@@ -40,11 +40,19 @@
 static struct termios nterm;
 
 int ttyfd = -1;
-static int udpsock = -1;
-static int sock = -1;
-static struct sockaddr_in udpbind;
-static struct sockaddr_in to;
-static struct sockaddr_in from;
+
+/*
+ * Up to four sockets: protocol 93 and UDP, each over IPv4 and over IPv6.
+ * Which of them exist follows from the "socket" lines in the configuration
+ * and from what the kernel is willing to give us - a machine without IPv6
+ * simply ends up with the v4 ones, which is what it always had.
+ */
+static int sock4 = -1;		/* raw, protocol 93, IPv4 */
+static int sock6 = -1;		/* raw, protocol 93, IPv6 */
+static int udpsock4 = -1;
+static int udpsock6 = -1;
+
+static struct sockaddr_storage from;
 static socklen_t fromlen;
 
 static time_t last_bc_time;
@@ -243,29 +251,183 @@ void io_init(void)
 		ttyfd = -1;
 	}
 
-	if (sock >= 0) {
-		close(sock);
-		sock = -1;
+	if (sock4 >= 0) {
+		close(sock4);
+		sock4 = -1;
 	}
 
-	if (udpsock >= 0) {
-		close(udpsock);
-		udpsock = -1;
+	if (sock6 >= 0) {
+		close(sock6);
+		sock6 = -1;
 	}
+
+	if (udpsock4 >= 0) {
+		close(udpsock4);
+		udpsock4 = -1;
+	}
+
+	if (udpsock6 >= 0) {
+		close(udpsock6);
+		udpsock6 = -1;
+	}
+
+	memset(&from, 0, sizeof from);
+}
 
 /*
- * The memset is not strictly required - it simply zeros out the
- * address structure.  Since both to and from are static, they are
- * already clear.
+ * Open one raw socket for protocol 93.  Returns -1 without complaining: a
+ * machine with no IPv6 is not an error, it is the situation this program has
+ * been in for thirty years.  The caller decides whether the loss matters.
  */
-	memset(&to, 0, sizeof(struct sockaddr));
-	to.sin_family = AF_INET;
 
-	memset(&from, 0, sizeof(struct sockaddr));
-	from.sin_family = AF_INET;
+static int open_raw(int family)
+{
+	int fd;
 
-	memset(&udpbind, 0, sizeof(struct sockaddr));
-	udpbind.sin_family = AF_INET;
+	fd = socket(family, SOCK_RAW, IPPROTO_AX25);
+	if (fd < 0) {
+		LOGL4("no raw socket for %s: %s\n",
+		      family == AF_INET ? "IPv4" : "IPv6", strerror(errno));
+		return -1;
+	}
+#if defined AF_INET6 && defined IPV6_V6ONLY
+	if (family == AF_INET6) {
+		int one = 1;
+
+		/* Keep the two families apart; v4-mapped addresses on a raw
+		 * socket are not something to rely on.
+		 */
+		setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof one);
+	}
+#endif
+	if (fcntl(fd, F_SETFL, FNDELAY) < 0) {
+		perror("setting non-blocking I/O on raw socket");
+		exit(1);
+	}
+	return fd;
+}
+
+/* Open and bind one UDP socket.  Same rules as open_raw(). */
+
+static int open_udp(int family)
+{
+	struct sockaddr_storage ss;
+	socklen_t sslen;
+	int fd;
+
+	fd = socket(family, SOCK_DGRAM, 0);
+	if (fd < 0) {
+		LOGL4("no udp socket for %s: %s\n",
+		      family == AF_INET ? "IPv4" : "IPv6", strerror(errno));
+		return -1;
+	}
+#if defined AF_INET6 && defined IPV6_V6ONLY
+	if (family == AF_INET6) {
+		int one = 1;
+
+		setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof one);
+	}
+#endif
+	if (fcntl(fd, F_SETFL, FNDELAY) < 0) {
+		perror("setting non-blocking I/O on UDP socket");
+		exit(1);
+	}
+
+	memset(&ss, 0, sizeof ss);
+	if (family == AF_INET) {
+		struct sockaddr_in *s4 = (struct sockaddr_in *) &ss;
+
+		s4->sin_family = AF_INET;
+		s4->sin_addr.s_addr = INADDR_ANY;
+		s4->sin_port = my_udp;
+		sslen = sizeof *s4;
+#ifdef AF_INET6
+	} else {
+		struct sockaddr_in6 *s6 = (struct sockaddr_in6 *) &ss;
+
+		s6->sin6_family = AF_INET6;
+		s6->sin6_addr = in6addr_any;
+		s6->sin6_port = my_udp;
+		sslen = sizeof *s6;
+#endif
+	}
+	if (bind(fd, (struct sockaddr *) &ss, sslen) < 0) {
+		LOGL4("cannot bind udp socket for %s: %s\n",
+		      family == AF_INET ? "IPv4" : "IPv6", strerror(errno));
+		close(fd);
+		return -1;
+	}
+	return fd;
+}
+
+/*
+ * Say something if the configuration has routes to a family we have no
+ * socket for.  Not having IPv6 at all is silent - that is the normal state
+ * of an old machine - but a route that can never be used is worth a word,
+ * because it looks configured and does nothing.
+ */
+
+static void warn_unroutable_families(void)
+{
+	if (routes_have_family(AF_INET) && sock4 < 0 && udpsock4 < 0)
+		fprintf(stderr,
+			"warning: there are IPv4 routes but no IPv4 socket; "
+			"add \"socket ip\" or \"socket udp\"\n");
+#ifdef AF_INET6
+	if (routes_have_family(AF_INET6) && sock6 < 0 && udpsock6 < 0)
+		fprintf(stderr,
+			"warning: there are IPv6 routes but no IPv6 socket; "
+			"they will not be used\n");
+#endif
+}
+
+/* One datagram off a UDP socket */
+
+static void recv_udp(int fd, unsigned char *buf)
+{
+	int n;
+
+	do {
+		fromlen = sizeof from;
+		n = recvfrom(fd, buf, MAX_FRAME, 0,
+			     (struct sockaddr *) &from, &fromlen);
+	}
+	while (io_error(n, buf, n, READ_MSG, UDP_MODE, __LINE__));
+	LOGL4("udpdata from=%s port=%d l=%d\n",
+	      addr_to_a((struct sockaddr *) &from),
+	      addr_port((struct sockaddr *) &from), n);
+	stats.udp_in++;
+	if (n > 0)
+		from_ip(buf, n);
+}
+
+/*
+ * One datagram off a raw socket.  With IPv4 the kernel hands us the IP
+ * header and we have to step over it; with IPv6 it does not, and stepping
+ * over anything would eat the frame.
+ */
+
+static void recv_raw(int fd, unsigned char *buf, int strip_ip_header)
+{
+	struct ip *ipptr;
+	int hdr_len = 0;
+	int n;
+
+	do {
+		fromlen = sizeof from;
+		n = recvfrom(fd, buf, MAX_FRAME, 0,
+			     (struct sockaddr *) &from, &fromlen);
+	}
+	while (io_error(n, buf, n, READ_MSG, IP_MODE, __LINE__));
+	if (strip_ip_header && n > 0) {
+		ipptr = (struct ip *) buf;
+		hdr_len = 4 * ipptr->ip_hl;
+	}
+	LOGL4("ipdata from=%s l=%d, hl=%d\n",
+	      addr_to_a((struct sockaddr *) &from), n, hdr_len);
+	stats.ip_in++;
+	if (n > hdr_len)
+		from_ip(buf + hdr_len, n - hdr_len);
 }
 
 /*
@@ -279,39 +441,45 @@ void io_open(void)
 	char *namepts = NULL;           /* name of the unix98 pts slave, which
 					 * the client has to use */
 
-	if (ip_mode) {
-		sock = socket(AF_INET, SOCK_RAW, IPPROTO_AX25);
-		if (sock < 0) {
+	if (ip_mode & MODE_IPV4) {
+		sock4 = open_raw(AF_INET);
+		if (sock4 < 0 && !(ip_mode & MODE_IPV6)) {
 			perror("opening raw socket");
 			exit(1);
 		}
-		if (fcntl(sock, F_SETFL, FNDELAY) < 0) {
-			perror("setting non-blocking I/O on raw socket");
+	}
+	if (ip_mode & MODE_IPV6) {
+		sock6 = open_raw(AF_INET6);
+		if (sock6 < 0 && !(ip_mode & MODE_IPV4)) {
+			perror("opening raw IPv6 socket");
 			exit(1);
 		}
 	}
+	if (ip_mode && sock4 < 0 && sock6 < 0) {
+		fprintf(stderr, "no raw socket could be opened\n");
+		exit(1);
+	}
 
-	if (udp_mode) {
-		udpsock = socket(AF_INET, SOCK_DGRAM, 0);
-		if (udpsock < 0) {
+	if (udp_mode & MODE_IPV4) {
+		udpsock4 = open_udp(AF_INET);
+		if (udpsock4 < 0 && !(udp_mode & MODE_IPV6)) {
 			perror("opening udp socket");
 			exit(1);
 		}
-		if (fcntl(udpsock, F_SETFL, FNDELAY) < 0) {
-			perror("setting non-blocking I/O on UDP socket");
-			exit(1);
-		}
-/*
- * Ok, the udp socket is open.  Now express our interest in receiving
- * data destined for a particular socket.
- */
-		udpbind.sin_addr.s_addr = INADDR_ANY;
-		udpbind.sin_port = my_udp;
-		if (bind(udpsock, (struct sockaddr *) &udpbind, sizeof udpbind) < 0) {
-			perror("binding udp socket");
+	}
+	if (udp_mode & MODE_IPV6) {
+		udpsock6 = open_udp(AF_INET6);
+		if (udpsock6 < 0 && !(udp_mode & MODE_IPV4)) {
+			perror("opening udp IPv6 socket");
 			exit(1);
 		}
 	}
+	if (udp_mode && udpsock4 < 0 && udpsock6 < 0) {
+		fprintf(stderr, "no udp socket could be opened\n");
+		exit(1);
+	}
+
+	warn_unroutable_families();
 
 	if (!strcmp("/dev/ptmx", ttydevice))
 		i_am_unix98_pty_master = 1;
@@ -506,13 +674,10 @@ behind_normal_tty:
  */
 
 void io_start(void) {
-	int n, nb, hdr_len;
+	int n, nb;
 	fd_set readfds;
 	unsigned char buf[MAX_FRAME];
 	struct timeval wait;
-	/* struct iphdr is Linux specific; struct ip with ip_hl exists on
-	 * both Linux and the BSD derived platforms. */
-	struct ip *ipptr;
 	time_t now;
 
 	for (;;) {
@@ -533,13 +698,14 @@ void io_start(void) {
 
 		FD_SET(ttyfd, &readfds);
 
-		if (ip_mode) {
-			FD_SET(sock, &readfds);
-		}
-
-		if (udp_mode) {
-			FD_SET(udpsock, &readfds);
-		}
+		if (sock4 >= 0)
+			FD_SET(sock4, &readfds);
+		if (sock6 >= 0)
+			FD_SET(sock6, &readfds);
+		if (udpsock4 >= 0)
+			FD_SET(udpsock4, &readfds);
+		if (udpsock6 >= 0)
+			FD_SET(udpsock6, &readfds);
 
 		nb = select(FD_SETSIZE, &readfds, (fd_set *) 0, (fd_set *) 0, &wait);
 
@@ -583,71 +749,62 @@ void io_start(void) {
 		}
 out_ttyfd:
 
-		if (udp_mode) {
-			if (FD_ISSET(udpsock, &readfds)) {
-				do {
-					fromlen = sizeof from;
-					n = recvfrom(udpsock, buf, MAX_FRAME, 0, (struct sockaddr *) &from, &fromlen);
-				}
-				while (io_error(n, buf, n, READ_MSG, UDP_MODE, __LINE__));
-				LOGL4("udpdata from=%s port=%d l=%d\n",
-				      inet_ntoa(from.  sin_addr),
-				      ntohs(from.  sin_port), n);
-				stats.udp_in++;
-				if (n > 0)
-					from_ip(buf, n);
-			}
-		}
-		/* if udp_mode */
-		if (ip_mode) {
-			if (FD_ISSET(sock, &readfds)) {
-				do {
-					fromlen = sizeof from;
-					n = recvfrom(sock, buf, MAX_FRAME, 0, (struct sockaddr *) &from, &fromlen);
-				}
-				while (io_error(n, buf, n, READ_MSG, IP_MODE, __LINE__));
-				ipptr = (struct ip *) buf;
-				hdr_len = 4 * ipptr->ip_hl;
-				LOGL4("ipdata from=%s l=%d, hl=%d\n",
-				      inet_ntoa(from.  sin_addr), n, hdr_len);
-				stats.ip_in++;
-				if (n > hdr_len)
-					from_ip(buf + hdr_len, n - hdr_len);
-			}
-		}
-		/* if ip_mode */
+		if (udpsock4 >= 0 && FD_ISSET(udpsock4, &readfds))
+			recv_udp(udpsock4, buf);
+		if (udpsock6 >= 0 && FD_ISSET(udpsock6, &readfds))
+			recv_udp(udpsock6, buf);
+		if (sock4 >= 0 && FD_ISSET(sock4, &readfds))
+			recv_raw(sock4, buf, 1);
+		/*
+		 * The IPv6 header is not handed to a raw socket the way the
+		 * IPv4 one is, so there is nothing to skip here.
+		 */
+		if (sock6 >= 0 && FD_ISSET(sock6, &readfds))
+			recv_raw(sock6, buf, 0);
 	}	/* for forever */
 }
 
 /* Send an IP frame */
 
-void send_ip(unsigned char *buf, int l, unsigned char *targetip)
+void send_ip(unsigned char *buf, int l, const struct sockaddr *to,
+	socklen_t tolen)
 {
+	unsigned short port;
+	int fd;
+	int mode;
 	int n;
 
-	if (l <= 0)
+	if (l <= 0 || to == NULL || tolen == 0)
 		return;
-	memcpy(&to.sin_addr, targetip, 4);
-	memcpy(&to.sin_port, &targetip[4], 2);
-	LOGL4("sendipdata to=%s %s %d l=%d\n", inet_ntoa(to.  sin_addr),
-	      to.sin_port ? "udp" : "ip", ntohs(to.sin_port), l);
-	if (to.sin_port) {
-		if (udp_mode) {
-			stats.udp_out++;
-			do {
-				n = sendto(udpsock, buf, l, 0, (struct sockaddr *) &to, sizeof to);
-			}
-			while (io_error(n, buf, l, SEND_MSG, UDP_MODE, __LINE__));
-		}
+
+	/* A port of zero means protocol 93, anything else means UDP. */
+	port = addr_port(to);
+	if (port) {
+		fd = (to->sa_family == AF_INET) ? udpsock4 : udpsock6;
+		mode = UDP_MODE;
 	} else {
-		if (ip_mode) {
-			stats.ip_out++;
-			do {
-				n = sendto(sock, buf, l, 0, (struct sockaddr *) &to, sizeof to);
-			}
-			while (io_error(n, buf, l, SEND_MSG, IP_MODE, __LINE__));
-		}
+		fd = (to->sa_family == AF_INET) ? sock4 : sock6;
+		mode = IP_MODE;
 	}
+
+	LOGL4("sendipdata to=%s %s %d l=%d\n", addr_to_a(to),
+	      port ? "udp" : "ip", port, l);
+
+	if (fd < 0) {
+		LOGL2("send_ip: no %s socket for %s, dropped\n",
+		      port ? "udp" : "ip", addr_to_a(to));
+		return;
+	}
+
+	if (mode == UDP_MODE)
+		stats.udp_out++;
+	else
+		stats.ip_out++;
+
+	do {
+		n = sendto(fd, buf, l, 0, to, tolen);
+	}
+	while (io_error(n, buf, l, SEND_MSG, mode, __LINE__));
 }
 
 /* Send a kiss frame */

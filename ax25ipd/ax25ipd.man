@@ -19,6 +19,18 @@ can be run as a pure encapsulator, or as a digital repeater with a
 functional callsign. Destination IP addresses are determined from a
 hardcoded map of callsign/IP Address pairs.
 .LP
+Frames are carried either as IP protocol 93
+.RB ( axip )
+or inside UDP
+.RB ( axudp ),
+over IPv4 or IPv6.  Which transport is used for a destination is decided by
+the
+.B route
+line for it, and which transports and address families exist at all by the
+.B socket
+lines; see
+.BR @@@ax25ipd@@@.conf (5).
+.LP
 .B @@@ax25ipd@@@
 defaults to using
 .B /etc/ax25/ax25ipd.conf

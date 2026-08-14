@@ -159,11 +159,81 @@ void config_read(char *f)
 }
 
 /* Process each line from the config file.  The return value is encoded. */
+/*
+ * Resolve the address of a route target.
+ *
+ * Plain name or dotted quad          -> IPv4, as it always was.
+ * [2001:db8::1]                      -> that IPv6 address.
+ * [name]                             -> the AAAA record of that name.
+ *
+ * The brackets read as "the v6 side" and are the same ones the rest of the
+ * world puts around an IPv6 literal.  A bare name keeps resolving to its A
+ * record even when it also has a AAAA, so that an existing configuration
+ * does not quietly change where it sends once a partner gains IPv6.
+ *
+ * Returns 0 on success, -1 if it is not an address we can use.
+ */
+
+static int resolve_target(const char *arg, struct sockaddr_storage *ss,
+	socklen_t *lenp)
+{
+	char host[256];
+	struct addrinfo hints, *res;
+	size_t n;
+	int want6 = 0;
+
+	if (arg == NULL || *arg == '\0')
+		return -1;
+
+	n = strlen(arg);
+	if (arg[0] == '[') {
+		if (n < 3 || arg[n - 1] != ']')
+			return -1;
+		n -= 2;
+		if (n >= sizeof host)
+			return -1;
+		memcpy(host, arg + 1, n);
+		host[n] = '\0';
+		want6 = 1;
+	} else {
+		if (n >= sizeof host)
+			return -1;
+		strcpy(host, arg);
+	}
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = want6 ? AF_INET6 : AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	if (getaddrinfo(host, NULL, &hints, &res) != 0 || res == NULL)
+		return -1;
+	if ((size_t) res->ai_addrlen > sizeof *ss) {
+		freeaddrinfo(res);
+		return -1;
+	}
+	memset(ss, 0, sizeof *ss);
+	memcpy(ss, res->ai_addr, res->ai_addrlen);
+	*lenp = res->ai_addrlen;
+	freeaddrinfo(res);
+	return 0;
+}
+
+/* Put a port, host byte order, into an address of either family */
+static void set_target_port(struct sockaddr_storage *ss, int port)
+{
+	if (ss->ss_family == AF_INET)
+		((struct sockaddr_in *) ss)->sin_port = htons(port);
+#ifdef AF_INET6
+	else if (ss->ss_family == AF_INET6)
+		((struct sockaddr_in6 *) ss)->sin6_port = htons(port);
+#endif
+}
+
 int parse_line(char *buf)
 {
 	char *p, *q;
-	unsigned char tcall[7], tip[4];
-	struct hostent *he;
+	unsigned char tcall[7];
+	struct sockaddr_storage tss;
+	socklen_t tsslen = 0;
 	int i, j, uport;
 	unsigned int flags;
 
@@ -247,10 +317,25 @@ int parse_line(char *buf)
 		q = strtok(NULL, " \t\n\r");
 		if (q == NULL)
 			return -1;
+		/*
+		 * "ip" and "udp" mean both families; the numbered forms pick
+		 * one.  A machine with no IPv6 quietly ends up with the v4
+		 * socket only, which is exactly what it had before.
+		 */
 		if (strcmp(q, "ip") == 0) {
-			ip_mode = 1;
-		} else if (strcmp(q, "udp") == 0) {
-			udp_mode = 1;
+			ip_mode |= MODE_BOTH;
+		} else if (strcmp(q, "ip4") == 0) {
+			ip_mode |= MODE_IPV4;
+		} else if (strcmp(q, "ip6") == 0) {
+			ip_mode |= MODE_IPV6;
+		} else if (strcmp(q, "udp") == 0 || strcmp(q, "udp4") == 0
+			   || strcmp(q, "udp6") == 0) {
+			if (q[3] == '4')
+				udp_mode |= MODE_IPV4;
+			else if (q[3] == '6')
+				udp_mode |= MODE_IPV6;
+			else
+				udp_mode |= MODE_BOTH;
 			my_udp = htons(DEFAULT_UDP_PORT);
 			q = strtok(NULL, " \t\n\r");
 			if (q != NULL) {
@@ -313,15 +398,8 @@ int parse_line(char *buf)
 		q = strtok(NULL, " \t\n\r");
 		if (q == NULL)
 			return -1;
-		he = gethostbyname(q);
-		if (he != NULL) {
-			memcpy(tip, he->h_addr_list[0], 4);
-		} else {	/* maybe user specified a numeric addr? */
-			j = inet_addr(q);
-			if (j == -1)
-				return -5;	/* if -1, bad deal! */
-			memcpy(tip, &j, 4);
-		}
+		if (resolve_target(q, &tss, &tsslen) != 0)
+			return -5;
 
 		if (my_udp)
 			uport = ntohs(my_udp);
@@ -357,7 +435,8 @@ int parse_line(char *buf)
 				}
 			}
 		}
-		route_add(tip, tcall, uport, flags);
+		set_target_port(&tss, uport);
+		route_add((struct sockaddr *) &tss, tsslen, tcall, flags);
 		return 0;
 
 	} else if (strcmp(p, "broadcast") == 0) {

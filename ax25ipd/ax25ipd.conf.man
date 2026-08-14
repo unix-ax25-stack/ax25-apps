@@ -5,8 +5,70 @@ ax25ipd.conf \- Control the operation of @@@ax25ipd@@@.
 .LP
 The
 .B ax25ipd.conf
-file controls the operation of the @@@ax25ipd@@@(8) program. The operation of the
-config file can best be seen in an example:
+file controls the operation of the @@@ax25ipd@@@(8) program.
+.SS "Transports: axip and axudp"
+.LP
+There are two ways to carry AX.25 frames over IP, and the file selects them in
+two different places, which is easy to miss.
+.LP
+The
+.B socket
+lines say which transports the program is willing to use at all, and on which
+address families.  The
+.B route
+lines say which of them to use for a particular destination, and they say it by
+whether a UDP port is given:
+.RS
+.IP "\fBroute\fP \fIcall\fP \fIaddress\fP" 4
+no port, so the frame goes as IP protocol 93.  This is
+.IR axip .
+.IP "\fBroute\fP \fIcall\fP \fIaddress\fP \fBudp\fP [\fIport\fP]" 4
+a port, so the frame goes as UDP to that port.  This is
+.IR axudp .
+Without a number the port from the
+.B socket udp
+line is used, and failing that 10093.
+.RE
+.LP
+A route can only be used if a matching
+.B socket
+line has opened the transport it asks for.  If the file has routes for an
+address family that no socket was opened for, a warning is printed at startup;
+those routes would otherwise look configured and quietly do nothing.
+.SS "Address families"
+.LP
+.B socket ip
+and
+.B socket udp
+open the transport over both IPv4 and IPv6.
+.BR "socket ip4" ,
+.BR "socket ip6" ,
+.B socket udp4
+and
+.B socket udp6
+restrict it to one family.  On a machine with no IPv6 the unavailable half is
+simply left out and nothing is said about it, so an existing configuration
+behaves as it always did.
+.LP
+In a
+.B route
+line an IPv6 address is written in square brackets, the same way it is written
+everywhere else:
+.RS
+.IP "\fBroute\fP db0sao-1 44.130.8.1" 4
+the IPv4 address.
+.IP "\fBroute\fP db0sao-1 [2001:db8::1] \fBudp\fP 93" 4
+that IPv6 address, over UDP port 93.
+.IP "\fBroute\fP db0sao-1 db0sao.ampr.org" 4
+the name's A record.  A name without brackets keeps resolving to IPv4 even if
+it also has a AAAA record, so that a configuration does not change where it
+sends the day a partner gains IPv6.
+.IP "\fBroute\fP db0sao-1 [db0sao.ampr.org]" 4
+the name's AAAA record.
+.RE
+.SS "Example"
+.LP
+The operation of the config file can best be seen in an example:
 .LP
 #
 .br
@@ -14,9 +76,11 @@ config file can best be seen in an example:
 .br
 #
 .br
-# Select axip transport. 'ip' is what you want for compatibility
+# Select the transport.  'ip' is axip, protocol 93, and is what most other
 .br
-# with most other gates ...
+# gates speak.  Add 'socket udp' as well if any of your routes name a udp
+.br
+# port.  Both open IPv4 and IPv6; use ip4/ip6/udp4/udp6 to pick one.
 .br
 #
 .br
@@ -186,11 +250,21 @@ broadcast QST-0 NODES-0
 .br
 #
 .br
+# No port, so these go as axip:
+.br
 route vk2sut-0 44.136.8.68 b
 .br
 route vk5asf 44.136.188.221 b
 .br
 route vk2abc 44.1.1.1 d
+.br
+# With a port, so this one goes as axudp:
+.br
+route vk4xyz-1 44.136.8.99 udp 93
+.br
+# An IPv6 partner, in square brackets, here over axudp:
+.br
+route db0sao-1 [2001:db8::1] udp 93
 .br
 #
 .br
