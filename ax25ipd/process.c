@@ -70,7 +70,9 @@ void process_init(void)
 
 void from_kiss(unsigned char *buf, int l)
 {
-	unsigned char *a, *ipaddr;
+	unsigned char *a;
+	const struct sockaddr *ipaddr;
+	socklen_t ipaddrlen = 0;
 
 	if (l < 15) {
 		LOGL2("from_kiss: dumped - length wrong!\n");
@@ -107,8 +109,8 @@ void from_kiss(unsigned char *buf, int l)
 #endif
 	}			/* end of tnc mode */
 
-	/* Lookup the IP address for this route */
-	ipaddr = call_to_ip(a);
+	/* Lookup the address for this route */
+	ipaddr = call_to_addr(a, &ipaddrlen);
 
 	if (ipaddr == NULL) {
 		if (is_call_bcast(a)) {
@@ -126,7 +128,7 @@ void from_kiss(unsigned char *buf, int l)
 		/* Warning - assuming buffer has room for 2 bytes */
 		add_crc(buf, l);
 		l += 2;
-		send_ip(buf, l, ipaddr);
+		send_ip(buf, l, ipaddr, ipaddrlen);
 		if (is_call_bcast(a)) {
 			send_broadcast(buf, l);
 		}

@@ -9,9 +9,11 @@
 #include <memory.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 
 #include "ax25ipd.h"
@@ -25,16 +27,22 @@
 
 /* The routing table structure is not visible outside this module. */
 
+/*
+ * The address of the far end, port included.  This used to be four bytes of
+ * IPv4 address followed by the port, and call_to_ip() handed out a pointer to
+ * the first of them so that the caller could read the port from the bytes
+ * behind it - the comment on that function called it ugly and meant to fix it
+ * later.  Later is now: an IPv6 address does not fit that shape at all.
+ *
+ * A port of zero still means "send this as protocol 93", a non-zero port
+ * means "send it as UDP to that port".  That is how the configuration file
+ * has always distinguished axip from axudp, and it stays that way.
+ */
 struct route_table_entry {
 	unsigned char callsign[7];	/* the callsign and ssid */
 	unsigned char padcall;	/* always set to zero */
-	union {
-		unsigned char ip_addr[4];	/* the IP address */
-		struct in_addr ip_addr_in;
-	};
-	unsigned short udp_port;	/* the port number if udp */
-	unsigned char pad1;
-	unsigned char pad2;
+	struct sockaddr_storage addr;	/* where to send it, port included */
+	socklen_t addrlen;
 	unsigned int flags;	/* route flags */
 	struct route_table_entry *next;
 };
@@ -59,15 +67,61 @@ void route_init(void)
 	bcast_tbl = NULL;
 }
 
+/*
+ * Printable form of a route address, "addr" or "[addr]" for IPv6, without
+ * the port.  Returns a pointer to a static buffer, like inet_ntoa() did.
+ */
+const char *addr_to_a(const struct sockaddr *sa)
+{
+	static char buf[ADDR_STRLEN];
+	char host[INET6_ADDRSTRLEN];
+	const void *src;
+
+	if (sa == NULL)
+		return "(none)";
+	switch (sa->sa_family) {
+	case AF_INET:
+		src = &((const struct sockaddr_in *) sa)->sin_addr;
+		if (inet_ntop(AF_INET, src, host, sizeof host) == NULL)
+			return "(bad)";
+		snprintf(buf, sizeof buf, "%s", host);
+		return buf;
+#ifdef AF_INET6
+	case AF_INET6:
+		src = &((const struct sockaddr_in6 *) sa)->sin6_addr;
+		if (inet_ntop(AF_INET6, src, host, sizeof host) == NULL)
+			return "(bad)";
+		snprintf(buf, sizeof buf, "[%s]", host);
+		return buf;
+#endif
+	default:
+		return "(unknown family)";
+	}
+}
+
+/* The port of a route address, in host byte order; 0 means protocol 93 */
+unsigned short addr_port(const struct sockaddr *sa)
+{
+	if (sa == NULL)
+		return 0;
+	if (sa->sa_family == AF_INET)
+		return ntohs(((const struct sockaddr_in *) sa)->sin_port);
+#ifdef AF_INET6
+	if (sa->sa_family == AF_INET6)
+		return ntohs(((const struct sockaddr_in6 *) sa)->sin6_port);
+#endif
+	return 0;
+}
+
 /* Add a new route entry */
-void route_add(unsigned char *ip, unsigned char *call, int udpport,
-	unsigned int flags)
+void route_add(const struct sockaddr *sa, socklen_t salen,
+	unsigned char *call, unsigned int flags)
 {
 	struct route_table_entry *rl, *rn;
 	int i;
 
-	/* Check we have an IP address */
-	if (ip == NULL)
+	/* Check we have an address */
+	if (sa == NULL || salen == 0 || (size_t) salen > sizeof(rn->addr))
 		return;
 
 	/* Check we have a callsign */
@@ -82,16 +136,17 @@ void route_add(unsigned char *ip, unsigned char *call, int udpport,
 
 	rn = (struct route_table_entry *)
 	    malloc(sizeof(struct route_table_entry));
+	if (rn == NULL)
+		return;
 
 	/* Build this entry ... */
+	memset(rn, 0, sizeof(*rn));
 	for (i = 0; i < 6; i++)
 		rn->callsign[i] = call[i] & 0xfe;
 	rn->callsign[6] = (call[6] & 0x1e) | 0x60;
 	rn->padcall = 0;
-	memcpy(rn->ip_addr, ip, 4);
-	rn->udp_port = htons(udpport);
-	rn->pad1 = 0;
-	rn->pad2 = 0;
+	memcpy(&rn->addr, sa, (size_t) salen);
+	rn->addrlen = salen;
 	rn->flags = flags;
 	rn->next = NULL;
 
@@ -107,8 +162,9 @@ void route_add(unsigned char *ip, unsigned char *call, int udpport,
 	/* Log this entry ... */
 	LOGL4("added route: %s %s %s %d %d\n",
 	      call_to_a(rn->callsign),
-	      inet_ntoa(rn->ip_addr_in),
-	      rn->udp_port ? "udp" : "ip", ntohs(rn->udp_port), flags);
+	      addr_to_a((struct sockaddr *) &rn->addr),
+	      addr_port((struct sockaddr *) &rn->addr) ? "udp" : "ip",
+	      addr_port((struct sockaddr *) &rn->addr), flags);
 }
 
 /* Add a new broadcast address entry */
@@ -147,12 +203,12 @@ void bcast_add(unsigned char *call)
 }
 
 /*
- * Return an IP address and port number given a callsign.
- * We return a pointer to the address; the port number can be found
- * immediately following the IP address. (UGLY coding; to be fixed later!)
+ * Return the address to send to for a callsign, or NULL if there is none.
+ * The length goes to *lenp.  The port is part of the address; a port of zero
+ * means protocol 93 rather than UDP.
  */
 
-unsigned char *call_to_ip(unsigned char *call)
+const struct sockaddr *call_to_addr(unsigned char *call, socklen_t *lenp)
 {
 	struct route_table_entry *rp;
 	unsigned char mycall[7];
@@ -171,9 +227,11 @@ unsigned char *call_to_ip(unsigned char *call)
 	rp = route_tbl;
 	while (rp) {
 		if (addrmatch(mycall, rp->callsign)) {
-			LOGL4("found ip addr %s\n",
-			      inet_ntoa(rp->ip_addr_in));
-			return rp->ip_addr;
+			LOGL4("found addr %s\n",
+			      addr_to_a((struct sockaddr *) &rp->addr));
+			if (lenp)
+				*lenp = rp->addrlen;
+			return (const struct sockaddr *) &rp->addr;
 		}
 		rp = rp->next;
 	}
@@ -183,9 +241,11 @@ unsigned char *call_to_ip(unsigned char *call)
 	 * we have one defined.
 	 */
 	if (default_route) {
-		LOGL4("failed, using default ip addr %s\n",
-		      inet_ntoa(default_route->ip_addr_in));
-		return default_route->ip_addr;
+		LOGL4("failed, using default addr %s\n",
+		      addr_to_a((struct sockaddr *) &default_route->addr));
+		if (lenp)
+			*lenp = default_route->addrlen;
+		return (const struct sockaddr *) &default_route->addr;
 	}
 
 	LOGL4("failed.\n");
@@ -232,10 +292,24 @@ void send_broadcast(unsigned char *buf, int l)
 	rp = route_tbl;
 	while (rp) {
 		if (rp->flags & AXRT_BCAST) {
-			send_ip(buf, l, rp->ip_addr);
+			send_ip(buf, l, (struct sockaddr *) &rp->addr,
+				rp->addrlen);
 		}
 		rp = rp->next;
 	}
+}
+
+/* Do we have any route to this address family?  Used to warn about routes
+ * that can never be used because no socket of that family got opened.
+ */
+int routes_have_family(int family)
+{
+	struct route_table_entry *rp;
+
+	for (rp = route_tbl; rp; rp = rp->next)
+		if (rp->addr.ss_family == family)
+			return 1;
+	return 0;
 }
 
 /* print out the list of routes */
@@ -253,9 +327,9 @@ void dump_routes(void)
 	while (rp) {
 		LOGL1("  %s\t%s\t%s\t%d\t%d\n",
 		      call_to_a(rp->callsign),
-		      inet_ntoa(rp->ip_addr_in),
-		      rp->udp_port ? "udp" : "ip",
-		      ntohs(rp->udp_port), rp->flags);
+		      addr_to_a((struct sockaddr *) &rp->addr),
+		      addr_port((struct sockaddr *) &rp->addr) ? "udp" : "ip",
+		      addr_port((struct sockaddr *) &rp->addr), rp->flags);
 		rp = rp->next;
 	}
 	fflush(stdout);

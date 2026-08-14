@@ -41,9 +41,24 @@
 #define DEFAULT_UDP_PORT 10093
 
 #include <limits.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
-extern int udp_mode;		/* true if we need a UDP socket */
-extern int ip_mode;		/* true if we need the raw IP socket */
+/* Longest printable form of a route address: "[" + IPv6 + "]" + NUL */
+#define ADDR_STRLEN 48
+
+/*
+ * Which address families a transport is wanted on.  These used to be plain
+ * booleans; "socket ip" now means both families, "socket ip4" or "socket ip6"
+ * one of them.  Zero still means the transport is not configured at all, so
+ * every existing test for truth keeps working.
+ */
+#define MODE_IPV4	0x01
+#define MODE_IPV6	0x02
+#define MODE_BOTH	(MODE_IPV4 | MODE_IPV6)
+
+extern int udp_mode;		/* families we want a UDP socket on */
+extern int ip_mode;		/* families we want the raw IP socket on */
 extern unsigned short my_udp;	/* the UDP port to use (network byte order) */
 extern char ttydevice[PATH_MAX];	/* the tty device for serial comms */
 extern int ttyspeed;		/* The baud rate on the tty device */
@@ -107,9 +122,13 @@ void send_params(void);
 
 /* routing.c */
 void route_init(void);
-void route_add(unsigned char *, unsigned char *, int, unsigned int);
+void route_add(const struct sockaddr *, socklen_t, unsigned char *,
+	unsigned int);
 void bcast_add(unsigned char *);
-unsigned char *call_to_ip(unsigned char *);
+const struct sockaddr *call_to_addr(unsigned char *, socklen_t *);
+const char *addr_to_a(const struct sockaddr *);
+unsigned short addr_port(const struct sockaddr *);
+int routes_have_family(int family);
 int is_call_bcast(unsigned char *);
 void send_broadcast(unsigned char *, int);
 void dump_routes(void);
@@ -137,7 +156,7 @@ void dump_ax25frame(char *, unsigned char *, int);
 void io_init(void);
 void io_open(void);
 void io_start(void);
-void send_ip(unsigned char *, int, unsigned char *);
+void send_ip(unsigned char *, int, const struct sockaddr *, socklen_t);
 void send_tty(unsigned char *, int);
 
 /* crc.c */
