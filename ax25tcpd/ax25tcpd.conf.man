@@ -1,0 +1,119 @@
+.\" Man page for ax25tcpd.conf
+.\"
+.TH AX25TCPD.CONF 5 "11 Aug 2026" "ax25-apps" "Linux System Administration"
+.SH NAME
+ax25tcpd.conf \- configuration for ax25tcpd
+.SH DESCRIPTION
+.B ax25tcpd.conf
+tells
+.BR ax25tcpd (8)
+where to find the AGWPE multiplexer it talks to (the back side) and
+where it listens for its own clients (the front side).
+.PP
+Blank lines and lines beginning with
+.B #
+are ignored.  A line consists of whitespace separated words.
+.SH TARGET
+The back side normally comes from the shared loop port configuration
+.BR ax25common.conf (5),
+the very file the
+.BR ax25netd (8)
+daemon reads for its listener: one file, one semantics.  The
+.B loop socket
+and
+.B loop tcp
+directives there decide how this frontend reaches the daemon.
+.PP
+For a netd on another host an explicit line overrides it:
+.PP
+.RS
+.B target tcp
+.I host tcp-port
+.br
+.B target socket
+.I path
+.RE
+.PP
+.B ax25tcpd
+opens a single AGWPE connection to an
+.BR ax25netd (8)
+loop port.  With
+.B target tcp
+the connection is a TCP socket to
+.IR host : tcp-port ,
+with
+.B target socket
+a unix domain socket at
+.IR path .
+.SH LISTEN
+Each
+.B listen
+line opens one front side listener.  Several are allowed.
+.PP
+.RS
+.B listen tcp
+.I address binary-port [ text-port ]
+.br
+.B listen unix
+.I path [ group all|default|name|gid ]
+.RE
+.PP
+.B listen tcp
+binds the binary port at
+.IR address : binary-port .
+The binary port treats everything received after the command line as
+one packet: it is accumulated and sent as a single AX.25 frame when the
+connection closes, split into
+.B mtu
+sized chunks.  The text port, by default one number above the binary
+port (or at
+.I text-port
+when given), sends each CR, LF or CRLF terminated line as one frame.
+The address
+.B 0.0.0.0
+listens on all interfaces.
+.PP
+.B listen unix
+listens on a unix domain socket which behaves exactly like a text port.
+With
+.B group
+the socket is restricted to the given group (a name or a numeric gid);
+.B all
+makes it world accessible, the default gives it to the daemon's user.
+.SH MISCELLANEOUS
+.PP
+.RS
+.B mtu
+.I bytes
+.RE
+.PP
+The datagram packet chunk size, 16 to 4096 bytes.  The default is 256.
+.PP
+.RS
+.B default-call
+.I callsign
+.RE
+.PP
+The source callsign used when a command line does not give one.  Without
+it a connect or datagram command must name its source call explicitly.
+.SH EXAMPLE
+.nf
+	# binary port 8101, text port 8102
+	# back side from ax25common.conf (loop socket/tcp)
+	listen	tcp	127.0.0.1	8101
+	listen	tcp	127.0.0.1	8102
+	listen	unix	@@@AX25_LOCALSTATEDIR@@@/ax25/ax25tcpd.sock
+	#target	tcp	192.0.2.10	8100
+	mtu	256
+	default-call	DG8HT
+.fi
+.SH FILES
+.I @@@AX25_SYSCONFDIR@@@/ax25tcpd.conf
+.br
+.I @@@AX25_SYSCONFDIR@@@/ax25common.conf
+(back side unless overridden)
+.SH SEE ALSO
+.BR ax25tcpd (8),
+.BR ax25netd (8),
+.BR ax25common.conf (5),
+.BR agwpe.conf (5)

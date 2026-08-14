@@ -14,4 +14,4 @@
 #   after connecting (AGWPE on Windows, a second ax25netd in a chain).
 #   Servers such as Direwolf need no entry and receive no credentials.
 
-# ax25netd	dl9sau		geheim
+# ax25netd	dl9sau		IforgotToChangeThisSecret

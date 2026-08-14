@@ -43,8 +43,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/un.h>
 
 #include <netax25/agwpe_config.h>
+#include <netax25/axcommon.h>
 
 #include "netd.h"
 
@@ -53,6 +55,7 @@
 #endif
 
 #define	DEFAULT_CONF	AX25_SYSCONFDIR "/agwpe.conf"
+#define	DEFAULT_COMMON	AX25_SYSCONFDIR "/ax25common.conf"
 
 struct netd_ctx netd;
 
@@ -73,17 +76,47 @@ void netd_log(int prio, const char *fmt, ...)
 static void usage(const char *prog)
 {
 	fprintf(stderr,
-		"Usage: %s [-f] [-d] [-c config] [-b bindaddr] [-p port] [-u user]\n"
+		"Usage: %s [-f] [-d] [-c config] [-C ax25common.conf]\n"
+		"            [-b bindaddr] [-p port] [-U socket] [-g group]\n"
+		"            [--no-tcp] [-u user]\n"
 		"\n"
 		"  -f         stay in the foreground\n"
 		"  -d         log to stderr as well\n"
 		"  -c <file>  configuration file (default %s)\n"
+		"  -C <file>  shared loop port configuration, also read by\n"
+		"             ax25tcpd and the AGWPE shim (default %s)\n"
 		"  -b <addr>  bind address of the loop port; IPv4 and IPv6 are\n"
 		"             supported (default %s)\n"
 		"  -p <port>  TCP port of the loop port (default %d)\n"
+		"  -U <path>  also listen on this unix domain socket (overrides\n"
+		"             the 'loop socket' directive in ax25common.conf)\n"
+		"  -g <name>  group allowed to connect to the unix socket: a\n"
+		"             group name, a numeric gid, or 'all' for every\n"
+		"             local user (default: the daemon run user)\n"
+		"      --no-tcp  do not listen on TCP at all; the unix socket\n"
+		"             becomes the only way in (requires -U or 'socket')\n"
 		"  -u <user>  drop root privileges to this user after startup\n"
 		"      --no-mheard  do not maintain the mheard.dat heard list\n",
-		prog, DEFAULT_CONF, NETD_BIND_DEFAULT, NETD_PORT_DEFAULT);
+		prog, DEFAULT_CONF, DEFAULT_COMMON, NETD_BIND_DEFAULT,
+		NETD_PORT_DEFAULT);
+}
+
+/*
+ * Remove the unix socket on shutdown, so no stale file is left behind
+ * for the next start (which would remove it anyway, but this also keeps
+ * a running daemon's directory clean).
+ */
+static void loop_unlink_unix(void)
+{
+	if (netd.unix_path[0] != '\0')
+		unlink(netd.unix_path);
+}
+
+static void shutdown_signal(int sig)
+{
+	(void)sig;
+	loop_unlink_unix();
+	_exit(0);
 }
 
 /*
@@ -166,24 +199,35 @@ int main(int argc, char **argv)
 {
 	int ch, port = NETD_PORT_DEFAULT;
 	const char *conf = DEFAULT_CONF;
+	const char *comconf = DEFAULT_COMMON;
 	const char *bindaddr = NETD_BIND_DEFAULT;
 	const char *runuser = NULL;
+	const char *unix_path = NULL;
+	const char *unix_group = NULL;
+	int no_tcp = 0;
+	int port_set = 0;
 	int foreground = 0;
 	struct agwpe_config cfg;
+	struct ax25common com;
 	int i;
 	time_t now;
 
 	openlog("ax25netd", LOG_PID, LOG_DAEMON);
 
 	netd.mheard = 1;
+	netd.listener_fd = -1;
+	netd.unix_fd = -1;
 
 	{
 		static const struct option longopts[] = {
-			{ "no-mheard", no_argument, NULL, 'M' },
+			{ "socket",  required_argument, NULL, 'U' },
+			{ "group",   required_argument, NULL, 'g' },
+			{ "no-tcp",  no_argument,       NULL, 1000 },
+			{ "no-mheard", no_argument,     NULL, 'M' },
 			{ NULL, 0, NULL, 0 }
 		};
 
-		while ((ch = getopt_long(argc, argv, "fdc:b:p:u:h",
+		while ((ch = getopt_long(argc, argv, "fdc:C:b:p:U:g:u:h",
 					 longopts, NULL)) != -1) {
 			switch (ch) {
 			case 'f':
@@ -195,11 +239,24 @@ int main(int argc, char **argv)
 			case 'c':
 				conf = optarg;
 				break;
+			case 'C':
+				comconf = optarg;
+				break;
 			case 'b':
 				bindaddr = optarg;
 				break;
 			case 'p':
 				port = atoi(optarg);
+				port_set = 1;
+				break;
+			case 'U':
+				unix_path = optarg;
+				break;
+			case 'g':
+				unix_group = optarg;
+				break;
+			case 1000:
+				no_tcp = 1;
 				break;
 			case 'u':
 				runuser = optarg;
@@ -229,6 +286,26 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	/*
+	 * The loop port endpoint comes from the shared ax25common.conf,
+	 * the file that ax25tcpd and the AGWPE shim read as well, so
+	 * the client side always sees what the daemon listens on.  A
+	 * missing file leaves the defaults in place (TCP %d, no unix
+	 * socket); the command line options below override it.
+	 */
+	if (ax25common_config_load(comconf, &com) < 0) {
+		fprintf(stderr, "ax25netd: cannot load %s\n", comconf);
+		agwpe_config_free(&cfg);
+		return 1;
+	}
+	strncpy(cfg.socket_path, com.loop_socket,
+		sizeof(cfg.socket_path) - 1);
+	cfg.tcp_enabled = com.loop_tcp_enabled;
+	cfg.group_mode = com.group_mode;
+	strncpy(cfg.group_name, com.group_name, sizeof(cfg.group_name) - 1);
+	if (!port_set)
+		port = com.loop_tcp_port;
+
 	{
 		char shadow[PATH_MAX];
 
@@ -248,10 +325,8 @@ int main(int argc, char **argv)
 
 			if (cfg.auth == AGWPE_AUTH_ALWAYS)
 				needs_login = 1;
-			else if (bindaddr != NULL &&
-				 strcmp(bindaddr, "127.0.0.1") != 0 &&
-				 strcmp(bindaddr, "::1") != 0 &&
-				 strcmp(bindaddr, "localhost") != 0)
+			else if (cfg.tcp_enabled && !no_tcp &&
+				 !host_is_loopback(bindaddr))
 				needs_login = 1;
 
 			if (needs_login)
@@ -310,6 +385,7 @@ int main(int argc, char **argv)
 	}
 
 	netd.auth = cfg.auth;
+	netd.autoroute = cfg.autoroute;
 	netd.clients_auth = cfg.clients;
 	netd.nclients_auth = cfg.nclients;
 	cfg.clients = NULL;
@@ -323,10 +399,70 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	signal(SIGPIPE, SIG_IGN);
+	/* Command line overrides for the unix socket listener.  */
+	if (unix_path != NULL)
+		strncpy(cfg.socket_path, unix_path,
+			sizeof(cfg.socket_path) - 1);
+	if (unix_group != NULL) {
+		if (strcasecmp(unix_group, "all") == 0 ||
+		    strcmp(unix_group, "*") == 0)
+			cfg.group_mode = AGWPE_GROUP_ALL;
+		else {
+			cfg.group_mode = AGWPE_GROUP_NAMED;
+			strncpy(cfg.group_name, unix_group,
+				sizeof(cfg.group_name) - 1);
+		}
+	}
+	if (no_tcp)
+		cfg.tcp_enabled = 0;
 
-	if (loop_init(bindaddr, port) < 0)
+	if (!cfg.tcp_enabled && cfg.socket_path[0] == '\0') {
+		fprintf(stderr,
+			"ax25netd: no listener enabled: --no-tcp requires a unix socket ('-U <path>' or 'loop socket' in ax25common.conf)\n");
 		return 1;
+	}
+
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGTERM, shutdown_signal);
+	signal(SIGINT, shutdown_signal);
+
+	/*
+	 * The unix socket belongs to the user the daemon will run as
+	 * after the privilege drop; resolve the uid/gid now, before the
+	 * drop.  Both listeners are set up before dropping, so the socket
+	 * can live in a root-only directory.
+	 */
+	{
+		uid_t run_uid;
+		gid_t run_gid;
+
+		if (runuser != NULL) {
+			struct passwd *pw = getpwnam(runuser);
+
+			if (pw == NULL) {
+				fprintf(stderr, "ax25netd: no such user: %s\n",
+					runuser);
+				return 1;
+			}
+			run_uid = pw->pw_uid;
+			run_gid = pw->pw_gid;
+		} else {
+			run_uid = geteuid();
+			run_gid = getegid();
+		}
+
+		if (cfg.tcp_enabled) {
+			if (loop_init(bindaddr, port) < 0)
+				return 1;
+		} else {
+			netd_log(LOG_INFO, "TCP listener disabled");
+		}
+
+		if (cfg.socket_path[0] != '\0' &&
+		    loop_init_unix(cfg.socket_path, cfg.group_mode,
+				   cfg.group_name, run_uid, run_gid) < 0)
+			return 1;
+	}
 
 	if (upstream_init_all() < 0)
 		return 1;
@@ -347,19 +483,37 @@ int main(int argc, char **argv)
 	}
 
 	for (;;) {
-		fd_set rfds;
+		fd_set rfds, wfds;
 		int maxfd;
 		struct timeval tv;
 
 		FD_ZERO(&rfds);
-		FD_SET(netd.listener_fd, &rfds);
-		maxfd = netd.listener_fd;
+		FD_ZERO(&wfds);
+		maxfd = -1;
+
+		if (netd.listener_fd >= 0) {
+			FD_SET(netd.listener_fd, &rfds);
+			maxfd = netd.listener_fd;
+		}
+		if (netd.unix_fd >= 0) {
+			FD_SET(netd.unix_fd, &rfds);
+			if (netd.unix_fd > maxfd)
+				maxfd = netd.unix_fd;
+		}
 
 		for (i = 0; i < netd.nclients; i++) {
 			if (netd.clients[i].fd >= 0) {
 				FD_SET(netd.clients[i].fd, &rfds);
 				if (netd.clients[i].fd > maxfd)
 					maxfd = netd.clients[i].fd;
+				/* A client with pending output must be
+				 * drained as soon as its socket accepts
+				 * more data.  */
+				if (netd.clients[i].olen > 0) {
+					FD_SET(netd.clients[i].fd, &wfds);
+					if (netd.clients[i].fd > maxfd)
+						maxfd = netd.clients[i].fd;
+				}
 			}
 		}
 		for (i = 0; i < netd.nup; i++) {
@@ -375,7 +529,7 @@ int main(int argc, char **argv)
 		tv.tv_sec = 1;
 		tv.tv_usec = 0;
 
-		if (select(maxfd + 1, &rfds, NULL, NULL, &tv) < 0) {
+		if (select(maxfd + 1, &rfds, &wfds, NULL, &tv) < 0) {
 			if (errno == EINTR)
 				continue;
 			netd_log(LOG_ERR, "select: %s", strerror(errno));
@@ -384,8 +538,11 @@ int main(int argc, char **argv)
 
 		now = time(NULL);
 
-		if (FD_ISSET(netd.listener_fd, &rfds))
-			loop_accept();
+		if (netd.listener_fd >= 0 &&
+		    FD_ISSET(netd.listener_fd, &rfds))
+			loop_accept(netd.listener_fd);
+		if (netd.unix_fd >= 0 && FD_ISSET(netd.unix_fd, &rfds))
+			loop_accept(netd.unix_fd);
 
 		for (i = 0; i < netd.nclients; i++) {
 			struct netd_client *cl = &netd.clients[i];
@@ -393,6 +550,18 @@ int main(int argc, char **argv)
 			if (cl->fd >= 0 && !cl->dead &&
 			    FD_ISSET(cl->fd, &rfds))
 				loop_read_client(cl);
+		}
+
+		/* Drain the writable clients.  The output queue also makes
+		 * the frames that arrived since the last iteration visible
+		 * to the socket, so flush even when the descriptor was not
+		 * marked writable: it costs one non-blocking send.  */
+		for (i = 0; i < netd.nclients; i++) {
+			struct netd_client *cl = &netd.clients[i];
+
+			if (cl->fd >= 0 && !cl->dead &&
+			    (FD_ISSET(cl->fd, &wfds) || cl->olen > 0))
+				loop_flush_client(cl);
 		}
 
 		loop_reap_dead();

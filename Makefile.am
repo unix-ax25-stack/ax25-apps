@@ -2,7 +2,7 @@ if HAVE_KERNEL_AX25
 KERNEL_AX25_SUBDIRS = ax25mond
 endif
 
-SUBDIRS = ax25ipd call ax25netd ax25rtd listen $(KERNEL_AX25_SUBDIRS)
+SUBDIRS = ax25ipd call ax25netd ax25rtd ax25tcpd listen $(KERNEL_AX25_SUBDIRS)
 
 EXTRA_DIST = pathnames.h ax25-apps.spec
 

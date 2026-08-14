@@ -1,0 +1,80 @@
+.\" Man page for ax25common.conf
+.\"
+.TH AX25COMMON.CONF 5 "11 Aug 2026" "ax25-apps" "Linux System Administration"
+.SH NAME
+ax25common.conf \- shared configuration of the ax25netd loop port
+.SH DESCRIPTION
+.B ax25common.conf
+configures the loop port of
+.BR ax25netd (8).
+Both the daemon itself and its local clients
+.RB ( ax25tcpd (8),
+the AGWPE shim of
+.BR ax25 (3))
+read this file, so the endpoint that the client connects to can never
+drift away from the endpoint the daemon listens on.  Each line is one
+directive:
+.PP
+.RS
+.B loop socket
+.I path
+.br
+.B loop tcp
+.I port
+.br
+.B loop group
+.I name
+.br
+.B loop group
+.I gid
+.br
+.B loop group
+.B all
+.RE
+.PP
+.B loop socket
+enables the unix domain socket of the loop port at
+.IR path .
+Without it the loop port is only reachable over TCP.  The value
+.B no
+(or
+.B 0
+) disables the socket again.  The socket file is owned by the user the
+daemon drops privileges to (or the daemon run user), so connecting
+requires write access to the socket file, i.e.\& membership in the
+group named by
+.B loop group
+.IR name .
+The conventional group for AX.25 users is
+.B hams
+(see axspawn.conf).
+.B loop group all
+makes the socket accessible to every local user; a numeric
+.I gid
+is accepted as well.
+.PP
+.B loop tcp
+enables the TCP listener of the loop port on
+.IR port
+(the default is
+.BR 8100 ).
+.B loop tcp yes
+and
+.B loop tcp no
+switch the listener on and off without changing the port.
+.PP
+A missing file is not an error and leaves the defaults in place: unix
+socket disabled, TCP listener on port 8100, socket group = the daemon
+run user.
+.PP
+Blank lines and lines beginning with
+.B #
+are ignored.
+.SH FILES
+.I @@@AX25_SYSCONFDIR@@@/ax25common.conf
+.SH "SEE ALSO"
+.BR ax25netd (8),
+.BR agwpe.conf (5),
+.BR ax25tcpd (8),
+.BR ax25 (3),
+.BR axports (5)
