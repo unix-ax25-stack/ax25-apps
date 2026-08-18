@@ -34,8 +34,10 @@
 #define	SOCK_PACKET	10
 #endif
 
+/* The values Linux uses in <linux/if_ether.h>, so that a frame captured
+ * here means the same thing on either kind of system.  */
 #ifndef ETH_P_AX25
-#define	ETH_P_AX25	0x0800
+#define	ETH_P_AX25	0x0002
 #endif
 #ifndef ETH_P_ALL
 #define	ETH_P_ALL	0x0003
