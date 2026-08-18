@@ -63,8 +63,9 @@
 #ifndef SOCK_PACKET
 #define	SOCK_PACKET	10
 #endif
+/* The value Linux uses in <linux/if_ether.h>.  */
 #ifndef ETH_P_AX25
-#define	ETH_P_AX25	0x0803
+#define	ETH_P_AX25	0x0002
 #endif
 
 #include <netax25/ax25.h>
