@@ -8,6 +8,10 @@
  * This is also the key dispatching module, so it knows about a lot more
  * than just I/O stuff.
  */
+/* _DEFAULT_SOURCE keeps glibc's BSD declarations visible; _XOPEN_SOURCE
+ * alone hides struct ip, which we need to skip over an incoming IPv4
+ * header.  The Unix98 pty calls below need _XOPEN_SOURCE. */
+#define _DEFAULT_SOURCE
 #define _XOPEN_SOURCE
 #define _XOPEN_SOURCE_EXTENDED
 
