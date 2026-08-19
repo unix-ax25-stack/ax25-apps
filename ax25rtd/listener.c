@@ -519,9 +519,6 @@ void ax25_receive(int sock)
 	time_t stamp;
 	config *config;
 	ax25_rt_entry *ax25rt;
-#ifdef HAVE_KERNEL_AX25
-	int action, ipmode, pid;
-#endif
 	socklen_t asize;
 
 	asize = sizeof(sa);
