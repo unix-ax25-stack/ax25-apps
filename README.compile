@@ -1,12 +1,44 @@
 After checkout:
 
   autoreconf --install --force
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --mandir=/usr/share/man 
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --mandir=/usr/share/man
 
 Compile:
   make
 
-Onle once (if you did not have configuration files in /etc; if you have, they
+Only once (if you did not have configuration files in /etc; if you have, they
 will be overwritten!):
   make installconf
 
+Build and install libax25 before ax25-apps and ax25-tools; they link against
+it, and some of what they call lives only in the newer library.
+
+
+Serving AX.25 sockets from userspace
+------------------------------------
+
+libax25 can intercept the AX.25 socket calls and serve them from userspace
+instead of from the kernel stack - from an AGWPE server (direwolf, or
+ax25netd in front of one), or from a WAMPES node.  To build that in:
+
+  ./configure ... --enable-userspace-ax25
+
+Without the option the decision is made by platform: where there is no
+kernel AX.25 stack at all (macOS, BSD) it is built regardless, and on Linux
+it is left out.  So on Linux say --enable-userspace-ax25 when
+
+  - the kernel has no AX.25 (module not loaded, not built, or a kernel that
+    no longer offers it), or
+
+  - one libax25 should serve both ways.  With the interception built in,
+    nothing is decided at build time: a probe at the first socket() asks
+    whether the kernel answers AF_AX25 and takes it if it does, userspace
+    if it does not.
+
+AXSOCK_BACKEND=kernel|agwpe|wampes overrides that choice for one process.
+Which userspace backend serves a port follows from the configuration:
+agwpe.conf(5) describes the AGWPE upstreams, wampes.conf(5) the WAMPES
+nodes, and a port named in wampes.conf is handed to its node at bind(2).
+
+ax25-apps and ax25-tools have no such option - they use whatever the
+libax25 they were built and linked against provides.
