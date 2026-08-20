@@ -1,10 +1,29 @@
 After checkout:
 
   autoreconf --install --force
-./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --mandir=/usr/share/man
+
+  Linux with kernel-AX25:
+    ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --mandir=/usr/share/man
+  Linux without kernel-AX25: 
+    ./configure --enable-userspace-ax25 --prefix=/usr --sysconfdir=/etc --localstatedir=/var --mandir=/usr/share/man
+  MacOSX:
+    ./configure
+
+  Do not hand it --prefix=/usr on macOS.  /usr/lib belongs to the system, and
+  the library does not even link for it: ld refuses the interposing table that
+  a shared-cache eligible dylib may not carry ("Shared cache eligible dylib
+  cannot use interposing tuples" - see axsock(7) for what the table is for).
+  The defaults are what a station there wants: /usr/local, /usr/local/etc/ax25,
+  /usr/local/share/man.
 
 Compile:
   make
+
+Rebuilding later needs no configure line at all, and typing one again is how a
+wrong prefix gets in: config.status remembers the arguments and make re-runs
+it by itself when configure.ac changed.
+
+  make clean; autoreconf --install --force; make install; make clean
 
 Only once (if you did not have configuration files in /etc; if you have, they
 will be overwritten!):
@@ -42,3 +61,27 @@ nodes, and a port named in wampes.conf is handed to its node at bind(2).
 
 ax25-apps and ax25-tools have no such option - they use whatever the
 libax25 they were built and linked against provides.
+
+A program that was never linked against libax25 - a script, or a daemon that
+opens AF_AX25 by itself - can be served all the same, by loading the library
+before the C library:
+
+  LD_PRELOAD=/usr/local/lib/libax25.so.0 program
+
+On Linux the library defines socket(), bind(), connect() and the rest as
+ordinary strong symbols, so getting it loaded first is the whole trick: ELF
+has a flat namespace.  On macOS that is not enough - Mach-O binds two-level
+and DYLD_FORCE_FLAT_NAMESPACE is no longer honoured (measured on macOS
+15.7.9: the library is loaded and then asked nothing).  There the library
+carries an interposing table instead, and the insertion alone is enough:
+
+  DYLD_INSERT_LIBRARIES=/usr/local/lib/libax25.0.dylib program
+
+That has one consequence for anybody upgrading on macOS: the libc names are
+no longer exported from the library, so programs linked against an older
+libax25 must be relinked.  Build and install libax25, ax25-apps and
+ax25-tools together.
+
+axsock(7) has the whole story: which calls are intercepted, what preloading
+cannot reach (setuid, statically linked, syscall() by hand), what ax25d hands
+its children, and the environment variables.
