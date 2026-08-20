@@ -75,6 +75,34 @@ line on each dump line.
 .TP 10
 .BI \-v
 Display the version.
+.SH "WHERE THE FRAMES COME FROM"
+.LP
+The packet socket is the whole mechanism, so what can be monitored is
+whatever fills one.  Where the kernel serves AX.25 that is the kernel, and
+this program needs nothing said about it.  Where
+.B libax25
+serves AX.25 from userspace instead \-\- see
+.BR axsock (7)
+\-\- it depends on the backend:
+.TP 8
+AGWPE
+works.  The server's raw monitor is switched on with the first packet socket
+and off again with the last, and every frame it hears arrives.  The AGWPE
+server
+.RB ( ax25netd (8)
+or
+.BR direwolf )
+has to be reachable, or the socket cannot be opened at all.
+.TP 8
+WAMPES
+nothing arrives, and it is not a fault to look for: the WAMPES service
+protocol has no monitor stream.  Nothing sends a copy of every frame back the
+way the AGWPE
+.B K
+record does, so there is nothing to show.  The socket is handed out and stays
+quiet, with one line on standard error saying so.
+.LP
+A WAMPES node traces on its own console instead, and that is where to look.
 .SH FILES
 /etc/ax25/axports
 .SH "SEE ALSO"
@@ -84,6 +112,7 @@ Display the version.
 .BR ax25 (4),
 .BR netrom (4),
 .BR rose (4),
+.BR axsock (7),
 .BR kissattach (8).
 .LP
 .SH BUGS
