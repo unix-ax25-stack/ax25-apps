@@ -52,10 +52,25 @@ when the remote disconnects, or after
 .B quit
 .
 .TP
-.BI "datagram [" options "] " port " " dest [, digi , ...] " [< SRC]"
+.BI "datagram [" options "] " port [ : chan ] " [" dest [, digi , ...] "] " [< SRC]"
 Send unconnected (UI) frames.  On the binary port the whole remaining
 stream is one datagram, split into mtu sized chunks when the connection
 closes; on the text ports every line is one frame.
+With a
+.IR dest
+the header is fixed for the whole session and every line is payload.
+Without one, every line is a whole TNC2 frame
+.RB ( "SRC>DEST,DIGI,...:payload" )
+whose source and path come out of the line itself.
+.PP
+Commas and spaces both separate a path, and mix freely:
+.I "DB0AAA-8 DB0BBB"
+means the same as
+.IR "DB0AAA-8,DB0BBB" .
+.PP
+Replies are written in the client's own line convention: a client whose
+lines end with a carriage return (CR or CRLF) gets CRLF replies, any
+other gets bare LF.  Data is never rewritten.
 .TP
 .B quit
 .BR bye
@@ -84,10 +99,17 @@ or a number.  The default is text (0xF0).
 .BI \-\-port " port"
 Give the port separately, allowing the destination as the first
 argument.
+.TP
+.BI \-\-mycall " call"
+Give the source call, exactly like the
+.B < SRC
+argument.
 .SH SOURCE CALL
 The source call comes from the optional
 .B < SRC
-argument or from the
+argument, from
+.B \-\-mycall
+or from the
 .B default-call
 directive in
 .BR ax25tcpd.conf (5).
