@@ -4,8 +4,9 @@ endif
 
 SUBDIRS = ax25ipd call ax25netd ax25rtd ax25tcpd listen $(KERNEL_AX25_SUBDIRS)
 
-EXTRA_DIST = pathnames.h ax25-apps.spec \
-		README.compile README-hints-for-non-kernel-AX25-hosts.txt \
+EXTRA_DIST = pathnames.h ax25-apps.spec
+
+dist_doc_DATA = README.compile README-hints-for-non-kernel-AX25-hosts.txt \
 		README-linux-systemd.txt
 
 installconf:
