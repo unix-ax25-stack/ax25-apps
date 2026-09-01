@@ -460,14 +460,21 @@ static void reply_disconnect(struct netd_client *cl, const struct agwpe_s *in)
 	loop_send_client(cl, &hdr, (unsigned char *)msg, strlen(msg) + 1);
 }
 
-/* A duplicate connect cannot work; refuse the way AGWPE refuses a
- * connect that fails: a 'd' frame with a retryout message.  */
-static void reply_refuse(struct netd_client *cl, const struct agwpe_s *in)
+/*
+ * Refuse a connect the way AGWPE does: a 'd' frame carrying a message.  The
+ * word in it is the only place the reason can go, and there are two reasons
+ * that want telling apart - nobody is listening for that callsign, and the
+ * pair is already connected.  RETRYOUT is what a station that never answered
+ * looks like and is what AGWPE says; BUSY is ours, and a client that does not
+ * know it still sees a refused connect, which is the truth either way.
+ */
+static void reply_refuse(struct netd_client *cl, const struct agwpe_s *in,
+			 const char *why)
 {
 	struct agwpe_s hdr;
 	char msg[128];
 
-	snprintf(msg, sizeof(msg), "*** DISCONNECTED RETRYOUT With %s\r",
+	snprintf(msg, sizeof(msg), "*** DISCONNECTED %s With %s\r", why,
 		 in->call_to);
 	agwpe_header_init(&hdr, in->port, AGWPE_DK_DISCONNECT, 0,
 			  in->call_to, in->call_from, strlen(msg) + 1);
@@ -554,12 +561,12 @@ static void loop_connect(struct netd_client *cl, const struct agwpe_s *hdr,
 
 	owner = loop_call_by_call(hdr->call_to);
 	if (owner == NULL) {
-		reply_refuse(cl, hdr);
+		reply_refuse(cl, hdr, "RETRYOUT");
 		return;
 	}
 
 	if (session_find(u, hdr->call_from, hdr->call_to, pid, -1) != NULL) {
-		reply_refuse(cl, hdr);
+		reply_refuse(cl, hdr, "BUSY");
 		return;
 	}
 
@@ -567,7 +574,25 @@ static void loop_connect(struct netd_client *cl, const struct agwpe_s *hdr,
 	if (!session_pair_active(u, hdr->call_to, hdr->call_from))
 		session_add(u, hdr->call_to, hdr->call_from, pid, owner->fd, 0);
 
-	loop_send_client(owner, hdr, data, len);
+	/*
+	 * Both notifications go out as 'C', which is how a server reports a
+	 * connection.  The frame arrived as 'C', 'v' or 'c' - the three ways
+	 * an application spells a connect - and handing that spelling on was
+	 * passing a request off as an answer: a client written to the AGWPE
+	 * specification knows only 'C' here and would miss the call.  The pid
+	 * stays in the header where it belongs, and the digipeater list is
+	 * dropped because a 'C' carries none and AGWPE conveys none either.
+	 */
+	{
+		struct agwpe_s ch = *hdr;
+
+		ch.datakind = AGWPE_DK_CONNECT;
+		ch.data_len = 0;
+		loop_send_client(owner, &ch, NULL, 0);
+	}
+
+	(void) data;
+	(void) len;
 
 	/* Confirm the connect to the caller.  The call fields are swapped,
 	 * as for any connect confirm: call_from is the other end.  */
@@ -576,6 +601,7 @@ static void loop_connect(struct netd_client *cl, const struct agwpe_s *hdr,
 		char tmp[AGWPE_MAX_CALL];
 
 		ch = *hdr;
+		ch.datakind = AGWPE_DK_CONNECT;
 		memcpy(tmp, ch.call_from, sizeof(tmp));
 		memcpy(ch.call_from, ch.call_to, sizeof(ch.call_from));
 		memcpy(ch.call_to, tmp, sizeof(ch.call_to));
@@ -1085,7 +1111,7 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 			 */
 			if (session_find(u, hdr->call_from, hdr->call_to,
 					 pid, -1) != NULL) {
-				reply_refuse(cl, hdr);
+				reply_refuse(cl, hdr, "BUSY");
 				break;
 			}
 
