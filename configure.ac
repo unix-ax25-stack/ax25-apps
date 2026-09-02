@@ -3,6 +3,29 @@ AC_INIT([ax25-apps],[0.0.8-rc5],[linux-hams@vger.kernel.org])
 AC_CONFIG_SRCDIR(ax25ipd/config.c)
 AM_INIT_AUTOMAKE([1.7])
 
+dnl Not needed here, and taken anyway on purpose.
+dnl
+dnl --enable-userspace-ax25 belongs to libax25: the interception of the AX.25
+dnl socket calls lives there, and nothing in this package is built differently
+dnl whether it is given or not.  Declaring it is therefore useless in the
+dnl narrow sense and useful in the practical one: one configure line for all
+dnl three packages is what anybody actually types, and without this the two
+dnl that do not know the option answer every build with
+dnl
+dnl     configure: WARNING: unrecognized options: --enable-userspace-ax25
+dnl
+dnl A warning that is expected and meaningless on two packages out of three is
+dnl how people learn to read past warnings, including the ones that matter.
+dnl So take it, and say where it really went instead of saying nothing.
+AC_ARG_ENABLE([userspace-ax25],
+	AS_HELP_STRING([--enable-userspace-ax25],
+		[accepted and ignored here; it is libax25 that serves AX.25 sockets from userspace, and this package is the same either way]),
+	[ac_userspace_ax25_here=$enableval],
+	[ac_userspace_ax25_here=])
+if test -n "$ac_userspace_ax25_here" ; then
+	AC_MSG_NOTICE([--enable-userspace-ax25 is libax25's: nothing here is built differently for it])
+fi
+
 AC_CONFIG_HEADERS(config.h)
 
 dnl Checks for programs.
