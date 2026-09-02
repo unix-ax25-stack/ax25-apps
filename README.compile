@@ -9,6 +9,13 @@ After checkout:
   MacOSX:
     ./configure
 
+  The same line does for all three packages.  --enable-userspace-ax25 is
+  libax25's - the interception of the socket calls lives there - and
+  ax25-apps and ax25-tools are built the same either way.  They take the
+  option regardless, so that one line works everywhere and nobody has to
+  get used to a warning; each says on its own configure line that the
+  option belongs to the library.
+
   Do not hand it --prefix=/usr on macOS.  /usr/lib belongs to the system, and
   the library does not even link for it: ld refuses the interposing table that
   a shared-cache eligible dylib may not carry ("Shared cache eligible dylib
