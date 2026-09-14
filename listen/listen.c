@@ -330,8 +330,8 @@ int main(int argc, char **argv)
 	}
 
 	framed = monitor_framed(sock);
-	if (framed)
-		fprintf(stderr, "listen: raw monitor via libax25 AGWPE shim "
+	if (framed && getenv("AXSOCK_DEBUG") != NULL)
+		fprintf(stderr, "listen: raw monitor via libax25 ax25netd "
 			"(framed)\n");
 
 	/* Restrict the monitor to a single port: on Linux this binds the
