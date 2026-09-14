@@ -87,22 +87,35 @@ serves AX.25 from userspace instead \-\- see
 .TP 8
 AGWPE
 works.  The server's raw monitor is switched on with the first packet socket
-and off again with the last, and every frame it hears arrives.  The AGWPE
-server
-.RB ( ax25netd (8)
-or
+and off again with the last, and every frame it hears arrives.
+.B ax25netd (8)
+(or
 .BR direwolf )
-has to be reachable, or the socket cannot be opened at all.
+fills the monitor itself; it has to be reachable, or the socket cannot be
+opened at all.
 .TP 8
 WAMPES
-nothing arrives, and it is not a fault to look for: the WAMPES service
-protocol has no monitor stream.  Nothing sends a copy of every frame back the
-way the AGWPE
-.B K
-record does, so there is nothing to show.  The socket is handed out and stays
-quiet, with one line on standard error saying so.
+works for UI frames, through the same
+.B ax25netd (8)
+monitor channel.  WAMPES has no monitor stream of its own, so the libax25
+side pushes the UI frames it carries \-\- what it receives from the node and
+what it sends to it \-\- into
+.BR ax25netd (8),
+where a
+.B listen
+program picks them up like any AGWPE frame.  The digipeaters of a frame
+received from the node carry the
+.B *
+mark, as on the air.  Connected sessions are not mirrored; a WAMPES node
+traces on its own console instead, and that is where to look.
 .LP
-A WAMPES node traces on its own console instead, and that is where to look.
+In either backend, when no AGWPE server
+.RB ( ax25netd (8))
+is reachable the raw monitor has nothing to be fed from.  The socket is
+handed out and stays quiet rather than failing, so a program that opens a
+monitor beside its real work is not taken down by the server's absence; a
+line on standard error says so under
+.B AXSOCK_DEBUG .
 .SH FILES
 /etc/ax25/axports
 .SH "SEE ALSO"
