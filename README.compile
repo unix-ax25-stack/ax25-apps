@@ -1,5 +1,9 @@
 After checkout:
 
+  Check if installed:  make autoconf automake (>1.9) zlib1g-dev libtool and libncursesw6-dev (previously libncurses-dev) and optionaly libfltk1.3-dev (for ax25-tools/hdlcutil). Parts of the ax25-tools package will also need fltk and fltk development packages (and are silently skipped on compile if these packages are not installed).
+
+  Then prepare compilation:
+
   autoreconf --install --force
 
   Linux with kernel-AX25:
@@ -24,7 +28,7 @@ After checkout:
   /usr/local/share/man.
 
 Compile:
-  make
+  make install
 
 Rebuilding later needs no configure line at all, and typing one again is how a
 wrong prefix gets in: config.status remembers the arguments and make re-runs
