@@ -209,6 +209,19 @@ welcome.
 Quick example how to compile and install libax25 ax25-apps ax25-tools and wampes
 after git clone:
 
+Check if installed:  make autoconf automake (>1.9) zlib1g-dev libtool and libncursesw6-dev (previously libncurses-dev) and optionaly libfltk1.3-dev (for ax25-tools/hdlcutil). Parts of the ax25-tools package will also need fltk and fltk development packages (and are silently skipped on compile if these packages are not installed).
+wampes also needs libgdbm-dev.
+
+```
+Debian, Ubuntu, Raspberry Pi OS   apt install libgdbm-compat-dev libgdbm-dev libncurses-dev
+Fedora, RHEL                      dnf install gdbm-devel ...
+Arch                              pacman -S gdbm ...
+Alpine                            apk add gdbm-dev ...
+```
+
+David Ranch KI6ZHD provided a build-script: build-unix-ax25-stack.sh
+
+
 ```
 cd wampes.git; make install; cd ..
 for i in libax25.git ax25-apps.git ax25-tools.git; do
