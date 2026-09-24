@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <stdint.h>
 #include "listen.h"
 
 #define	LAPB_UNKNOWN	0
@@ -22,6 +23,30 @@
 #define	PID_FLEXNET	0xCE
 #define	PID_OPENTRAC	0x77
 #define	PID_NO_L3	0xF0
+
+/*
+ * XID (AX.25 2.2, ISO 8885): Parameter-IDs und Optionsbits.
+ * libax25 stellt kein xid.h - die Werte stammen aus direwolf/src/xid.h
+ * und sind identisch wampes-import ax25_dump().  Wer hier blind
+ * Konstante ratet, sah in Wahrheit nur seine eigenen Wunschwerte.
+ */
+#ifndef	XID
+#define	XID		0xaf	/* exchange identification */
+#endif
+#ifndef	XID_PI_OPTIONS
+#define	XID_PI_OPTIONS	3	/* PV ist ein XID_OPT_*-Bitfeld   */
+#define	XID_PI_IFIELDRX	6	/* N1rx: max. I-Feld, empfangen   */
+#define	XID_PI_IFIELDTX	7	/* N1tx: max. I-Feld, gesendet    */
+#define	XID_PI_WINDOWRX	8	/* k: Empfangs-Fenster            */
+#define	XID_PI_ACKTIME	9	/* T1: ACK-Leerlaufzeit, ms       */
+#define	XID_PI_RETRIES	10	/* N: Wiederholungszaehler        */
+#endif
+#ifndef	XID_OPT_REJ
+#define	XID_OPT_REJ	0x000002
+#define	XID_OPT_SREJ	0x000004
+#define	XID_OPT_MOD8	0x000400
+#define	XID_OPT_MOD128	0x000800
+#endif
 
 #define	I		0x00
 #define	S		0x01
@@ -273,6 +298,71 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 				break;
 			}
 		}
+	} else if (type == XID && length >= 4) {
+		int gl, pi, pl, xpos = 4;
+		uint32_t pv;
+		int xfi = data[0], xgi = data[1];
+		int xglo = (data[2] << 8) | data[3];
+		/* XID-Info: FI(1) GI(1) GL(2, big-endian) = Gesamtlaenge
+		 * der nachfolgenden Parameterliste, darauf ein oder mehrere
+		 * (PI,PL,PV)-Tripel.  Genau diese Tripel sind es, die man
+		 * beim Einwand "mir fehlt eine Bestaetigung" begreifen
+		 * muss: wer hier blind ratioet, sah in Wahrheit nur die
+		 * eigenen Wunschwerte.  linux listen druckt fuer XID nicht
+		 * einmal das Wort XID - die Luecke war im wampes genauso,
+		 * und genau dort haben wir sie in ax25_dump() geschlossen.
+		 */
+		gl = xglo;
+		if (gl > length - 4)
+			gl = length - 4;
+		lprintf(T_AXHDR, " FI=0x%x GI=0x%x GL=%d",
+			xfi, xgi, xglo);
+		while (gl >= 2) {
+			if (xpos + 2 > length)
+				break;
+			pi = data[xpos++];
+			pl = data[xpos++];
+			gl -= 2;
+			if (pl > gl || xpos + pl > length)
+				break;
+			gl -= pl;
+			pv = 0;
+			{
+				int pvl = pl;
+				while (pvl-- > 0)
+					pv = (pv << 8) | data[xpos++];
+			}
+			switch (pi) {
+			case XID_PI_OPTIONS:
+				lprintf(T_AXHDR, " OPT=0x%x%s%s",
+					(unsigned)pv,
+					(pv & XID_OPT_SREJ) ? " SREJ" :
+					(pv & XID_OPT_REJ) ? " REJ" : "",
+					(pv & XID_OPT_MOD128) ? " mod128" :
+					(pv & XID_OPT_MOD8) ? " mod8" : "");
+				break;
+			case XID_PI_WINDOWRX:
+				lprintf(T_AXHDR, " k=%u", (unsigned)pv);
+				break;
+			case XID_PI_IFIELDRX:
+				lprintf(T_AXHDR, " N1rx=%u", (unsigned)pv);
+				break;
+			case XID_PI_IFIELDTX:
+				lprintf(T_AXHDR, " N1tx=%u", (unsigned)pv);
+				break;
+			case XID_PI_ACKTIME:
+				lprintf(T_AXHDR, " T1=%ums", (unsigned)pv);
+				break;
+			case XID_PI_RETRIES:
+				lprintf(T_AXHDR, " Retries=%u", (unsigned)pv);
+				break;
+			default:
+				lprintf(T_AXHDR, " PI=%d PL=%d PV=0x%x",
+					pi, pl, (unsigned)pv);
+				break;
+			}
+		}
+		lprintf(T_AXHDR, "\n");
 	} else if (type == FRMR && length >= 3) {
 		/* FIX ME XXX
 		   lprintf(T_AXHDR, ": %s", decode_type(ftype(data[0])));
@@ -332,6 +422,8 @@ static char *decode_type(int type)
 		return "FRMR";
 	case UI:
 		return "UI";
+	case XID:
+		return "XID";
 	default:
 		return "[invalid]";
 	}
