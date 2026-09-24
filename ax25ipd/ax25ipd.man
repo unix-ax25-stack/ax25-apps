@@ -33,7 +33,7 @@ lines; see
 .LP
 .B @@@ax25ipd@@@
 defaults to using
-.B /etc/ax25/ax25ipd.conf
+.B @@@AX25_SYSCONFDIR@@@/ax25ipd.conf
 as its config file.
 .LP
 .SH OPTIONS
@@ -58,7 +58,7 @@ not predictable.
 .BI \-f,--nofork
 Do not become a daemon. Run in foreground.
 .SH FILES
-/etc/ax25/ax25ipd.conf
+@@@AX25_SYSCONFDIR@@@/ax25ipd.conf
 .SH "SEE ALSO"
 .BR ax25ipd.conf (5),
 .BR ax25 (4),

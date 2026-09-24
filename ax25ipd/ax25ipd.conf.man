@@ -285,6 +285,6 @@ per second are also supported.  If a system does not support a particular line
 speed, a speed of 9600 bits per second will be set instead.
 .SH FILES
 .LP
-/etc/ax25/ax25ipd.conf
+@@@AX25_SYSCONFDIR@@@/ax25ipd.conf
 .SH "SEE ALSO"
 .BR @@@ax25ipd@@@ (8).

@@ -25,6 +25,6 @@ You may specify up to 5 sockets (definable in ax25mond.c) and @@@ax25mond@@@
 will accept up to 50 connects (also definable in ax25mond.c).
 .SH FILES
 .LP
-/etc/ax25/ax25mond.conf
+@@@AX25_SYSCONFDIR@@@/ax25mond.conf
 .SH "SEE ALSO"
 .BR @@@ax25mond@@@ (8).

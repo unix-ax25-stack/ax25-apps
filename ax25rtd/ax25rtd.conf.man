@@ -2,11 +2,11 @@
 .SH NAME
 ax25rtd.conf \- ax25 routing daemon configuration file
 .SH SYNOPSIS
-.B /etc/ax25/ax25rtd.conf
+.B @@@AX25_SYSCONFDIR@@@/ax25rtd.conf
 .SH DESCRIPTION
 
 
-The file /etc/ax25/ax25rtd.conf is the configuration file for @@@ax25rtd@@@.
+The file @@@AX25_SYSCONFDIR@@@/ax25rtd.conf is the configuration file for @@@ax25rtd@@@.
 The parameters of the options shown here are the default values except the
 ones marked with (example)
 .PP

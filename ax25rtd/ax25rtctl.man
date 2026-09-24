@@ -34,12 +34,12 @@ Removes the entries older than <minutes> from the caches and
 the kernel routing tables.
 .TP
 .B -s, --save
-Saves the AX.25 and IP cache to /var/ax25/ax25rtd/ax25_route and
-/var/ax25/ax25rtd/ip_route (or the files specified in
-/etc/ax25/ax25rtd.conf).
+Saves the AX.25 and IP cache to @@@AX25_LOCALSTATEDIR@@@/ax25rtd/ax25_route and
+@@@AX25_LOCALSTATEDIR@@@/ax25rtd/ip_route (or the files specified in
+@@@AX25_SYSCONFDIR@@@/ax25rtd.conf).
 .TP
 .B -r, --reload
-Reloads the config file /etc/ax25/ax25rtd.conf. This will
+Reloads the config file @@@AX25_SYSCONFDIR@@@/ax25rtd.conf. This will
 *not* affect the caches or the heard list.
 .TP
 .B -q, --shutdown
@@ -49,7 +49,7 @@ Same as 'killall -TERM @@@ax25rtd@@@' ;-)
 Prints version.
 .PP
 Note that you can specify either the port name (as defined in
-/etc/ax25/axports) or the interface name (shown by ifconfig). If names
+@@@AX25_SYSCONFDIR@@@/axports) or the interface name (shown by ifconfig). If names
 conflict (i.e. port scc0 is in fact interface scc3, and vica versa), the
 interface name has precedence over the port name.  Example:
 
@@ -63,7 +63,7 @@ All commands return port names in their output, though.
 With one exception: ax25_route and ip_route use interface names.
 
 .SH FILES
-/etc/ax25/ax25rtd.conf
+@@@AX25_SYSCONFDIR@@@/ax25rtd.conf
 .SH "SEE ALSO"
 .BR ax25rtd.conf (5),
 .BR @@@ax25rtd@@@ (8).

@@ -10,6 +10,14 @@ tells
 where to find the AGWPE multiplexer it talks to (the back side) and
 where it listens for its own clients (the front side).
 .PP
+A missing file is not an error and leaves the defaults in place:
+the back side comes from the defaults of
+.BR ax25common.conf (5)
+(TCP loop port 127.0.0.1:8100), and the front side is one binary tcp
+port 127.0.0.1:8101 whose text port 8102 follows by default, with
+.BR mtu
+256.
+.PP
 Blank lines and lines beginning with
 .B #
 are ignored.  A line consists of whitespace separated words.
@@ -47,8 +55,11 @@ a unix domain socket at
 .IR path .
 .SH LISTEN
 Each
+.B listen tcp
+line opens one binary front side listener plus its text port; several
+are allowed.  Without any
 .B listen
-line opens one front side listener.  Several are allowed.
+line the default front side applies (see above).
 .PP
 .RS
 .B listen tcp
@@ -98,11 +109,10 @@ The source callsign used when a command line does not give one.  Without
 it a connect or datagram command must name its source call explicitly.
 .SH EXAMPLE
 .nf
-	# binary port 8101, text port 8102
+	# binary port 8101, text port 8102 follows at 8101 + 1
 	# back side from ax25common.conf (loop socket/tcp)
 	listen	tcp	127.0.0.1	8101
-	listen	tcp	127.0.0.1	8102
-	listen	unix	@@@AX25_LOCALSTATEDIR@@@/ax25/ax25tcpd.sock
+	#listen	unix	@@@AX25_LOCALSTATEDIR@@@/ax25tcpd.sock
 	#target	tcp	192.0.2.10	8100
 	mtu	256
 	default-call	DG8HT

@@ -18,6 +18,12 @@ is an interactive frontend to an
 loop port.  Each client connection is a session: the first line is a
 command, the bytes after it are packet data.  It is useful for scripts
 and for talking to AX.25 services by hand.
+.PP
+It runs without a configuration file: the back side is then the default
+loop port of
+.BR ax25common.conf (5)
+(TCP 127.0.0.1:8100), and the front side is one binary tcp listener on
+127.0.0.1:8101 with its text port 8102 following at 8101 + 1.
 .SH PORTS
 Every
 .B listen tcp
@@ -119,7 +125,8 @@ Without either, the command is refused.
 .BI \-c " file"
 Use
 .I file
-instead of the default configuration file.
+instead of the default configuration file.  A missing file is not an
+error and leaves the defaults in place (see DESCRIPTION).
 .TP
 .BI \-C " file"
 Use
