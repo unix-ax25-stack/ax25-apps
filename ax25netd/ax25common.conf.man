@@ -2,18 +2,16 @@
 .\"
 .TH AX25COMMON.CONF 5 "11 Aug 2026" "ax25-apps" "Linux System Administration"
 .SH NAME
-ax25common.conf \- shared configuration of the ax25netd loop port
+ax25common.conf \- shared loop port configuration of ax25netd and ax25tcpd
 .SH DESCRIPTION
 .B ax25common.conf
 configures the loop port of
 .BR ax25netd (8).
-Both the daemon itself and its local clients
-.RB ( ax25tcpd (8),
-the AGWPE shim of
-.BR ax25 (3))
-read this file, so the endpoint that the client connects to can never
-drift away from the endpoint the daemon listens on.  Each line is one
-directive:
+Both the daemon itself and
+.BR ax25tcpd (8),
+which in its default setup connects to the same loop port, read this
+file, so the endpoint a client connects to can never drift away from
+the endpoint the daemon listens on.  Each line is one directive:
 .PP
 .RS
 .B loop socket
