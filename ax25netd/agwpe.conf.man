@@ -9,6 +9,17 @@ lists the AGWPE servers ("upstreams") which
 .BR ax25netd (8)
 connects to and exposes to its local clients.
 .PP
+This file is read by
+.BR ax25netd (8)
+alone.  A program served by libax25's userspace shim reaches the joined
+radios over the daemon's loop port (see
+.BR ax25common.conf (5)),
+because the
+.BR AXSOCK_HOST " / " AXSOCK_PORT
+environment variables, the shim's only choice of server, name the daemon
+there by default; point them at one of these servers instead, and the
+daemon is skipped.  Either way the program never reads this file.
+.PP
 Each line defines one upstream:
 .PP
 .RS

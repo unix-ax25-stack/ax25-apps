@@ -34,6 +34,11 @@ in
 .BR agwpe.conf (5)).
 This is off for the virtual loop port, and connects with an explicit
 digipeater path are never resolved.
+.PP
+A missing configuration file is not an error: the daemon then serves
+only the virtual loop port, with the loop port listener from
+.BR ax25common.conf (5)
+(by default TCP 127.0.0.1:8100) and no radio upstreams.
 .SH OPTIONS
 .TP
 .B \-f
@@ -219,9 +224,15 @@ and
 Upstream and authentication configuration.
 .TP
 .I @@@AX25_SYSCONFDIR@@@/ax25common.conf
-Loop port endpoint, shared with the local clients
-.RB ( ax25tcpd (8),
-AGWPE shim).
+Loop port endpoint, read by
+.BR ax25netd (8)
+and
+.BR ax25tcpd (8).
+The AGWPE shim reaches the same endpoint through its
+.B AXSOCK_HOST
+and
+.B AXSOCK_PORT
+environment variables and never reads this file.
 .TP
 .I @@@AX25_SYSCONFDIR@@@/agwpe_shadow.conf
 Credentials (mode 0600, owned by root).

@@ -48,7 +48,7 @@
 #include <netax25/agwpe_config.h>
 #include <netax25/axcommon.h>
 
-#include "netd.h"
+#include "ax25netd.h"
 
 #ifndef AX25_SYSCONFDIR
 #define	AX25_SYSCONFDIR	"/usr/local/etc/ax25"
@@ -57,9 +57,9 @@
 #define	DEFAULT_CONF	AX25_SYSCONFDIR "/agwpe.conf"
 #define	DEFAULT_COMMON	AX25_SYSCONFDIR "/ax25common.conf"
 
-struct netd_ctx netd;
+struct ax25netd_ctx ax25netd;
 
-void netd_log(int prio, const char *fmt, ...)
+void ax25netd_log(int prio, const char *fmt, ...)
 {
 	va_list ap;
 	char buf[512];
@@ -69,7 +69,7 @@ void netd_log(int prio, const char *fmt, ...)
 	va_end(ap);
 
 	syslog(prio, "%s", buf);
-	if (netd.debug || prio == LOG_ERR || prio == LOG_WARNING)
+	if (ax25netd.debug || prio == LOG_ERR || prio == LOG_WARNING)
 		fprintf(stderr, "ax25netd: %s\n", buf);
 }
 
@@ -83,8 +83,8 @@ static void usage(const char *prog)
 		"  -f         stay in the foreground\n"
 		"  -d         log to stderr as well\n"
 		"  -c <file>  configuration file (default %s)\n"
-		"  -C <file>  shared loop port configuration, also read by\n"
-		"             ax25tcpd and the AGWPE shim (default %s)\n"
+		"  -C <file>  shared loop port configuration, read by\n"
+		"             ax25netd and ax25tcpd (default %s)\n"
 		"  -b <addr>  bind address of the loop port; IPv4 and IPv6 are\n"
 		"             supported (default %s)\n"
 		"  -p <port>  TCP port of the loop port (default %d)\n"
@@ -97,8 +97,8 @@ static void usage(const char *prog)
 		"             becomes the only way in (requires -U or 'socket')\n"
 		"  -u <user>  drop root privileges to this user after startup\n"
 		"      --no-mheard  do not maintain the mheard.dat heard list\n",
-		prog, DEFAULT_CONF, DEFAULT_COMMON, NETD_BIND_DEFAULT,
-		NETD_PORT_DEFAULT);
+		prog, DEFAULT_CONF, DEFAULT_COMMON, AX25NETD_BIND_DEFAULT,
+		AX25NETD_PORT_DEFAULT);
 }
 
 /*
@@ -108,8 +108,8 @@ static void usage(const char *prog)
  */
 static void loop_unlink_unix(void)
 {
-	if (netd.unix_path[0] != '\0')
-		unlink(netd.unix_path);
+	if (ax25netd.unix_path[0] != '\0')
+		unlink(ax25netd.unix_path);
 }
 
 static void shutdown_signal(int sig)
@@ -134,23 +134,23 @@ static int drop_privileges(const char *user)
 
 	pw = getpwnam(user);
 	if (pw == NULL) {
-		netd_log(LOG_ERR, "no such user: %s", user);
+		ax25netd_log(LOG_ERR, "no such user: %s", user);
 		return -1;
 	}
 	if (initgroups(user, pw->pw_gid) != 0) {
-		netd_log(LOG_ERR, "initgroups(%s): %s", user, strerror(errno));
+		ax25netd_log(LOG_ERR, "initgroups(%s): %s", user, strerror(errno));
 		return -1;
 	}
 	if (setgid(pw->pw_gid) != 0) {
-		netd_log(LOG_ERR, "setgid: %s", strerror(errno));
+		ax25netd_log(LOG_ERR, "setgid: %s", strerror(errno));
 		return -1;
 	}
 	if (setuid(pw->pw_uid) != 0) {
-		netd_log(LOG_ERR, "setuid: %s", strerror(errno));
+		ax25netd_log(LOG_ERR, "setuid: %s", strerror(errno));
 		return -1;
 	}
 
-	netd_log(LOG_INFO, "dropped privileges to %s", user);
+	ax25netd_log(LOG_INFO, "dropped privileges to %s", user);
 	return 0;
 }
 
@@ -197,10 +197,10 @@ static int daemonize(void)
 
 int main(int argc, char **argv)
 {
-	int ch, port = NETD_PORT_DEFAULT;
+	int ch, port = AX25NETD_PORT_DEFAULT;
 	const char *conf = DEFAULT_CONF;
 	const char *comconf = DEFAULT_COMMON;
-	const char *bindaddr = NETD_BIND_DEFAULT;
+	const char *bindaddr = AX25NETD_BIND_DEFAULT;
 	const char *runuser = NULL;
 	const char *unix_path = NULL;
 	const char *unix_group = NULL;
@@ -214,9 +214,9 @@ int main(int argc, char **argv)
 
 	openlog("ax25netd", LOG_PID, LOG_DAEMON);
 
-	netd.mheard = 1;
-	netd.listener_fd = -1;
-	netd.unix_fd = -1;
+	ax25netd.mheard = 1;
+	ax25netd.listener_fd = -1;
+	ax25netd.unix_fd = -1;
 
 	{
 		static const struct option longopts[] = {
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
 				foreground = 1;
 				break;
 			case 'd':
-				netd.debug = 1;
+				ax25netd.debug = 1;
 				break;
 			case 'c':
 				conf = optarg;
@@ -262,7 +262,7 @@ int main(int argc, char **argv)
 				runuser = optarg;
 				break;
 			case 'M':
-				netd.mheard = 0;
+				ax25netd.mheard = 0;
 				break;
 			default:
 				usage(argv[0]);
@@ -277,21 +277,25 @@ int main(int argc, char **argv)
 	}
 
 	if (agwpe_config_load(conf, &cfg) < 0) {
-		fprintf(stderr, "ax25netd: cannot load configuration from %s\n", conf);
-		return 1;
+		if (errno != ENOENT) {
+			fprintf(stderr, "ax25netd: cannot load configuration from %s\n", conf);
+			return 1;
+		}
+		fprintf(stderr, "ax25netd: warning: no %s, running without an upstream list\n", conf);
 	}
-	if (cfg.count == 0) {
-		fprintf(stderr, "ax25netd: no upstreams configured in %s\n", conf);
-		agwpe_config_free(&cfg);
-		return 1;
-	}
+	if (cfg.count == 0)
+		fprintf(stderr, "ax25netd: warning: no upstreams configured (loop port only)\n");
 
 	/*
 	 * The loop port endpoint comes from the shared ax25common.conf,
-	 * the file that ax25tcpd and the AGWPE shim read as well, so
-	 * the client side always sees what the daemon listens on.  A
-	 * missing file leaves the defaults in place (TCP %d, no unix
-	 * socket); the command line options below override it.
+	 * the file ax25netd and ax25tcpd read: the daemon listens where
+	 * the file says, and the frontend connects to the same endpoint,
+	 * so the client side always sees what the daemon listens on.
+	 * The libax25 AGWPE shim never reads this file — its only choice
+	 * of server is the AXSOCK_HOST/AXSOCK_PORT environment variables
+	 * (default 127.0.0.1:8100), which happen to point here by
+	 * default.  A missing file leaves the defaults in place (TCP %d,
+	 * no unix socket); the command line options below override it.
 	 */
 	if (ax25common_config_load(comconf, &com) < 0) {
 		fprintf(stderr, "ax25netd: cannot load %s\n", comconf);
@@ -344,6 +348,7 @@ int main(int argc, char **argv)
 	{
 		int nradio = 0;
 		int j = 0;
+		int saw_loop = 0;
 
 		for (i = 0; i < cfg.count; i++) {
 			if (cfg.upstreams[i].virtual)
@@ -352,8 +357,8 @@ int main(int argc, char **argv)
 		}
 
 		if (nradio > 0) {
-			netd.ups = calloc(nradio, sizeof(struct netd_upstream));
-			if (netd.ups == NULL) {
+			ax25netd.ups = calloc(nradio, sizeof(struct ax25netd_upstream));
+			if (ax25netd.ups == NULL) {
 				agwpe_config_free(&cfg);
 				return 1;
 			}
@@ -363,37 +368,49 @@ int main(int argc, char **argv)
 			struct agwpe_upstream *u = &cfg.upstreams[i];
 
 			if (u->virtual) {
-				netd.loop_enabled = 1;
-				netd.loop.index = AGWPE_PORT_LOOP;
-				strncpy(netd.loop.name, u->name,
-					sizeof(netd.loop.name) - 1);
-				netd.loop.virtual = 1;
+				ax25netd.loop_enabled = 1;
+				ax25netd.loop.index = AGWPE_PORT_LOOP;
+				strncpy(ax25netd.loop.name, u->name,
+					sizeof(ax25netd.loop.name) - 1);
+				ax25netd.loop.virtual = 1;
+				saw_loop = 1;
 				continue;
 			}
-			strncpy(netd.ups[j].name, u->name,
-				sizeof(netd.ups[j].name) - 1);
-			strncpy(netd.ups[j].host, u->host,
-				sizeof(netd.ups[j].host) - 1);
-			strncpy(netd.ups[j].user, u->user,
-				sizeof(netd.ups[j].user) - 1);
-			strncpy(netd.ups[j].pass, u->pass,
-				sizeof(netd.ups[j].pass) - 1);
-			netd.ups[j].tcp_port = u->tcp_port;
+			strncpy(ax25netd.ups[j].name, u->name,
+				sizeof(ax25netd.ups[j].name) - 1);
+			strncpy(ax25netd.ups[j].host, u->host,
+				sizeof(ax25netd.ups[j].host) - 1);
+			strncpy(ax25netd.ups[j].user, u->user,
+				sizeof(ax25netd.ups[j].user) - 1);
+			strncpy(ax25netd.ups[j].pass, u->pass,
+				sizeof(ax25netd.ups[j].pass) - 1);
+			ax25netd.ups[j].tcp_port = u->tcp_port;
 			j++;
 		}
-		netd.nup = nradio;
+		if (!saw_loop) {
+			/* No "loop" line in the configuration (or no
+			 * configuration at all): enable the virtual
+			 * loopback port anyway, so local clients still
+			 * have a loop port to use.  */
+			ax25netd.loop_enabled = 1;
+			ax25netd.loop.index = AGWPE_PORT_LOOP;
+			strncpy(ax25netd.loop.name, AGWPE_LOOP_NAME,
+				sizeof(ax25netd.loop.name) - 1);
+			ax25netd.loop.virtual = 1;
+		}
+		ax25netd.nup = nradio;
 	}
 
-	netd.auth = cfg.auth;
-	netd.autoroute = cfg.autoroute;
-	netd.clients_auth = cfg.clients;
-	netd.nclients_auth = cfg.nclients;
+	ax25netd.auth = cfg.auth;
+	ax25netd.autoroute = cfg.autoroute;
+	ax25netd.clients_auth = cfg.clients;
+	ax25netd.nclients_auth = cfg.nclients;
 	cfg.clients = NULL;
 	cfg.nclients = 0;
 
 	agwpe_config_free(&cfg);
 
-	if (netd.nup == 0 && !netd.loop_enabled) {
+	if (ax25netd.nup == 0 && !ax25netd.loop_enabled) {
 		fprintf(stderr, "ax25netd: no radio upstreams configured in %s\n",
 			conf);
 		return 1;
@@ -455,7 +472,7 @@ int main(int argc, char **argv)
 			if (loop_init(bindaddr, port) < 0)
 				return 1;
 		} else {
-			netd_log(LOG_INFO, "TCP listener disabled");
+			ax25netd_log(LOG_INFO, "TCP listener disabled");
 		}
 
 		if (cfg.socket_path[0] != '\0' &&
@@ -469,16 +486,16 @@ int main(int argc, char **argv)
 
 	/* The heard list file is created before dropping privileges, so a
 	 * started-as-root daemon can set up the state directory.  */
-	if (netd.mheard)
-		netd_mheard_init();
+	if (ax25netd.mheard)
+		ax25netd_mheard_init();
 	else
-		netd_log(LOG_INFO, "mheard: disabled by --no-mheard");
+		ax25netd_log(LOG_INFO, "mheard: disabled by --no-mheard");
 
 	if (drop_privileges(runuser) < 0)
 		return 1;
 
 	if (!foreground && daemonize() < 0) {
-		netd_log(LOG_ERR, "daemonize: %s", strerror(errno));
+		ax25netd_log(LOG_ERR, "daemonize: %s", strerror(errno));
 		return 1;
 	}
 
@@ -491,34 +508,34 @@ int main(int argc, char **argv)
 		FD_ZERO(&wfds);
 		maxfd = -1;
 
-		if (netd.listener_fd >= 0) {
-			FD_SET(netd.listener_fd, &rfds);
-			maxfd = netd.listener_fd;
+		if (ax25netd.listener_fd >= 0) {
+			FD_SET(ax25netd.listener_fd, &rfds);
+			maxfd = ax25netd.listener_fd;
 		}
-		if (netd.unix_fd >= 0) {
-			FD_SET(netd.unix_fd, &rfds);
-			if (netd.unix_fd > maxfd)
-				maxfd = netd.unix_fd;
+		if (ax25netd.unix_fd >= 0) {
+			FD_SET(ax25netd.unix_fd, &rfds);
+			if (ax25netd.unix_fd > maxfd)
+				maxfd = ax25netd.unix_fd;
 		}
 
-		for (i = 0; i < netd.nclients; i++) {
-			if (netd.clients[i].fd >= 0) {
-				FD_SET(netd.clients[i].fd, &rfds);
-				if (netd.clients[i].fd > maxfd)
-					maxfd = netd.clients[i].fd;
+		for (i = 0; i < ax25netd.nclients; i++) {
+			if (ax25netd.clients[i].fd >= 0) {
+				FD_SET(ax25netd.clients[i].fd, &rfds);
+				if (ax25netd.clients[i].fd > maxfd)
+					maxfd = ax25netd.clients[i].fd;
 				/* A client with pending output must be
 				 * drained as soon as its socket accepts
 				 * more data.  */
-				if (netd.clients[i].olen > 0) {
-					FD_SET(netd.clients[i].fd, &wfds);
-					if (netd.clients[i].fd > maxfd)
-						maxfd = netd.clients[i].fd;
+				if (ax25netd.clients[i].olen > 0) {
+					FD_SET(ax25netd.clients[i].fd, &wfds);
+					if (ax25netd.clients[i].fd > maxfd)
+						maxfd = ax25netd.clients[i].fd;
 				}
 			}
 		}
-		for (i = 0; i < netd.nup; i++) {
-			if (netd.ups[i].connected) {
-				int fd = agwpe_client_fd(netd.ups[i].cli);
+		for (i = 0; i < ax25netd.nup; i++) {
+			if (ax25netd.ups[i].connected) {
+				int fd = agwpe_client_fd(ax25netd.ups[i].cli);
 
 				FD_SET(fd, &rfds);
 				if (fd > maxfd)
@@ -532,20 +549,20 @@ int main(int argc, char **argv)
 		if (select(maxfd + 1, &rfds, &wfds, NULL, &tv) < 0) {
 			if (errno == EINTR)
 				continue;
-			netd_log(LOG_ERR, "select: %s", strerror(errno));
+			ax25netd_log(LOG_ERR, "select: %s", strerror(errno));
 			break;
 		}
 
 		now = time(NULL);
 
-		if (netd.listener_fd >= 0 &&
-		    FD_ISSET(netd.listener_fd, &rfds))
-			loop_accept(netd.listener_fd);
-		if (netd.unix_fd >= 0 && FD_ISSET(netd.unix_fd, &rfds))
-			loop_accept(netd.unix_fd);
+		if (ax25netd.listener_fd >= 0 &&
+		    FD_ISSET(ax25netd.listener_fd, &rfds))
+			loop_accept(ax25netd.listener_fd);
+		if (ax25netd.unix_fd >= 0 && FD_ISSET(ax25netd.unix_fd, &rfds))
+			loop_accept(ax25netd.unix_fd);
 
-		for (i = 0; i < netd.nclients; i++) {
-			struct netd_client *cl = &netd.clients[i];
+		for (i = 0; i < ax25netd.nclients; i++) {
+			struct ax25netd_client *cl = &ax25netd.clients[i];
 
 			if (cl->fd >= 0 && !cl->dead &&
 			    FD_ISSET(cl->fd, &rfds))
@@ -556,8 +573,8 @@ int main(int argc, char **argv)
 		 * the frames that arrived since the last iteration visible
 		 * to the socket, so flush even when the descriptor was not
 		 * marked writable: it costs one non-blocking send.  */
-		for (i = 0; i < netd.nclients; i++) {
-			struct netd_client *cl = &netd.clients[i];
+		for (i = 0; i < ax25netd.nclients; i++) {
+			struct ax25netd_client *cl = &ax25netd.clients[i];
 
 			if (cl->fd >= 0 && !cl->dead &&
 			    (FD_ISSET(cl->fd, &wfds) || cl->olen > 0))
@@ -566,10 +583,10 @@ int main(int argc, char **argv)
 
 		loop_reap_dead();
 
-		for (i = 0; i < netd.nup; i++) {
-			if (netd.ups[i].connected &&
-			    FD_ISSET(agwpe_client_fd(netd.ups[i].cli), &rfds))
-				upstream_read(&netd.ups[i]);
+		for (i = 0; i < ax25netd.nup; i++) {
+			if (ax25netd.ups[i].connected &&
+			    FD_ISSET(agwpe_client_fd(ax25netd.ups[i].cli), &rfds))
+				upstream_read(&ax25netd.ups[i]);
 		}
 
 		upstream_reconnect_tick(now);

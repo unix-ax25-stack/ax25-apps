@@ -26,36 +26,36 @@
 #include <netax25/agwpe_client.h>
 #include <netax25/agwpe_config.h>
 
-#define	NETD_PORT_DEFAULT	8100
-#define	NETD_BIND_DEFAULT	"127.0.0.1"
-#define	NETD_RECONNECT_DELAY	5
+#define	AX25NETD_PORT_DEFAULT	8100
+#define	AX25NETD_BIND_DEFAULT	"127.0.0.1"
+#define	AX25NETD_RECONNECT_DELAY	5
 
 /*
- * Each radio upstream occupies a block of NETD_PORT_STRIDE flat loop
+ * Each radio upstream occupies a block of AX25NETD_PORT_STRIDE flat loop
  * port numbers; upstream i owns ports i*16 .. i*16+15, channel c of
  * upstream i is port i*16+c.  A single-channel Direwolf therefore keeps
  * its port number 0.  The block is fixed so that the numbering survives
  * a Direwolf restart with a changed channel count.
  */
-#define	NETD_PORT_STRIDE		16
+#define	AX25NETD_PORT_STRIDE		16
 
 /* How long a 'G' request waits for the upstream port lists before it
  * is answered with what is known so far.  */
-#define	NETD_PORTS_TIMEOUT		10
+#define	AX25NETD_PORTS_TIMEOUT		10
 
-#define	NETD_VERSION_MAJOR	1
-#define	NETD_VERSION_MINOR	0
+#define	AX25NETD_VERSION_MAJOR	1
+#define	AX25NETD_VERSION_MINOR	0
 
-#define	NETD_BUF_MAX		(16 * 1024 * 1024)
+#define	AX25NETD_BUF_MAX		(16 * 1024 * 1024)
 
 /*
  * Bound on the per-client output queue.  A client that cannot keep up is
  * allowed to fall behind for this much traffic before it is dropped;
  * beyond it the backlog is a real failure, not a burst.
  */
-#define	NETD_OUT_MAX		(1 * 1024 * 1024)
+#define	AX25NETD_OUT_MAX		(1 * 1024 * 1024)
 
-struct netd_client {
+struct ax25netd_client {
 	int			fd;
 	int			dead;
 	int			authed;		/* passed the login (auth required) */
@@ -71,7 +71,7 @@ struct netd_client {
 	time_t			ports_since;	/* when the request arrived */
 };
 
-struct netd_call {
+struct ax25netd_call {
 	char			call[AGWPE_MAX_CALL];
 	unsigned char		chan;		/* radio channel on the upstream */
 	int			fd;		/* owning loop client */
@@ -79,7 +79,7 @@ struct netd_call {
 };
 
 /* One channel of a radio upstream, learned from its 'G' reply.  */
-struct netd_port {
+struct ax25netd_port {
 	unsigned char		chan;		/* port byte on the upstream */
 	char			desc[64];
 };
@@ -91,7 +91,7 @@ struct netd_port {
  * NET/ROM session on an existing text link is not a second connection.
  * call_from is the local call, call_to the remote station.
  */
-struct netd_session {
+struct ax25netd_session {
 	char			call_from[AGWPE_MAX_CALL];
 	char			call_to[AGWPE_MAX_CALL];
 	unsigned char		pid;
@@ -107,7 +107,7 @@ struct netd_session {
 	unsigned int		paclen;
 };
 
-struct netd_upstream {
+struct ax25netd_upstream {
 	int			index;
 	char			name[24];
 	char			host[AGWPE_UPSTREAM_HOST_MAX];
@@ -127,15 +127,15 @@ struct netd_upstream {
 	int			raw_on;		/* 'k' state on the upstream */
 
 	/* Radio channels reported by the upstream's 'G' reply.  */
-	struct netd_port	ports[NETD_PORT_STRIDE];
+	struct ax25netd_port	ports[AX25NETD_PORT_STRIDE];
 	int			nports;
 	int			ports_ready;	/* 'G' reply received */
 
-	struct netd_call	*calls;
+	struct ax25netd_call	*calls;
 	int			ncalls;
 	int			acalls;
 
-	struct netd_session	*sessions;
+	struct ax25netd_session	*sessions;
 	int			nsessions;
 	int			asessions;
 
@@ -143,7 +143,7 @@ struct netd_upstream {
 	int			out_to;		/* client waiting for 'y'/'Y' replies */
 };
 
-struct netd_ctx {
+struct ax25netd_ctx {
 	int			debug;
 	int			mheard;		/* keep the mheard.dat heard list */
 
@@ -160,7 +160,7 @@ struct netd_ctx {
 
 	int			nclients;
 	int			capclients;
-	struct netd_client	*clients;
+	struct ax25netd_client	*clients;
 
 	int			listener_fd;	/* TCP listener, -1 when disabled */
 	int			unix_fd;	/* unix socket listener, -1 when disabled */
@@ -169,9 +169,9 @@ struct netd_ctx {
 	gid_t			unix_group_gid;		/* resolved group, 0 for default */
 
 	int			nup;
-	struct netd_upstream	*ups;
+	struct ax25netd_upstream	*ups;
 
-	struct netd_upstream	loop;		/* virtual loop upstream */
+	struct ax25netd_upstream	loop;		/* virtual loop upstream */
 	int			loop_enabled;
 
 	/* "autoroute yes|no": resolve a digipeater path for connects
@@ -179,9 +179,9 @@ struct netd_ctx {
 	int			autoroute;
 };
 
-extern struct netd_ctx netd;
+extern struct ax25netd_ctx ax25netd;
 
-extern void netd_log(int prio, const char *fmt, ...);
+extern void ax25netd_log(int prio, const char *fmt, ...);
 
 /* loop.c */
 extern int loop_init(const char *bindaddr, int port);
@@ -189,13 +189,13 @@ extern int loop_init_unix(const char *path, int group_mode,
 			  const char *group_name, uid_t run_uid,
 			  gid_t run_gid);
 extern void loop_accept(int lfd);
-extern void loop_read_client(struct netd_client *cl);
-extern void loop_flush_client(struct netd_client *cl);
-extern void loop_close_client(struct netd_client *cl);
+extern void loop_read_client(struct ax25netd_client *cl);
+extern void loop_flush_client(struct ax25netd_client *cl);
+extern void loop_close_client(struct ax25netd_client *cl);
 extern void loop_reap_dead(void);
-extern int loop_send_client(struct netd_client *cl, const struct agwpe_s *hdr,
+extern int loop_send_client(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			    const unsigned char *data, size_t len);
-extern struct netd_client *client_by_fd(int fd);
+extern struct ax25netd_client *client_by_fd(int fd);
 
 /* True if the sockaddr is a loopback address.  The whole IPv4 127/8
  * counts, not just 127.0.0.1.  */
@@ -206,28 +206,28 @@ extern int addr_is_loopback(const struct sockaddr *sa, socklen_t len);
 extern int host_is_loopback(const char *host);
 
 /* mux.c */
-extern void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
+extern void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			       const unsigned char *data, size_t len);
-extern void mux_client_disconnect(struct netd_client *cl);
-extern void mux_upstream_frame(struct netd_upstream *u, const struct agwpe_s *hdr,
+extern void mux_client_disconnect(struct ax25netd_client *cl);
+extern void mux_upstream_frame(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
 			       const unsigned char *data, size_t len);
-extern void mux_upstream_reconnected(struct netd_upstream *u);
-extern void mux_upstream_lost(struct netd_upstream *u);
+extern void mux_upstream_reconnected(struct ax25netd_upstream *u);
+extern void mux_upstream_lost(struct ax25netd_upstream *u);
 extern void mux_recalc_toggles(void);
 extern void mux_ports_tick(time_t now);
 
 /* upstream.c */
 extern int upstream_init_all(void);
-extern void upstream_read(struct netd_upstream *u);
+extern void upstream_read(struct ax25netd_upstream *u);
 extern void upstream_reconnect_tick(time_t now);
 
 /* mheard.c */
-extern int netd_mheard_init(void);
-extern void netd_mheard_frame(struct netd_upstream *u,
+extern int ax25netd_mheard_init(void);
+extern void ax25netd_mheard_frame(struct ax25netd_upstream *u,
 			      const unsigned char *frame, size_t len);
 
 /* route.c */
-extern int netd_route_lookup(struct netd_upstream *u, const char *call,
+extern int ax25netd_route_lookup(struct ax25netd_upstream *u, const char *call,
 			     unsigned char *buf, size_t bufsz);
 
 #endif

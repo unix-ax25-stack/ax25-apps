@@ -116,7 +116,7 @@ target socket <path>              # netd-Loop über Unix-Socket (Override)
 | 8000            | Direwolf-AGWPE-Server (netd-Outgoing)       |
 | 8100            | netd-Loop TCP (default)                     |
 | 8101/8102       | ax25tcpd-Front binary/text                  |
-| /var/ax25/loop.sock | netd-Loop-Unix-Socket                  |
+| /var/ax25/ax25netd.sock | netd-Loop-Unix-Socket             |
 | /var/ax25/ax25tcpd.sock | ax25tcpd-Front-Socket (Sample)      |
 
 ## Port-Namensauflösung (axports/`:N`)
@@ -154,7 +154,7 @@ target socket <path>              # netd-Loop über Unix-Socket (Override)
   `test_data.py`, `test_full.py`, `test_syntax.py` in
   `/var/folders/wc/51f1ls413b70nmmttqww4tyr0000gn/T/opencode/e2e/`.
 - Config-Layout im E2E: `agwpe.conf` (nur noch auth/radio/loop), `ax25common.conf`
-  (`loop socket …/loop.sock`), `ax25tcpd.conf` ohne `target` (Rückseite via
+  (`loop socket …/ax25netd.sock`), `ax25tcpd.conf` ohne `target` (Rückseite via
   ax25common.conf). netd + ax25tcpd laufen mit `-C ax25common.conf`.
   Der Fehlerpfad: `socket`/`tcp`/`group` in agwpe.conf → „belongs in
   ax25common.conf, not here" und netd-Start bricht ab.

@@ -1,4 +1,4 @@
-/* libax25/ax25-apps AGWPE userspace netd - route resolution
+/* libax25/ax25-apps AGWPE userspace ax25netd - route resolution
  *
  * Copyright (C) 2026 Thomas Osterried
  * Copyright (C) 2026 The AGWPE userspace project
@@ -44,7 +44,7 @@
 #include <netax25/agwpe.h>
 
 #include "../pathnames.h"
-#include "netd.h"
+#include "ax25netd.h"
 
 #define	RTD_TIMEOUT	1000	/* ms, per poll step */
 
@@ -55,7 +55,7 @@
  * payload: a leading byte with the digi count followed by the packed
  * callsigns.  buf must hold at least 1 + 7 * AGWPE_MAX_CALL bytes.
  */
-int netd_route_lookup(struct netd_upstream *u, const char *call,
+int ax25netd_route_lookup(struct ax25netd_upstream *u, const char *call,
 		      unsigned char *buf, size_t bufsz)
 {
 	char cmd[256];
@@ -75,7 +75,7 @@ int netd_route_lookup(struct netd_upstream *u, const char *call,
 
 	if (connect(fd, (struct sockaddr *)&sa, SUN_LEN(&sa)) < 0) {
 		if (getenv("AX25NETD_DEBUG"))
-			netd_log(LOG_DEBUG, "autoroute: ax25rtd not reachable: %s",
+			ax25netd_log(LOG_DEBUG, "autoroute: ax25rtd not reachable: %s",
 				 strerror(errno));
 		close(fd);
 		return 0;
