@@ -122,13 +122,19 @@ Use
 instead of the default configuration file.
 .TP
 .BI \-C " file"
-Shared loop port configuration, default
-\fI@@@AX25_SYSCONFDIR@@@/ax25common.conf\fR; the back side is taken
-from it (see
+Use
+.I file
+as the loop port configuration instead of the default
+\fI@@@AX25_SYSCONFDIR@@@/ax25common.conf\fR.
+The loop port is the endpoint
+.BR ax25netd (8)
+listens on; the back side of this instance is taken from that file (see
 .BR ax25common.conf (5))
-unless a
+unless the
 .B target
-line overrides it.
+directive in
+.BR ax25tcpd.conf (5)
+is set.
 .TP
 .B \-f
 Stay in the foreground.

@@ -48,8 +48,8 @@ Configuration file, default \fI@@@AX25_SYSCONFDIR@@@/agwpe.conf\fR.
 .BI \-C " file"
 Shared loop port configuration, default
 \fI@@@AX25_SYSCONFDIR@@@/ax25common.conf\fR; also read by
-.BR ax25tcpd (8)
-and the AGWPE shim.  A missing file leaves the defaults in place (see
+.BR ax25tcpd (8).
+A missing file leaves the defaults in place (see
 .BR ax25common.conf (5)).
 .TP
 .BI \-b " addr"

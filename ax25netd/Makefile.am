@@ -14,8 +14,8 @@ ax25netd_LDADD = $(AX25_LIB)
 
 man_MANS = ax25netd.8 agwpe.conf.5 agwpe_shadow.conf.5 ax25common.conf.5
 
-EXTRA_DIST = $(etcfiles) ax25netd.man agwpe.conf.man agwpe_shadow.conf.man \
-	ax25common.conf.man
+EXTRA_DIST = $(etcfiles) agwpe_shadow.conf.example ax25netd.man agwpe.conf.man \
+	agwpe_shadow.conf.man ax25common.conf.man
 CLEANFILES = ax25netd.8 ax25netd.8.tmp agwpe.conf.5 agwpe.conf.5.tmp \
 	agwpe_shadow.conf.5 agwpe_shadow.conf.5.tmp \
 	ax25common.conf.5 ax25common.conf.5.tmp
@@ -44,7 +44,7 @@ ax25common.conf.5: ax25common.conf.man
 	mv ax25common.conf.5.tmp ax25common.conf.5;
 
 # Needed so that install is optional
-etcfiles = agwpe.conf agwpe_shadow.conf.example ax25common.conf
+etcfiles = agwpe.conf ax25common.conf
 installconf:
 	$(mkinstalldirs) $(DESTDIR)$(AX25_SYSCONFDIR)
 	@list='$(etcfiles)'; for p in $$list; do \
