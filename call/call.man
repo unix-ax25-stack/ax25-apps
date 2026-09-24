@@ -180,11 +180,11 @@ however '8 bit clean'.
 .br
 /proc/net/rose_nodes
 .br
-/etc/ax25/axports
+@@@AX25_SYSCONFDIR@@@/axports
 .br
-/etc/ax25/nrports
+@@@AX25_SYSCONFDIR@@@/nrports
 .br
-/etc/ax25/rsports
+@@@AX25_SYSCONFDIR@@@/rsports
 .fi
 .SH "SEE ALSO"
 .BR @@@listen@@@ (1),

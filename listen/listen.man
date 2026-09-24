@@ -117,7 +117,7 @@ monitor beside its real work is not taken down by the server's absence; a
 line on standard error says so under
 .B AXSOCK_DEBUG .
 .SH FILES
-/etc/ax25/axports
+@@@AX25_SYSCONFDIR@@@/axports
 .SH "SEE ALSO"
 .BR @@@call@@@ (1),
 .BR mheard (1),

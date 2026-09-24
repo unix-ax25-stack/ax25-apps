@@ -20,6 +20,7 @@ ax25tcpd.8: ax25tcpd.man
 
 ax25tcpd.conf.5: ax25tcpd.conf.man
 	sed -e "s|@@@AX25_SYSCONFDIR@@@|$(AX25_SYSCONFDIR)|g"			\
+	    -e "s|@@@AX25_LOCALSTATEDIR@@@|$(AX25_LOCALSTATEDIR)|g"		\
 	    $(srcdir)/ax25tcpd.conf.man > ax25tcpd.conf.5.tmp &&			\
 	mv ax25tcpd.conf.5.tmp ax25tcpd.conf.5;
 

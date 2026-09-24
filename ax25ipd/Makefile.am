@@ -8,21 +8,25 @@ CLEANFILES = ax25ipd.8 ax25ipd.8.tmp ax25ipd.conf.5 ax25ipd.conf.5.tmp
 
 ax25ipd.8: ax25ipd.man
 	name_ax25ipd=$$(echo ax25ipd | sed -e '$(transform)')			\
-	name_Ax25ipd=$$(echo $$name_ax25ipd | sed -r 's@^(.)@\U\1\E@') &&		\
-	name_AX25IPD=$$(echo $$name_ax25ipd | sed -r 's@^(.*)@\U\1\E@') &&		\
+	name_Ax25ipd=$$(echo $$name_ax25ipd | awk '{print toupper(substr($$0,1,1)) substr($$0,2)}') &&		\
+	name_AX25IPD=$$(echo $$name_ax25ipd | awk '{print toupper($$0)}') &&		\
 	sed -e "s/@@@ax25ipd@@@/$$name_ax25ipd/g"				\
 	    -e "s/@@@Ax25ipd@@@/$$name_Ax25ipd/g"				\
 	    -e "s/@@@AX25IPD@@@/$$name_AX25IPD/g"				\
+		-e "s|@@@AX25_SYSCONFDIR@@@|$(sysconfdir)/ax25|g"				\
+		-e "s|@@@AX25_LOCALSTATEDIR@@@|$(localstatedir)/ax25|g"				\
 	     $(srcdir)/ax25ipd.man > ax25ipd.8.tmp &&					\
 	mv ax25ipd.8.tmp ax25ipd.8;
 
 ax25ipd.conf.5: ax25ipd.conf.man
 	name_ax25ipd=$$(echo ax25ipd | sed -e '$(transform)')			\
-	name_Ax25ipd=$$(echo $$name_ax25ipd | sed -r 's@^(.)@\U\1\E@') &&		\
-	name_AX25IPD=$$(echo $$name_ax25ipd | sed -r 's@^(.*)@\U\1\E@') &&		\
+	name_Ax25ipd=$$(echo $$name_ax25ipd | awk '{print toupper(substr($$0,1,1)) substr($$0,2)}') &&		\
+	name_AX25IPD=$$(echo $$name_ax25ipd | awk '{print toupper($$0)}') &&		\
 	sed -e "s/@@@ax25ipd@@@/$$name_ax25ipd/g"				\
 	    -e "s/@@@Ax25ipd@@@/$$name_Ax25ipd/g"				\
 	    -e "s/@@@AX25IPD@@@/$$name_AX25IPD/g"				\
+		-e "s|@@@AX25_SYSCONFDIR@@@|$(sysconfdir)/ax25|g"				\
+		-e "s|@@@AX25_LOCALSTATEDIR@@@|$(localstatedir)/ax25|g"				\
 	    $(srcdir)/ax25ipd.conf.man > ax25ipd.conf.5.tmp &&				\
 	mv ax25ipd.conf.5.tmp ax25ipd.conf.5;
 
