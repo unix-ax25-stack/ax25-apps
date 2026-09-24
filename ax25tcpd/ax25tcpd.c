@@ -72,6 +72,12 @@ enum {
 #define	TPC_DATA_CHUNK	256	/* connected 'D' frame size */
 #define	TPC_DEFAULT_MTU	256
 
+/* The front side taken when no configuration file exists or it opens no
+ * listener: one binary tcp port, whose text port (X + 1) follows by
+ * default, exactly as a single "listen tcp 127.0.0.1 8101" line would.  */
+#define	TPC_DEFAULT_LISTEN_ADDR	"127.0.0.1"
+#define	TPC_DEFAULT_LISTEN_PORT	8101
+
 /* One port entry learned from the 'G' reply: the flat port byte and the
  * upstream name.  The lowest channel of an upstream is its base; the
  * "name:chan" syntax adds the channel number to that base.  */
@@ -252,8 +258,14 @@ static int tpc_read_config(const char *path)
 	int lineno = 0;
 
 	fp = fopen(path, "r");
-	if (fp == NULL)
+	if (fp == NULL) {
+		/* No configuration file is not an error: the defaults
+		 * apply (target from ax25common.conf, one binary tcp
+		 * front port, mtu 256).  Any other open failure is.  */
+		if (errno == ENOENT)
+			return 0;
 		return -1;
+	}
 
 	while (fgets(line, sizeof(line), fp) != NULL) {
 		char *p, *key, *tok[4];
@@ -1727,8 +1739,16 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	if (tpc.nlisten == 0) {
-		tpc_log(LOG_ERR, "no listen configured");
-		return 1;
+		/* No listener configured: fall back to the default
+		 * front side, one binary tcp port on 127.0.0.1:8101
+		 * whose text port (8102) follows automatically.  */
+		struct tpc_listen *l = &tpc.listen[tpc.nlisten++];
+
+		memset(l, 0, sizeof(*l));
+		strncpy(l->addr, TPC_DEFAULT_LISTEN_ADDR,
+			sizeof(l->addr) - 1);
+		l->port = TPC_DEFAULT_LISTEN_PORT;
+		l->text_port = TPC_DEFAULT_LISTEN_PORT + 1;
 	}
 
 	tpc.netd = agwpe_client_new(&cb, NULL);
