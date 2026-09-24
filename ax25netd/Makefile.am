@@ -3,7 +3,7 @@ sbin_PROGRAMS = ax25netd
 
 ax25netd_SOURCES =	\
 	ax25netd.c	\
-	netd.h		\
+	ax25netd.h	\
 	loop.c		\
 	mheard.c	\
 	mux.c		\

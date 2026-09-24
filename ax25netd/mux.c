@@ -16,7 +16,7 @@
 /*
  * Multiplexing and routing.
  *
- * Each radio upstream occupies a block of NETD_PORT_STRIDE loop port
+ * Each radio upstream occupies a block of AX25NETD_PORT_STRIDE loop port
  * numbers (channel c of upstream i is loop port i*16+c).  A call sign
  * registered by a loop client on a port is owned by that client; frames
  * coming back from the upstream which are addressed to such a call sign
@@ -43,36 +43,36 @@
 #include <netax25/ax25.h>
 #include <netax25/axlib.h>
 
-#include "netd.h"
+#include "ax25netd.h"
 
 /* Mirror of local outbound frames, sent to raw monitor clients.  */
 #define	MUX_RAW_MAX	2048
 
-static struct netd_upstream *up_by_port(unsigned char port)
+static struct ax25netd_upstream *up_by_port(unsigned char port)
 {
-	if (port == AGWPE_PORT_LOOP && netd.loop_enabled)
-		return &netd.loop;
-	if (port / NETD_PORT_STRIDE >= netd.nup)
+	if (port == AGWPE_PORT_LOOP && ax25netd.loop_enabled)
+		return &ax25netd.loop;
+	if (port / AX25NETD_PORT_STRIDE >= ax25netd.nup)
 		return NULL;
-	return &netd.ups[port / NETD_PORT_STRIDE];
+	return &ax25netd.ups[port / AX25NETD_PORT_STRIDE];
 }
 
 /* The radio channel of upstream u that a flat loop port selects.  */
-static unsigned char port_chan(const struct netd_upstream *u,
+static unsigned char port_chan(const struct ax25netd_upstream *u,
 			       unsigned char port)
 {
-	return (unsigned char)(port - u->index * NETD_PORT_STRIDE);
+	return (unsigned char)(port - u->index * AX25NETD_PORT_STRIDE);
 }
 
 /* The flat loop port number of channel c of upstream u.  */
-static unsigned char port_flat(const struct netd_upstream *u,
+static unsigned char port_flat(const struct ax25netd_upstream *u,
 			       unsigned char chan)
 {
-	return (unsigned char)(u->index * NETD_PORT_STRIDE + chan);
+	return (unsigned char)(u->index * AX25NETD_PORT_STRIDE + chan);
 }
 
 /* *out = *hdr with the port rewritten to the upstream's channel byte.  */
-static void port_hdr(struct agwpe_s *out, const struct netd_upstream *u,
+static void port_hdr(struct agwpe_s *out, const struct ax25netd_upstream *u,
 		     const struct agwpe_s *hdr)
 {
 	*out = *hdr;
@@ -80,7 +80,7 @@ static void port_hdr(struct agwpe_s *out, const struct netd_upstream *u,
 }
 
 /* *out = *hdr with a channel byte rewritten to the flat loop port.  */
-static void up_hdr(struct agwpe_s *out, const struct netd_upstream *u,
+static void up_hdr(struct agwpe_s *out, const struct ax25netd_upstream *u,
 		   const struct agwpe_s *hdr)
 {
 	*out = *hdr;
@@ -88,7 +88,7 @@ static void up_hdr(struct agwpe_s *out, const struct netd_upstream *u,
 }
 
 /* Send a client frame towards the upstream with the port rewritten.  */
-static int client_send_upstream(struct netd_upstream *u,
+static int client_send_upstream(struct ax25netd_upstream *u,
 				const struct agwpe_s *hdr,
 				const unsigned char *data)
 {
@@ -99,8 +99,8 @@ static int client_send_upstream(struct netd_upstream *u,
 }
 
 /* Deliver an upstream frame to a loop client with the port rewritten.  */
-static int loop_send_upstream(struct netd_client *cl,
-			      struct netd_upstream *u,
+static int loop_send_upstream(struct ax25netd_client *cl,
+			      struct ax25netd_upstream *u,
 			      const struct agwpe_s *hdr,
 			      const unsigned char *data, size_t len)
 {
@@ -124,8 +124,8 @@ static void mux_mirror_send(const struct agwpe_s *in,
 
 	agwpe_header_init(&hdr, in->port, AGWPE_DK_RAW, 0,
 			  in->call_from, in->call_to, len);
-	for (i = 0; i < netd.nclients; i++) {
-		struct netd_client *cl = &netd.clients[i];
+	for (i = 0; i < ax25netd.nclients; i++) {
+		struct ax25netd_client *cl = &ax25netd.clients[i];
 
 		if (cl->fd >= 0 && cl->raw)
 			loop_send_client(cl, &hdr, data, len);
@@ -135,7 +135,7 @@ static void mux_mirror_send(const struct agwpe_s *in,
 /*
  * Mirror a frame a client is about to send outwards to every raw monitor
  * client (listen).  This is the transmit leg: without a packet socket on
- * macOS, netd stands in for the kernel and shows local outbound traffic
+ * macOS, ax25netd stands in for the kernel and shows local outbound traffic
  * even while the radio upstream is unreachable.  Frames received from
  * the radio continue to come from the upstream as 'K', so there is no
  * doubling.  The raw frame is rebuilt from the AGWPE header fields: dest
@@ -157,10 +157,10 @@ static void mux_mirror_raw(const struct agwpe_s *in,
 	if (in->datakind == AGWPE_CMD_RAW) {
 		/* The client supplied the raw frame itself.  */
 		{
-			struct netd_upstream *u = up_by_port(in->port);
+			struct ax25netd_upstream *u = up_by_port(in->port);
 
-			if (u != NULL && u != &netd.loop)
-				netd_mheard_frame(u, data, len);
+			if (u != NULL && u != &ax25netd.loop)
+				ax25netd_mheard_frame(u, data, len);
 		}
 		mux_mirror_send(in, data, len);
 		return;
@@ -248,16 +248,16 @@ static void mux_mirror_raw(const struct agwpe_s *in,
 	p += ilen;
 
 	{
-		struct netd_upstream *u = up_by_port(in->port);
+		struct ax25netd_upstream *u = up_by_port(in->port);
 
-		if (u != NULL && u != &netd.loop)
-			netd_mheard_frame(u, buf, p - buf);
+		if (u != NULL && u != &ax25netd.loop)
+			ax25netd_mheard_frame(u, buf, p - buf);
 	}
 
 	mux_mirror_send(in, buf, p - buf);
 }
 
-static void reply_register(struct netd_client *cl, const struct agwpe_s *in,
+static void reply_register(struct ax25netd_client *cl, const struct agwpe_s *in,
 			   int ok)
 {
 	struct agwpe_s hdr;
@@ -268,7 +268,7 @@ static void reply_register(struct netd_client *cl, const struct agwpe_s *in,
 	loop_send_client(cl, &hdr, &data, 1);
 }
 
-static int mux_call_register(struct netd_upstream *u, const char *call, int fd,
+static int mux_call_register(struct ax25netd_upstream *u, const char *call, int fd,
 			     int listener, unsigned char chan)
 {
 	int i;
@@ -284,7 +284,7 @@ static int mux_call_register(struct netd_upstream *u, const char *call, int fd,
 	}
 
 	if (u->ncalls == u->acalls) {
-		struct netd_call *nc;
+		struct ax25netd_call *nc;
 		int na = u->acalls ? u->acalls * 2 : 4;
 
 		nc = realloc(u->calls, sizeof(*nc) * na);
@@ -304,7 +304,7 @@ static int mux_call_register(struct netd_upstream *u, const char *call, int fd,
 	return 0;
 }
 
-static void mux_call_unregister(struct netd_upstream *u, const char *call, int fd)
+static void mux_call_unregister(struct ax25netd_upstream *u, const char *call, int fd)
 {
 	int i;
 
@@ -321,7 +321,7 @@ static void mux_call_unregister(struct netd_upstream *u, const char *call, int f
 	}
 }
 
-static struct netd_client *client_by_call(struct netd_upstream *u,
+static struct ax25netd_client *client_by_call(struct ax25netd_upstream *u,
 					  const char *call)
 {
 	int i;
@@ -342,7 +342,7 @@ static unsigned char session_pid(unsigned char pid)
 	return pid == 0 ? AGWPE_PID_AX25 : pid;
 }
 
-static struct netd_session *session_find(struct netd_upstream *u,
+static struct ax25netd_session *session_find(struct ax25netd_upstream *u,
 					 const char *local, const char *remote,
 					 unsigned char pid, int fd)
 {
@@ -365,7 +365,7 @@ static struct netd_session *session_find(struct netd_upstream *u,
 	return NULL;
 }
 
-static int session_pair_active(struct netd_upstream *u,
+static int session_pair_active(struct ax25netd_upstream *u,
 			       const char *local, const char *remote)
 {
 	int i;
@@ -378,15 +378,15 @@ static int session_pair_active(struct netd_upstream *u,
 	return 0;
 }
 
-static struct netd_session *session_add(struct netd_upstream *u,
+static struct ax25netd_session *session_add(struct ax25netd_upstream *u,
 					const char *local, const char *remote,
 					unsigned char pid, int fd,
 					unsigned char chan)
 {
-	struct netd_session *s;
+	struct ax25netd_session *s;
 
 	if (u->nsessions == u->asessions) {
-		struct netd_session *ns;
+		struct ax25netd_session *ns;
 		int na = u->asessions ? u->asessions * 2 : 8;
 
 		ns = realloc(u->sessions, sizeof(*ns) * na);
@@ -408,7 +408,7 @@ static struct netd_session *session_add(struct netd_upstream *u,
 	return s;
 }
 
-static void session_remove(struct netd_upstream *u, struct netd_session *s)
+static void session_remove(struct ax25netd_upstream *u, struct ax25netd_session *s)
 {
 	u->sessions[s - u->sessions] = u->sessions[u->nsessions - 1];
 	u->nsessions--;
@@ -419,13 +419,13 @@ static void session_remove(struct netd_upstream *u, struct netd_session *s)
  * one local call.  Any link that loses its last session is torn down
  * upstream.  Used when a client goes away or unregisters a call.
  */
-static void session_drop_for_call(struct netd_upstream *u, int fd,
+static void session_drop_for_call(struct ax25netd_upstream *u, int fd,
 				  const char *call)
 {
 	int j;
 
 	for (j = u->nsessions - 1; j >= 0; j--) {
-		struct netd_session *s = &u->sessions[j];
+		struct ax25netd_session *s = &u->sessions[j];
 
 		if (s->fd != fd)
 			continue;
@@ -449,7 +449,7 @@ static void session_drop_for_call(struct netd_upstream *u, int fd,
  * The call fields are swapped relative to the request, exactly as
  * Direwolf sends them.
  */
-static void reply_disconnect(struct netd_client *cl, const struct agwpe_s *in)
+static void reply_disconnect(struct ax25netd_client *cl, const struct agwpe_s *in)
 {
 	struct agwpe_s hdr;
 	char msg[32];
@@ -468,7 +468,7 @@ static void reply_disconnect(struct netd_client *cl, const struct agwpe_s *in)
  * looks like and is what AGWPE says; BUSY is ours, and a client that does not
  * know it still sees a refused connect, which is the truth either way.
  */
-static void reply_refuse(struct netd_client *cl, const struct agwpe_s *in,
+static void reply_refuse(struct ax25netd_client *cl, const struct agwpe_s *in,
 			 const char *why)
 {
 	struct agwpe_s hdr;
@@ -508,9 +508,9 @@ static int call_base_equal(const char *a, const char *b)
 
 /* Owner of a call on the loop: exact match first, then a listener
  * registered without an SSID (SSID 0) matches any SSID of its base.  */
-static struct netd_client *loop_call_by_call(const char *call)
+static struct ax25netd_client *loop_call_by_call(const char *call)
 {
-	struct netd_upstream *u = &netd.loop;
+	struct ax25netd_upstream *u = &ax25netd.loop;
 	int i;
 
 	if (call == NULL || call[0] == '\0')
@@ -529,7 +529,7 @@ static struct netd_client *loop_call_by_call(const char *call)
 }
 
 /* Remove every session of the (a,b) link, in both directions.  */
-static void loop_link_remove(struct netd_upstream *u, const char *a,
+static void loop_link_remove(struct ax25netd_upstream *u, const char *a,
 			     const char *b)
 {
 	int again, i;
@@ -552,11 +552,11 @@ static void loop_link_remove(struct netd_upstream *u, const char *a,
 /* A client on the loop connects to a local listener.  The connect is
  * delivered to the listener's owner; a refused connect is answered
  * locally with a retryout disconnect, exactly as Direwolf does.  */
-static void loop_connect(struct netd_client *cl, const struct agwpe_s *hdr,
+static void loop_connect(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			 const unsigned char *data, size_t len)
 {
-	struct netd_upstream *u = &netd.loop;
-	struct netd_client *owner;
+	struct ax25netd_upstream *u = &ax25netd.loop;
+	struct ax25netd_client *owner;
 	unsigned char pid = session_pid(hdr->pid);
 
 	owner = loop_call_by_call(hdr->call_to);
@@ -612,11 +612,11 @@ static void loop_connect(struct netd_client *cl, const struct agwpe_s *hdr,
 
 /* Data on an established loop connection.  First data on a link that has
  * no session yet establishes it, exactly as for a radio upstream.  */
-static void loop_data(struct netd_client *cl, const struct agwpe_s *hdr,
+static void loop_data(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		      const unsigned char *data, size_t len)
 {
-	struct netd_upstream *u = &netd.loop;
-	struct netd_client *owner;
+	struct ax25netd_upstream *u = &ax25netd.loop;
+	struct ax25netd_client *owner;
 	unsigned char pid = session_pid(hdr->pid);
 
 	owner = loop_call_by_call(hdr->call_to);
@@ -642,11 +642,11 @@ static void loop_data(struct netd_client *cl, const struct agwpe_s *hdr,
 
 /* Disconnect on the loop: tear the link down in both directions and
  * deliver the disconnect to the other side, if it is still there.  */
-static void loop_disconnect(struct netd_client *cl, const struct agwpe_s *hdr,
+static void loop_disconnect(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			    const unsigned char *data, size_t len)
 {
-	struct netd_upstream *u = &netd.loop;
-	struct netd_client *owner;
+	struct ax25netd_upstream *u = &ax25netd.loop;
+	struct ax25netd_client *owner;
 
 	owner = loop_call_by_call(hdr->call_to);
 	loop_link_remove(u, hdr->call_from, hdr->call_to);
@@ -656,10 +656,10 @@ static void loop_disconnect(struct netd_client *cl, const struct agwpe_s *hdr,
 
 /* Unproto, unproto via and raw frames on the loop are routed to the
  * owner of the destination call, like a frame heard on a local radio.  */
-static void loop_unproto(struct netd_client *cl, const struct agwpe_s *hdr,
+static void loop_unproto(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			 const unsigned char *data, size_t len)
 {
-	struct netd_client *owner;
+	struct ax25netd_client *owner;
 
 	owner = loop_call_by_call(hdr->call_to);
 	if (owner != NULL && owner != cl)
@@ -668,9 +668,9 @@ static void loop_unproto(struct netd_client *cl, const struct agwpe_s *hdr,
 
 /* A loop client went away: unregister its calls and tear down every link
  * it was part of, delivering a disconnect to the other side.  */
-static void loop_client_gone(struct netd_client *cl)
+static void loop_client_gone(struct ax25netd_client *cl)
 {
-	struct netd_upstream *u = &netd.loop;
+	struct ax25netd_upstream *u = &ax25netd.loop;
 	int i, j;
 
 	j = 0;
@@ -684,8 +684,8 @@ static void loop_client_gone(struct netd_client *cl)
 	}
 
 	for (i = u->nsessions - 1; i >= 0; i--) {
-		struct netd_session *s = &u->sessions[i];
-		struct netd_client *peer;
+		struct ax25netd_session *s = &u->sessions[i];
+		struct ax25netd_client *peer;
 		char from[AGWPE_MAX_CALL], to[AGWPE_MAX_CALL];
 		struct agwpe_s hdr;
 		char msg[32];
@@ -719,11 +719,11 @@ static void loop_client_gone(struct netd_client *cl)
  */
 
 /* Deliver a disconnect notification to a session's owner.  */
-static void ctl_disconnect_owner(struct netd_client *cl,
-				 struct netd_upstream *u,
-				 struct netd_session *s)
+static void ctl_disconnect_owner(struct ax25netd_client *cl,
+				 struct ax25netd_upstream *u,
+				 struct ax25netd_session *s)
 {
-	struct netd_client *owner = client_by_fd(s->fd);
+	struct ax25netd_client *owner = client_by_fd(s->fd);
 	struct agwpe_s hdr;
 	char msg[32];
 
@@ -736,9 +736,9 @@ static void ctl_disconnect_owner(struct netd_client *cl,
 	loop_send_client(owner, &hdr, (unsigned char *)msg, strlen(msg) + 1);
 }
 
-static void mux_ctl_kill(struct netd_client *cl, const struct agwpe_s *hdr)
+static void mux_ctl_kill(struct ax25netd_client *cl, const struct agwpe_s *hdr)
 {
-	struct netd_upstream *u = up_by_port(hdr->port);
+	struct ax25netd_upstream *u = up_by_port(hdr->port);
 	char from[AGWPE_MAX_CALL], to[AGWPE_MAX_CALL];
 
 	if (u == NULL)
@@ -747,10 +747,10 @@ static void mux_ctl_kill(struct netd_client *cl, const struct agwpe_s *hdr)
 	memcpy(from, hdr->call_from, sizeof(from));
 	memcpy(to, hdr->call_to, sizeof(to));
 
-	if (u == &netd.loop) {
+	if (u == &ax25netd.loop) {
 		/* Tear the link down in both directions and tell both
 		 * ends, if they are still connected.  */
-		struct netd_client *af, *at;
+		struct ax25netd_client *af, *at;
 		struct agwpe_s h;
 		char msg[32];
 
@@ -778,7 +778,7 @@ static void mux_ctl_kill(struct netd_client *cl, const struct agwpe_s *hdr)
 	}
 
 	{
-		struct netd_session *s;
+		struct ax25netd_session *s;
 
 		s = session_find(u, from, to, session_pid(hdr->pid), -1);
 		if (s == NULL)
@@ -801,11 +801,11 @@ static void mux_ctl_kill(struct netd_client *cl, const struct agwpe_s *hdr)
 	}
 }
 
-static void mux_ctl_param(struct netd_client *cl, const struct agwpe_s *hdr,
+static void mux_ctl_param(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			  const unsigned char *data, size_t len)
 {
-	struct netd_upstream *u = up_by_port(hdr->port);
-	struct netd_session *s;
+	struct ax25netd_upstream *u = up_by_port(hdr->port);
+	struct ax25netd_session *s;
 	unsigned char scope, param;
 	uint32_t value;
 
@@ -820,7 +820,7 @@ static void mux_ctl_param(struct netd_client *cl, const struct agwpe_s *hdr,
 	if (scope != AGWPE_CTL_SCOPE_CONN) {
 		/* Port defaults: pass through to the radio AGWPE.  There
 		 * is no radio behind the loop port.  */
-		if (u != &netd.loop && u->connected)
+		if (u != &ax25netd.loop && u->connected)
 			client_send_upstream(u, hdr, data);
 		return;
 	}
@@ -845,7 +845,7 @@ static void mux_ctl_param(struct netd_client *cl, const struct agwpe_s *hdr,
 	}
 
 	/* Per-connection parameters reach the radio's AGWPE server.  */
-	if (u != &netd.loop && u->connected)
+	if (u != &ax25netd.loop && u->connected)
 		client_send_upstream(u, hdr, data);
 }
 
@@ -858,8 +858,8 @@ static int mux_ports_ready(void)
 {
 	int i;
 
-	for (i = 0; i < netd.nup; i++)
-		if (netd.ups[i].connected && !netd.ups[i].ports_ready)
+	for (i = 0; i < ax25netd.nup; i++)
+		if (ax25netd.ups[i].connected && !ax25netd.ups[i].ports_ready)
 			return 0;
 	return 1;
 }
@@ -872,22 +872,22 @@ static int mux_ports_ready(void)
  * description from the upstream's own 'G' reply.  The virtual loop port
  * (255) is appended so remote clients can reach local services too.
  */
-static void mux_ports_reply(struct netd_client *cl)
+static void mux_ports_reply(struct ax25netd_client *cl)
 {
 	struct agwpe_s h;
 	char buf[4096];
 	int n = 0, i, c, count = 0;
 
-	for (i = 0; i < netd.nup; i++)
-		if (netd.ups[i].ports_ready)
-			count += netd.ups[i].nports;
-	if (netd.loop_enabled)
+	for (i = 0; i < ax25netd.nup; i++)
+		if (ax25netd.ups[i].ports_ready)
+			count += ax25netd.ups[i].nports;
+	if (ax25netd.loop_enabled)
 		count++;
 
 	n += snprintf(buf + n, sizeof(buf) - n, "%d;", count);
 
-	for (i = 0; i < netd.nup; i++) {
-		struct netd_upstream *u = &netd.ups[i];
+	for (i = 0; i < ax25netd.nup; i++) {
+		struct ax25netd_upstream *u = &ax25netd.ups[i];
 
 		if (!u->ports_ready)
 			continue;
@@ -896,9 +896,9 @@ static void mux_ports_reply(struct netd_client *cl)
 				      port_flat(u, u->ports[c].chan) + 1,
 				      u->name, u->ports[c].desc);
 	}
-	if (netd.loop_enabled)
+	if (ax25netd.loop_enabled)
 		n += snprintf(buf + n, sizeof(buf) - n, "Port%d %s: %s;",
-			      AGWPE_PORT_LOOP + 1, netd.loop.name,
+			      AGWPE_PORT_LOOP + 1, ax25netd.loop.name,
 			      "local loopback services");
 	if (n < (int)sizeof(buf))
 		n++;			/* trailing NUL, as Direwolf */
@@ -909,30 +909,30 @@ static void mux_ports_reply(struct netd_client *cl)
 
 /*
  * Answer the deferred 'G' requests as soon as the upstream tables are
- * complete, or after NETD_PORTS_TIMEOUT seconds whatever is known.  The
+ * complete, or after AX25NETD_PORTS_TIMEOUT seconds whatever is known.  The
  * timeout stops an upstream that never answers from hanging a client.
  */
 void mux_ports_tick(time_t now)
 {
 	int i;
 
-	for (i = 0; i < netd.nclients; i++) {
-		struct netd_client *cl = &netd.clients[i];
+	for (i = 0; i < ax25netd.nclients; i++) {
+		struct ax25netd_client *cl = &ax25netd.clients[i];
 
 		if (cl->fd < 0 || !cl->want_ports)
 			continue;
 		if (mux_ports_ready() ||
-		    now - cl->ports_since >= NETD_PORTS_TIMEOUT) {
+		    now - cl->ports_since >= AX25NETD_PORTS_TIMEOUT) {
 			cl->want_ports = 0;
 			mux_ports_reply(cl);
 		}
 	}
 }
 
-void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
+void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			const unsigned char *data, size_t len)
 {
-	struct netd_upstream *u;
+	struct ax25netd_upstream *u;
 	unsigned char port = hdr->port;
 
 	/*
@@ -977,7 +977,7 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 
 	case 'L':				/* listen (loop port only) */
 		u = up_by_port(port);
-		if (u != &netd.loop || hdr->call_from[0] == '\0') {
+		if (u != &ax25netd.loop || hdr->call_from[0] == '\0') {
 			reply_register(cl, hdr, 0);
 			break;
 		}
@@ -1002,8 +1002,8 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 		{
 			struct agwpe_s h;
 			unsigned char v[8];
-			uint32_t major = agwpe_host2netle(NETD_VERSION_MAJOR);
-			uint32_t minor = agwpe_host2netle(NETD_VERSION_MINOR);
+			uint32_t major = agwpe_host2netle(AX25NETD_VERSION_MAJOR);
+			uint32_t minor = agwpe_host2netle(AX25NETD_VERSION_MINOR);
 
 			memcpy(v, &major, 4);
 			memcpy(v + 4, &minor, 4);
@@ -1095,7 +1095,7 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 			u = up_by_port(port);
 			if (u == NULL)
 				break;
-			if (u == &netd.loop) {
+			if (u == &ax25netd.loop) {
 				loop_connect(cl, hdr, data, len);
 				break;
 			}
@@ -1127,7 +1127,7 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 			 * unresponsive route daemon, falls back to the
 			 * plain connect.
 			 */
-			if (netd.autoroute &&
+			if (ax25netd.autoroute &&
 			    (hdr->datakind == AGWPE_CMD_CONNECT ||
 			     hdr->datakind == AGWPE_CMD_CONNECT_PID)) {
 				struct agwpe_s vh;
@@ -1135,7 +1135,7 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 					(AGWPE_MAX_DIGIS - 1) * AGWPE_MAX_CALL];
 				int ndigi;
 
-				ndigi = netd_route_lookup(u, hdr->call_to,
+				ndigi = ax25netd_route_lookup(u, hdr->call_to,
 							  digis, sizeof(digis));
 				if (ndigi > 0) {
 					vh = *hdr;
@@ -1154,7 +1154,7 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 		u = up_by_port(port);
 		if (u == NULL)
 			break;
-		if (u == &netd.loop) {
+		if (u == &ax25netd.loop) {
 			loop_data(cl, hdr, data, len);
 			break;
 		}
@@ -1186,13 +1186,13 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 
 	case 'd':				/* disconnect */
 		{
-			struct netd_session *s;
+			struct ax25netd_session *s;
 			int i;
 
 			u = up_by_port(port);
 			if (u == NULL)
 				break;
-			if (u == &netd.loop) {
+			if (u == &ax25netd.loop) {
 				loop_disconnect(cl, hdr, data, len);
 				break;
 			}
@@ -1241,7 +1241,7 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 		u = up_by_port(port);
 		if (u == NULL)
 			break;
-		if (u == &netd.loop) {
+		if (u == &ax25netd.loop) {
 			loop_unproto(cl, hdr, data, len);
 			break;
 		}
@@ -1259,20 +1259,20 @@ void mux_client_command(struct netd_client *cl, const struct agwpe_s *hdr,
 		break;
 
 	default:
-		netd_log(LOG_WARNING, "client %d: unknown frame '%c'",
+		ax25netd_log(LOG_WARNING, "client %d: unknown frame '%c'",
 			 cl->fd, hdr->datakind);
 		break;
 	}
 }
 
-void mux_client_disconnect(struct netd_client *cl)
+void mux_client_disconnect(struct ax25netd_client *cl)
 {
 	int i, j;
 
 	cl->want_ports = 0;
 
-	for (i = 0; i < netd.nup; i++) {
-		struct netd_upstream *u = &netd.ups[i];
+	for (i = 0; i < ax25netd.nup; i++) {
+		struct ax25netd_upstream *u = &ax25netd.ups[i];
 
 		if (u->heard_to == cl->fd)
 			u->heard_to = -1;
@@ -1298,21 +1298,21 @@ void mux_client_disconnect(struct netd_client *cl)
 		session_drop_for_call(u, cl->fd, NULL);
 	}
 
-	if (netd.loop_enabled) {
-		if (netd.loop.heard_to == cl->fd)
-			netd.loop.heard_to = -1;
-		if (netd.loop.out_to == cl->fd)
-			netd.loop.out_to = -1;
+	if (ax25netd.loop_enabled) {
+		if (ax25netd.loop.heard_to == cl->fd)
+			ax25netd.loop.heard_to = -1;
+		if (ax25netd.loop.out_to == cl->fd)
+			ax25netd.loop.out_to = -1;
 		loop_client_gone(cl);
 	}
 
 	mux_recalc_toggles();
 }
 
-void mux_upstream_frame(struct netd_upstream *u, const struct agwpe_s *hdr,
+void mux_upstream_frame(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
 			const unsigned char *data, size_t len)
 {
-	struct netd_client *owner;
+	struct ax25netd_client *owner;
 	int i;
 
 	switch (hdr->datakind) {
@@ -1369,8 +1369,8 @@ void mux_upstream_frame(struct netd_upstream *u, const struct agwpe_s *hdr,
 	case 'S':
 	case 'U':
 	case 'T':
-		for (i = 0; i < netd.nclients; i++) {
-			struct netd_client *cl = &netd.clients[i];
+		for (i = 0; i < ax25netd.nclients; i++) {
+			struct ax25netd_client *cl = &ax25netd.clients[i];
 
 			if (cl->fd >= 0 && cl->monitor)
 				loop_send_upstream(cl, u, hdr, data, len);
@@ -1378,9 +1378,9 @@ void mux_upstream_frame(struct netd_upstream *u, const struct agwpe_s *hdr,
 		break;
 
 	case 'K':				/* raw monitored frame */
-		netd_mheard_frame(u, data, len);
-		for (i = 0; i < netd.nclients; i++) {
-			struct netd_client *cl = &netd.clients[i];
+		ax25netd_mheard_frame(u, data, len);
+		for (i = 0; i < ax25netd.nclients; i++) {
+			struct ax25netd_client *cl = &ax25netd.clients[i];
 
 			if (cl->fd >= 0 && cl->raw)
 				loop_send_upstream(cl, u, hdr, data, len);
@@ -1412,7 +1412,7 @@ void mux_upstream_frame(struct netd_upstream *u, const struct agwpe_s *hdr,
 	}
 }
 
-void mux_upstream_reconnected(struct netd_upstream *u)
+void mux_upstream_reconnected(struct ax25netd_upstream *u)
 {
 	int i;
 
@@ -1438,13 +1438,13 @@ void mux_upstream_reconnected(struct netd_upstream *u)
  * too.  Terminate each session inward, one 'd' per session, so a client
  * with several PIDs on one link sees every one of them disconnected.
  */
-void mux_upstream_lost(struct netd_upstream *u)
+void mux_upstream_lost(struct ax25netd_upstream *u)
 {
 	int i;
 
 	for (i = 0; i < u->nsessions; i++) {
-		struct netd_session *s = &u->sessions[i];
-		struct netd_client *cl = client_by_fd(s->fd);
+		struct ax25netd_session *s = &u->sessions[i];
+		struct ax25netd_client *cl = client_by_fd(s->fd);
 		struct agwpe_s hdr;
 		char msg[32];
 
@@ -1465,8 +1465,8 @@ void mux_recalc_toggles(void)
 {
 	int i, j, want_m, want_k;
 
-	for (i = 0; i < netd.nup; i++) {
-		struct netd_upstream *u = &netd.ups[i];
+	for (i = 0; i < ax25netd.nup; i++) {
+		struct ax25netd_upstream *u = &ax25netd.ups[i];
 
 		/* Raw monitoring stays on while the heard list is enabled: the
 		 * multiplexer needs every frame the radio receives for mheard,
@@ -1475,11 +1475,11 @@ void mux_recalc_toggles(void)
 		 * loop clients that asked for it.
 		 */
 		want_m = 0;
-		want_k = netd.mheard;
-		for (j = 0; j < netd.nclients; j++) {
-			if (netd.clients[j].fd >= 0 && netd.clients[j].monitor)
+		want_k = ax25netd.mheard;
+		for (j = 0; j < ax25netd.nclients; j++) {
+			if (ax25netd.clients[j].fd >= 0 && ax25netd.clients[j].monitor)
 				want_m = 1;
-			if (netd.clients[j].fd >= 0 && netd.clients[j].raw)
+			if (ax25netd.clients[j].fd >= 0 && ax25netd.clients[j].raw)
 				want_k = 1;
 		}
 

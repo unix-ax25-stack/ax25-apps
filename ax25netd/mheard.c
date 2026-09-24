@@ -53,7 +53,7 @@
 
 #include "../pathnames.h"
 
-#include "netd.h"
+#include "ax25netd.h"
 
 #define	AXLEN		7
 #define	ALEN		6
@@ -177,7 +177,7 @@ static struct mheard_entry *findentry(const ax25_address *call, const char *port
  * builds for transmissions), len its length.  The parsing follows
  * mheardd(8) so the resulting records are identical.
  */
-void netd_mheard_frame(struct netd_upstream *u, const unsigned char *frame,
+void ax25netd_mheard_frame(struct ax25netd_upstream *u, const unsigned char *frame,
 		       size_t len)
 {
 	const unsigned char *data = frame;
@@ -187,7 +187,7 @@ void netd_mheard_frame(struct netd_upstream *u, const unsigned char *frame,
 	time_t now;
 	int ctlen, type, extseq, end, is_new;
 
-	if (!netd.mheard)
+	if (!ax25netd.mheard)
 		return;
 
 	if (frame == NULL || len < 1 + AXLEN + AXLEN + 1)
@@ -318,7 +318,7 @@ static void mkdir_parents(const char *path)
 /* Preload the list from an existing mheard.dat so that stations heard
  * before a restart keep their record instead of being appended again.
  * Also creates the file (and its directory) if it is missing.  */
-int netd_mheard_init(void)
+int ax25netd_mheard_init(void)
 {
 	FILE *fp;
 	struct mheard_struct buf;
@@ -340,17 +340,17 @@ int netd_mheard_init(void)
 		fp = fopen(DATA_MHEARD_FILE, "w");
 		if (fp != NULL) {
 			fclose(fp);
-			netd_log(LOG_INFO, "mheard: created %s",
+			ax25netd_log(LOG_INFO, "mheard: created %s",
 				 DATA_MHEARD_FILE);
 		} else {
-			netd_log(LOG_WARNING, "mheard: cannot create %s: %s",
+			ax25netd_log(LOG_WARNING, "mheard: cannot create %s: %s",
 				 DATA_MHEARD_FILE, strerror(errno));
 		}
 
 		fp = fopen(DATA_MHEARD_FILE, "r");
 	}
 	if (fp == NULL) {
-		netd_log(LOG_WARNING, "mheard: cannot open %s: %s",
+		ax25netd_log(LOG_WARNING, "mheard: cannot open %s: %s",
 			 DATA_MHEARD_FILE, strerror(errno));
 		return -1;
 	}

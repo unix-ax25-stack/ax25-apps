@@ -34,52 +34,52 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-#include "netd.h"
+#include "ax25netd.h"
 
-static struct netd_client *client_slot(void)
+static struct ax25netd_client *client_slot(void)
 {
 	int i;
 
-	if (netd.clients == NULL) {
-		netd.capclients = 16;
-		netd.clients = calloc(netd.capclients, sizeof(*netd.clients));
-		if (netd.clients == NULL)
+	if (ax25netd.clients == NULL) {
+		ax25netd.capclients = 16;
+		ax25netd.clients = calloc(ax25netd.capclients, sizeof(*ax25netd.clients));
+		if (ax25netd.clients == NULL)
 			return NULL;
-		for (i = 0; i < netd.capclients; i++)
-			netd.clients[i].fd = -1;
+		for (i = 0; i < ax25netd.capclients; i++)
+			ax25netd.clients[i].fd = -1;
 	}
 
-	for (i = 0; i < netd.nclients; i++)
-		if (netd.clients[i].fd == -1)
-			return &netd.clients[i];
+	for (i = 0; i < ax25netd.nclients; i++)
+		if (ax25netd.clients[i].fd == -1)
+			return &ax25netd.clients[i];
 
-	if (netd.nclients == netd.capclients) {
-		struct netd_client *nc;
-		int ncap = netd.capclients * 2;
+	if (ax25netd.nclients == ax25netd.capclients) {
+		struct ax25netd_client *nc;
+		int ncap = ax25netd.capclients * 2;
 
-		nc = realloc(netd.clients, sizeof(*netd.clients) * ncap);
+		nc = realloc(ax25netd.clients, sizeof(*ax25netd.clients) * ncap);
 		if (nc == NULL)
 			return NULL;
-		netd.clients = nc;
-		memset(&netd.clients[netd.capclients], 0,
-		       sizeof(*netd.clients) * (ncap - netd.capclients));
-		for (i = netd.capclients; i < ncap; i++)
-			netd.clients[i].fd = -1;
-		netd.capclients = ncap;
+		ax25netd.clients = nc;
+		memset(&ax25netd.clients[ax25netd.capclients], 0,
+		       sizeof(*ax25netd.clients) * (ncap - ax25netd.capclients));
+		for (i = ax25netd.capclients; i < ncap; i++)
+			ax25netd.clients[i].fd = -1;
+		ax25netd.capclients = ncap;
 	}
 
-	i = netd.nclients++;
-	netd.clients[i].fd = -1;
-	return &netd.clients[i];
+	i = ax25netd.nclients++;
+	ax25netd.clients[i].fd = -1;
+	return &ax25netd.clients[i];
 }
 
-struct netd_client *client_by_fd(int fd)
+struct ax25netd_client *client_by_fd(int fd)
 {
 	int i;
 
-	for (i = 0; i < netd.nclients; i++)
-		if (netd.clients[i].fd == fd)
-			return &netd.clients[i];
+	for (i = 0; i < ax25netd.nclients; i++)
+		if (ax25netd.clients[i].fd == fd)
+			return &ax25netd.clients[i];
 	return NULL;
 }
 
@@ -157,7 +157,7 @@ int loop_init(const char *bindaddr, int port)
 	snprintf(portstr, sizeof(portstr), "%d", port);
 
 	if (getaddrinfo(bindaddr, portstr, &hints, &res) != 0) {
-		netd_log(LOG_ERR, "loop: getaddrinfo(%s): %s", bindaddr,
+		ax25netd_log(LOG_ERR, "loop: getaddrinfo(%s): %s", bindaddr,
 			 strerror(EADDRNOTAVAIL));
 		return -1;
 	}
@@ -175,7 +175,7 @@ int loop_init(const char *bindaddr, int port)
 	freeaddrinfo(res);
 
 	if (ai == NULL) {
-		netd_log(LOG_ERR, "loop: cannot listen on %s:%d", bindaddr, port);
+		ax25netd_log(LOG_ERR, "loop: cannot listen on %s:%d", bindaddr, port);
 		return -1;
 	}
 
@@ -184,13 +184,13 @@ int loop_init(const char *bindaddr, int port)
 	 * can reach this address.  That is only acceptable together with
 	 * client authentication, so warn loudly when it is disabled.
 	 */
-	if (!addr_is_loopback(ai->ai_addr, ai->ai_addrlen) && !netd.auth)
-		netd_log(LOG_WARNING,
+	if (!addr_is_loopback(ai->ai_addr, ai->ai_addrlen) && !ax25netd.auth)
+		ax25netd_log(LOG_WARNING,
 			 "listening on non-loopback %s:%d without authentication: anyone who can reach this address controls your radio; consider 'auth required' in %s",
 			 bindaddr, port, "agwpe.conf");
 
-	netd.listener_fd = s;
-	netd_log(LOG_INFO, "listening for AGWPE clients on %s:%d", bindaddr, port);
+	ax25netd.listener_fd = s;
+	ax25netd_log(LOG_INFO, "listening for AGWPE clients on %s:%d", bindaddr, port);
 	return 0;
 }
 
@@ -267,7 +267,7 @@ static int loop_mkdir_parent(const char *path, mode_t mode,
  * AGWPE_GROUP_ALL) and owned by (run_uid, gid); its setgid bit makes
  * the socket inherit the group even when it is recreated by another
  * process.  A stale socket file from a previous run is removed.
- * Returns 0 on success and stores the descriptor and path in netd.
+ * Returns 0 on success and stores the descriptor and path in ax25netd.
  */
 int loop_init_unix(const char *path, int group_mode, const char *group_name,
 		   uid_t run_uid, gid_t run_gid)
@@ -282,7 +282,7 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
 		return -1;
 
 	if (strlen(path) >= sizeof(sa.sun_path)) {
-		netd_log(LOG_ERR, "loop: unix socket path too long: %s", path);
+		ax25netd_log(LOG_ERR, "loop: unix socket path too long: %s", path);
 		return -1;
 	}
 
@@ -301,7 +301,7 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
 		else {
 			gr = getgrnam(group_name);
 			if (gr == NULL) {
-				netd_log(LOG_ERR,
+				ax25netd_log(LOG_ERR,
 					 "loop: no such group '%s' for the unix socket",
 					 group_name);
 				return -1;
@@ -312,7 +312,7 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
 	}
 
 	if (loop_mkdir_parent(path, dir_mode, run_uid, gid) != 0) {
-		netd_log(LOG_ERR, "loop: cannot create directory for %s: %s",
+		ax25netd_log(LOG_ERR, "loop: cannot create directory for %s: %s",
 			 path, strerror(errno));
 		return -1;
 	}
@@ -321,18 +321,18 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
 	 * remove it when it really is a socket, never another file.  */
 	if (lstat(path, &st) == 0) {
 		if (!S_ISSOCK(st.st_mode)) {
-			netd_log(LOG_ERR,
+			ax25netd_log(LOG_ERR,
 				 "loop: %s exists and is not a socket; not removing it",
 				 path);
 			return -1;
 		}
 		if (unlink(path) != 0) {
-			netd_log(LOG_ERR, "loop: cannot remove stale socket %s: %s",
+			ax25netd_log(LOG_ERR, "loop: cannot remove stale socket %s: %s",
 				 path, strerror(errno));
 			return -1;
 		}
 	} else if (errno != ENOENT) {
-		netd_log(LOG_ERR, "loop: cannot inspect %s: %s", path,
+		ax25netd_log(LOG_ERR, "loop: cannot inspect %s: %s", path,
 			 strerror(errno));
 		return -1;
 	}
@@ -343,13 +343,13 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
 
 	s = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (s < 0) {
-		netd_log(LOG_ERR, "loop: unix socket: %s", strerror(errno));
+		ax25netd_log(LOG_ERR, "loop: unix socket: %s", strerror(errno));
 		return -1;
 	}
 
 	if (bind(s, (struct sockaddr *)&sa, SUN_LEN(&sa)) != 0 ||
 	    listen(s, 16) != 0) {
-		netd_log(LOG_ERR, "loop: cannot listen on %s: %s", path,
+		ax25netd_log(LOG_ERR, "loop: cannot listen on %s: %s", path,
 			 strerror(errno));
 		close(s);
 		return -1;
@@ -361,7 +361,7 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
 	 * its own socket, so only chown when privileged.  */
 	if (chmod(path, sock_mode) != 0 ||
 	    (geteuid() == 0 && chown(path, run_uid, gid) != 0)) {
-		netd_log(LOG_ERR, "loop: cannot set ownership of %s: %s",
+		ax25netd_log(LOG_ERR, "loop: cannot set ownership of %s: %s",
 			 path, strerror(errno));
 		close(s);
 		unlink(path);
@@ -369,15 +369,15 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
 	}
 
 	if (geteuid() == 0 && run_uid == 0 && group_mode == AGWPE_GROUP_DEFAULT)
-		netd_log(LOG_WARNING,
+		ax25netd_log(LOG_WARNING,
 			 "unix socket %s is root-only; the daemon should drop privileges with -u so its own user can connect",
 			 path);
 
-	netd.unix_fd = s;
-	strncpy(netd.unix_path, path, sizeof(netd.unix_path) - 1);
-	netd.unix_group_mode = group_mode;
-	netd.unix_group_gid = gid;
-	netd_log(LOG_INFO, "listening for AGWPE clients on unix socket %s", path);
+	ax25netd.unix_fd = s;
+	strncpy(ax25netd.unix_path, path, sizeof(ax25netd.unix_path) - 1);
+	ax25netd.unix_group_mode = group_mode;
+	ax25netd.unix_group_gid = gid;
+	ax25netd_log(LOG_INFO, "listening for AGWPE clients on unix socket %s", path);
 	return 0;
 }
 
@@ -387,7 +387,7 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
  * the user name occupies bytes 0..253, the password bytes 255..508,
  * both NUL padded.  Returns 0 on match, -1 otherwise.
  */
-static int loop_check_login(struct netd_client *cl,
+static int loop_check_login(struct ax25netd_client *cl,
 			    const unsigned char *data, size_t len)
 {
 	char user[AGWPE_AUTH_NAME_MAX + 1];
@@ -407,9 +407,9 @@ static int loop_check_login(struct netd_client *cl,
 	n = (len < 255 + AGWPE_AUTH_PASS_MAX) ? len - 255 : AGWPE_AUTH_PASS_MAX;
 	memcpy(pass, data + 255, n);
 
-	for (i = 0; i < netd.nclients_auth; i++) {
-		if (strcmp(netd.clients_auth[i].user, user) == 0 &&
-		    strcmp(netd.clients_auth[i].pass, pass) == 0)
+	for (i = 0; i < ax25netd.nclients_auth; i++) {
+		if (strcmp(ax25netd.clients_auth[i].user, user) == 0 &&
+		    strcmp(ax25netd.clients_auth[i].pass, pass) == 0)
 			return 0;
 	}
 	return -1;
@@ -426,9 +426,9 @@ static int loop_peer_trusted(int fd)
 	struct sockaddr_storage ss;
 	socklen_t slen = sizeof(ss);
 
-	if (netd.auth == AGWPE_AUTH_OFF)
+	if (ax25netd.auth == AGWPE_AUTH_OFF)
 		return 1;
-	if (netd.auth == AGWPE_AUTH_ALWAYS)
+	if (ax25netd.auth == AGWPE_AUTH_ALWAYS)
 		return 0;
 
 	if (getpeername(fd, (struct sockaddr *)&ss, &slen) != 0)
@@ -457,19 +457,19 @@ static int loop_peer_trusted(int fd)
 
 void loop_accept(int lfd)
 {
-	struct netd_client *cl;
+	struct ax25netd_client *cl;
 	int fd;
 
 	fd = accept(lfd, NULL, NULL);
 	if (fd < 0) {
-		netd_log(LOG_WARNING, "loop: accept: %s", strerror(errno));
+		ax25netd_log(LOG_WARNING, "loop: accept: %s", strerror(errno));
 		return;
 	}
 
 	cl = client_slot();
 	if (cl == NULL) {
 		close(fd);
-		netd_log(LOG_WARNING, "loop: out of client slots");
+		ax25netd_log(LOG_WARNING, "loop: out of client slots");
 		return;
 	}
 
@@ -499,10 +499,10 @@ void loop_accept(int lfd)
 		return;
 	}
 
-	netd_log(LOG_INFO, "AGWPE client %d connected", fd);
+	ax25netd_log(LOG_INFO, "AGWPE client %d connected", fd);
 }
 
-void loop_read_client(struct netd_client *cl)
+void loop_read_client(struct ax25netd_client *cl)
 {
 	unsigned char tmp[4096];
 	ssize_t n;
@@ -521,8 +521,8 @@ void loop_read_client(struct netd_client *cl)
 
 		while (ns < cl->rlen + n) {
 			ns *= 2;
-			if (ns > NETD_BUF_MAX)
-				ns = NETD_BUF_MAX;
+			if (ns > AX25NETD_BUF_MAX)
+				ns = AX25NETD_BUF_MAX;
 		}
 		if (ns < cl->rlen + n) {
 			cl->dead = 1;
@@ -546,7 +546,7 @@ void loop_read_client(struct netd_client *cl)
 
 		memcpy(&hdr, cl->rbuf, AGWPE_HEADER_LEN);
 		dlen = agwpe_netle2host(hdr.data_len);
-		if (dlen > NETD_BUF_MAX - AGWPE_HEADER_LEN) {
+		if (dlen > AX25NETD_BUF_MAX - AGWPE_HEADER_LEN) {
 			cl->dead = 1;
 			return;
 		}
@@ -562,11 +562,11 @@ void loop_read_client(struct netd_client *cl)
 				if (loop_check_login(cl, cl->rbuf + AGWPE_HEADER_LEN,
 						     dlen) == 0) {
 					cl->authed = 1;
-					netd_log(LOG_INFO,
+					ax25netd_log(LOG_INFO,
 						 "client %d: login accepted",
 						 cl->fd);
 				} else {
-					netd_log(LOG_WARNING,
+					ax25netd_log(LOG_WARNING,
 						 "client %d: login rejected, dropping",
 						 cl->fd);
 					cl->dead = 1;
@@ -584,12 +584,12 @@ void loop_read_client(struct netd_client *cl)
 	}
 }
 
-void loop_close_client(struct netd_client *cl)
+void loop_close_client(struct ax25netd_client *cl)
 {
 	if (cl == NULL || cl->fd < 0)
 		return;
 
-	netd_log(LOG_INFO, "AGWPE client %d disconnected", cl->fd);
+	ax25netd_log(LOG_INFO, "AGWPE client %d disconnected", cl->fd);
 	mux_client_disconnect(cl);
 	close(cl->fd);
 	cl->fd = -1;
@@ -605,9 +605,9 @@ void loop_reap_dead(void)
 {
 	int i;
 
-	for (i = 0; i < netd.nclients; i++) {
-		if (netd.clients[i].fd >= 0 && netd.clients[i].dead)
-			loop_close_client(&netd.clients[i]);
+	for (i = 0; i < ax25netd.nclients; i++) {
+		if (ax25netd.clients[i].fd >= 0 && ax25netd.clients[i].dead)
+			loop_close_client(&ax25netd.clients[i]);
 	}
 }
 
@@ -618,7 +618,7 @@ void loop_reap_dead(void)
  * descriptor reports writable.  Returns 0 while the queue is empty or
  * blocked without error, -1 when the connection is broken.
  */
-void loop_flush_client(struct netd_client *cl)
+void loop_flush_client(struct ax25netd_client *cl)
 {
 	while (cl != NULL && cl->fd >= 0 && cl->olen > 0 && !cl->dead) {
 		ssize_t n;
@@ -627,7 +627,7 @@ void loop_flush_client(struct netd_client *cl)
 		if (n < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				return;
-			netd_log(LOG_WARNING, "client %d: send: %s",
+			ax25netd_log(LOG_WARNING, "client %d: send: %s",
 				 cl->fd, strerror(errno));
 			cl->dead = 1;
 			return;
@@ -641,7 +641,7 @@ void loop_flush_client(struct netd_client *cl)
 	}
 }
 
-int loop_send_client(struct netd_client *cl, const struct agwpe_s *hdr,
+int loop_send_client(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		     const unsigned char *data, size_t len)
 {
 	struct agwpe_s out;
@@ -652,10 +652,10 @@ int loop_send_client(struct netd_client *cl, const struct agwpe_s *hdr,
 		return -1;
 
 	total = AGWPE_HEADER_LEN + len;
-	if (cl->olen + total > NETD_OUT_MAX) {
-		netd_log(LOG_ERR,
+	if (cl->olen + total > AX25NETD_OUT_MAX) {
+		ax25netd_log(LOG_ERR,
 			 "client %d: output queue exceeds %d bytes, dropping",
-			 cl->fd, NETD_OUT_MAX);
+			 cl->fd, AX25NETD_OUT_MAX);
 		cl->dead = 1;
 		return -1;
 	}
@@ -669,7 +669,7 @@ int loop_send_client(struct netd_client *cl, const struct agwpe_s *hdr,
 			ns *= 2;
 		nb = realloc(cl->obuf, ns);
 		if (nb == NULL) {
-			netd_log(LOG_ERR, "client %d: out of memory queueing %zu bytes",
+			ax25netd_log(LOG_ERR, "client %d: out of memory queueing %zu bytes",
 				 cl->fd, total);
 			cl->dead = 1;
 			return -1;

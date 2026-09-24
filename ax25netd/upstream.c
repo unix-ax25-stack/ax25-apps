@@ -27,12 +27,12 @@
 #include <time.h>
 #include <syslog.h>
 
-#include "netd.h"
+#include "ax25netd.h"
 
 static void on_raw_frame(agwpe_client_t *c, const struct agwpe_s *hdr,
 			 const unsigned char *data, size_t len)
 {
-	struct netd_upstream *u = agwpe_client_opaque(c);
+	struct ax25netd_upstream *u = agwpe_client_opaque(c);
 
 	mux_upstream_frame(u, hdr, data, len);
 }
@@ -45,18 +45,18 @@ static void on_raw_frame(agwpe_client_t *c, const struct agwpe_s *hdr,
  */
 static void on_ports(agwpe_client_t *c, struct agwpe_port_list *list)
 {
-	struct netd_upstream *u = agwpe_client_opaque(c);
+	struct ax25netd_upstream *u = agwpe_client_opaque(c);
 	int old = u->nports;
 	int i;
 
 	u->nports = 0;
-	for (i = 0; i < list->count && u->nports < NETD_PORT_STRIDE; i++) {
+	for (i = 0; i < list->count && u->nports < AX25NETD_PORT_STRIDE; i++) {
 		int n = atoi(list->names[i] + 4);	/* strip "Port" */
 
-		if (n < 1 || n > NETD_PORT_STRIDE) {
-			netd_log(LOG_WARNING,
+		if (n < 1 || n > AX25NETD_PORT_STRIDE) {
+			ax25netd_log(LOG_WARNING,
 				 "upstream %s: channel '%s' outside 1..%d ignored",
-				 u->name, list->names[i], NETD_PORT_STRIDE);
+				 u->name, list->names[i], AX25NETD_PORT_STRIDE);
 			continue;
 		}
 		u->ports[u->nports].chan = (unsigned char)(n - 1);
@@ -67,17 +67,17 @@ static void on_ports(agwpe_client_t *c, struct agwpe_port_list *list)
 	}
 
 	if (!u->ports_ready)
-		netd_log(LOG_INFO, "upstream %s: %d channel%s via 'G'",
+		ax25netd_log(LOG_INFO, "upstream %s: %d channel%s via 'G'",
 			 u->name, u->nports, u->nports == 1 ? "" : "s");
 	else if (u->nports != old)
-		netd_log(LOG_INFO, "upstream %s: now %d channel%s (was %d)",
+		ax25netd_log(LOG_INFO, "upstream %s: now %d channel%s (was %d)",
 			 u->name, u->nports, u->nports == 1 ? "" : "s", old);
 
 	u->ports_ready = 1;
 	mux_ports_tick(time(NULL));
 }
 
-static void upstream_connect(struct netd_upstream *u)
+static void upstream_connect(struct ax25netd_upstream *u)
 {
 	int unixup = (u->host[0] == '/');
 
@@ -86,7 +86,7 @@ static void upstream_connect(struct netd_upstream *u)
 
 	if (unixup) {
 		if (agwpe_client_connect_unix(u->cli, u->host) < 0) {
-			netd_log(LOG_WARNING, "upstream %s: connect to %s failed: %s",
+			ax25netd_log(LOG_WARNING, "upstream %s: connect to %s failed: %s",
 				 u->name, u->host,
 				 strerror(agwpe_client_err(u->cli)));
 			u->connected = 0;
@@ -95,7 +95,7 @@ static void upstream_connect(struct netd_upstream *u)
 			return;
 		}
 	} else if (agwpe_client_connect_host(u->cli, u->host, u->tcp_port) < 0) {
-		netd_log(LOG_WARNING, "upstream %s: connect to %s:%d failed: %s",
+		ax25netd_log(LOG_WARNING, "upstream %s: connect to %s:%d failed: %s",
 			 u->name, u->host, u->tcp_port,
 			 strerror(agwpe_client_err(u->cli)));
 		u->connected = 0;
@@ -116,7 +116,7 @@ static void upstream_connect(struct netd_upstream *u)
 		agwpe_client_login(u->cli, "", "");
 	mux_upstream_reconnected(u);
 
-	netd_log(LOG_INFO, "upstream %s: connected to %s%s%d",
+	ax25netd_log(LOG_INFO, "upstream %s: connected to %s%s%d",
 		 u->name, u->host, unixup ? "" : ":",
 		 unixup ? 0 : u->tcp_port);
 }
@@ -129,8 +129,8 @@ int upstream_init_all(void)
 	};
 	int i;
 
-	for (i = 0; i < netd.nup; i++) {
-		struct netd_upstream *u = &netd.ups[i];
+	for (i = 0; i < ax25netd.nup; i++) {
+		struct ax25netd_upstream *u = &ax25netd.ups[i];
 
 		if (u->virtual)
 			continue;
@@ -152,13 +152,13 @@ int upstream_init_all(void)
 	return 0;
 }
 
-void upstream_read(struct netd_upstream *u)
+void upstream_read(struct ax25netd_upstream *u)
 {
 	int ret;
 
 	ret = agwpe_client_recv(u->cli);
 	if (ret < 0) {
-		netd_log(LOG_WARNING, "upstream %s: connection lost (%s)",
+		ax25netd_log(LOG_WARNING, "upstream %s: connection lost (%s)",
 			 u->name, agwpe_client_err(u->cli) ?
 			 strerror(agwpe_client_err(u->cli)) : "EOF");
 		mux_upstream_lost(u);
@@ -172,10 +172,10 @@ void upstream_reconnect_tick(time_t now)
 {
 	int i;
 
-	for (i = 0; i < netd.nup; i++) {
-		struct netd_upstream *u = &netd.ups[i];
+	for (i = 0; i < ax25netd.nup; i++) {
+		struct ax25netd_upstream *u = &ax25netd.ups[i];
 
-		if (u->dead && now - u->dead_since >= NETD_RECONNECT_DELAY)
+		if (u->dead && now - u->dead_since >= AX25NETD_RECONNECT_DELAY)
 			upstream_connect(u);
 	}
 }
