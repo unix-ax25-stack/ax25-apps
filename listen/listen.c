@@ -79,7 +79,10 @@ static void display_port(char *dev)
  */
 static char * ts_format(unsigned int sec, unsigned int usec)
 {
-	static char buf[sizeof("00:00:00.000000")];
+	/* "%06u" can print up to ten digits for an "unsigned int"; GCC does
+	 * not always narrow the usec<1000000 clamp below into the format
+	 * range check, so size the buffer for the worst case.  */
+	static char buf[sizeof("00:00:00.0000000000")];
 	unsigned int hours, minutes, seconds;
 
 	seconds  = sec % 60;
