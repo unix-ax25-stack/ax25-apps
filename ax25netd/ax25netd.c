@@ -304,9 +304,11 @@ int main(int argc, char **argv)
 	}
 	strncpy(cfg.socket_path, com.loop_socket,
 		sizeof(cfg.socket_path) - 1);
+	cfg.socket_path[sizeof(cfg.socket_path) - 1] = '\0';
 	cfg.tcp_enabled = com.loop_tcp_enabled;
 	cfg.group_mode = com.group_mode;
 	strncpy(cfg.group_name, com.group_name, sizeof(cfg.group_name) - 1);
+	cfg.group_name[sizeof(cfg.group_name) - 1] = '\0';
 	if (!port_set)
 		port = com.loop_tcp_port;
 
@@ -372,18 +374,23 @@ int main(int argc, char **argv)
 				ax25netd.loop.index = AGWPE_PORT_LOOP;
 				strncpy(ax25netd.loop.name, u->name,
 					sizeof(ax25netd.loop.name) - 1);
+				ax25netd.loop.name[sizeof(ax25netd.loop.name) - 1] = '\0';
 				ax25netd.loop.virtual = 1;
 				saw_loop = 1;
 				continue;
 			}
 			strncpy(ax25netd.ups[j].name, u->name,
 				sizeof(ax25netd.ups[j].name) - 1);
+			ax25netd.ups[j].name[sizeof(ax25netd.ups[j].name) - 1] = '\0';
 			strncpy(ax25netd.ups[j].host, u->host,
 				sizeof(ax25netd.ups[j].host) - 1);
+			ax25netd.ups[j].host[sizeof(ax25netd.ups[j].host) - 1] = '\0';
 			strncpy(ax25netd.ups[j].user, u->user,
 				sizeof(ax25netd.ups[j].user) - 1);
+			ax25netd.ups[j].user[sizeof(ax25netd.ups[j].user) - 1] = '\0';
 			strncpy(ax25netd.ups[j].pass, u->pass,
 				sizeof(ax25netd.ups[j].pass) - 1);
+			ax25netd.ups[j].pass[sizeof(ax25netd.ups[j].pass) - 1] = '\0';
 			ax25netd.ups[j].tcp_port = u->tcp_port;
 			j++;
 		}

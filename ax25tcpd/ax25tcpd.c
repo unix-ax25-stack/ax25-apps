@@ -1727,6 +1727,7 @@ int main(int argc, char **argv)
 			tpc.target_tcp = 0;
 			strncpy(tpc.target_sock, com.loop_socket,
 				sizeof(tpc.target_sock) - 1);
+			tpc.target_sock[sizeof(tpc.target_sock) - 1] = '\0';
 		} else if (com.loop_tcp_enabled) {
 			tpc.target_tcp = 1;
 			strncpy(tpc.target_host, "127.0.0.1",
