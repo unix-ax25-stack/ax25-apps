@@ -751,7 +751,7 @@ static struct tpc_client *tpc_client_find(const struct agwpe_s *hdr,
 	for (cl = tpc.clients; cl < tpc.clients + TPC_MAX_CLIENT; cl++) {
 		if (cl->fd < 0 || cl->state == TPC_CMD)
 			continue;
-		if (cl->state == TPC_CONNECTING != want_connecting)
+		if ((cl->state == TPC_CONNECTING) != want_connecting)
 			continue;
 		if (cl->port != hdr->port)
 			continue;
@@ -979,6 +979,8 @@ static void tpc_dgram_flush(struct tpc_client *cl)
 
 static int tpc_add_call(struct tpc_client *cl, const char *call)
 {
+	size_t n;
+
 	if (cl->call_to[0] == '\0') {
 		if (strlen(call) >= sizeof(cl->call_to))
 			return -1;
@@ -987,8 +989,9 @@ static int tpc_add_call(struct tpc_client *cl, const char *call)
 	}
 	if (cl->ndigis >= AGWPE_MAX_DIGIS - 1)
 		return -1;
-	strncpy(cl->digis[cl->ndigis], call, sizeof(cl->digis[0]) - 1);
-	cl->digis[cl->ndigis][sizeof(cl->digis[0]) - 1] = '\0';
+	n = strnlen(call, sizeof(cl->digis[0]) - 1);
+	memcpy(cl->digis[cl->ndigis], call, n);
+	cl->digis[cl->ndigis][n] = '\0';
 	cl->ndigis++;
 	return 0;
 }
