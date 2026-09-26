@@ -22,7 +22,7 @@ bug reports are welcome; so are ideas — use GitHub Discussions.
 ## Background
 
 The Linux AX.25 stack had numerous bugs and stability problems, and with
-kernel 7.1 in-kernel AX.25 support is at risk of disappearing. A timely
+kernel 7.1 in-kernel AX.25 support is dropped. A timely
 solution was needed — this project provides one.
 
 Concept and implementation took six weeks (from early August 2026). The suite
@@ -32,6 +32,8 @@ are fixed. Part of the development was non-trivial; without AI support and
 long days this would probably still be in the planning stage.
 
 ## Configuration is trivial
+
+### The example below is for the wampes connector.
 
 The Unix side — `/etc/ax25/axports`:
 
@@ -63,6 +65,32 @@ Please adjust /tcp/sockets for your needs.
 After installing a new libax25, rebuild and relink the tools against it — the
 library has changed a lot. Compile details incl. `--enable-userspace-ax25`:
 `libax25/README.compile`. Further documentation: `libax25/doc`.
+
+### The example below is for the AGWPE connector, with direwolf for the upstream connection
+
+
+(/usr/local/)etc/ax25/agwpe.conf:
+```
+auth    extern
+autoroute yes
+direwolf    localhost    8000
+loop    -    -
+```
+
+
+(/usr/local/)axports:
+```
+direwolf      DL9SAU-2  0  256  7   Direwolf channel 0
+```
+
+Example direwolf configuration:
+```
+ADEVICE    "yourSoundcard"
+ACHANNELS  1
+CHANNEL    0
+MYCALL     DL9SAU-2
+AGWPORT    8000
+```
 
 
 ## Upstream
@@ -195,10 +223,10 @@ $ call -r wampes:xnet db0fhn
 <details>
 <summary><b>AGWPE notes</b> — status & open questions</summary>
 
-The AGWPE branch in libax25 was not pursued further, because the own protocol
-to WAMPES is more promising and efficient. AGWPE is tested and works, e.g.
-with direwolf as backend. Untested: AGWPE clients, and whether the
-direwolf-backend or the AGWPE-client path to wampes works. Feedback is very
+The AGWPE branch in libax25 is a bit untested, in favor of wampes.
+AGWPE is tested basically and works, i.e. with direwolf as backend.
+Untested:
+AGWPE clients, and whether the direwolf-backend or the AGWPE-client path to wampes works. Feedback is very
 welcome.
 
 </details>
@@ -219,7 +247,7 @@ Arch                              pacman -S gdbm ...
 Alpine                            apk add gdbm-dev ...
 ```
 
-David Ranch KI6ZHD provided a build-script: build-unix-ax25-stack.sh
+David Ranch KI6ZHD provided a build-script: build-unix-ax25-stack.sh: https://github.com/unix-ax25-stack/.github/blob/main/build-unix-ax25-stack.sh
 
 
 ```
