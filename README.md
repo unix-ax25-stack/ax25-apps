@@ -273,7 +273,7 @@ David Ranch KI6ZHD provided a build-script: build-unix-ax25-stack.sh:
 
 Then compile and install:
 ```
-for i in libax25.git ax25-apps.git ax25-tools.git; do
+for i in libax25 ax25-apps ax25-tools; do
   cd $i ; autoreconf --install --force ; ./configure --enable-userspace-ax25 --prefix=/usr --sysconfdir=/etc --localstatedir=/var --mandir=/usr/share/man; make clean; make install
   # For first-time-install of the configuration files:
   # make installconf
@@ -283,7 +283,7 @@ done
 
 If you like to use WAMPES' net ax25-stack:
 ```
-cd wampes.git; make install; cd ..
+cd wampes; make install; cd ..
 ```
 
 
