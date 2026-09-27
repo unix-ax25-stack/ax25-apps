@@ -22,7 +22,10 @@ reachable like a station on a radio.  See
 for the "loop" port entry.
 .PP
 The kernel AX.25 stack of libax25 is not involved.  On Linux the native
-kernel AX.25 support continues to work exactly as before.
+kernel AX.25 support continues to work exactly as before, and it keeps
+working while this daemon runs.  What the daemon does feed is the frame
+monitor; see
+.BR MONITORING .
 .PP
 For connects that name no digipeaters the daemon mirrors the kernel
 AX.25 stack: it asks the
@@ -191,6 +194,33 @@ relative to its upstream.  The loop port is the interface the client
 addresses; the multiplexer translates port to channel when forwarding a
 frame to an upstream and back when delivering a frame to a client, so
 applications never have to deal with upstream channel numbers.
+.SH MONITORING
+Besides forwarding frames, the daemon is the monitor feed for the userspace
+side of a machine.  A program that asks for a packet socket to watch AX.25
+\-
+.BR listen (1)
+does \-
+is served from here: the frames the upstreams send in raw form, and the
+frames local clients send, are handed to it as complete KISS frames.  The
+second group is rebuilt from what the client handed over, so a monitor is not
+limited to the frames that carry text: link establishment, disconnect, numbered
+information frames and unacknowledged information frames are all reconstructed,
+and the class of a frame is therefore not a reason for it to be missing.
+.PP
+The one feed that is limited to UI frames is the WAMPES node, and it is
+limited for a reason that has nothing to do with this daemon: a WAMPES node
+keeps AX.25 level 2 to itself, so the libax25 side can only hand over the UI
+frames that cross it.  A connection carried by such a node is traced on the
+node's own console.
+.PP
+A machine that runs AX.25 in the kernel needs no daemon for its own traffic,
+and its monitor reads the kernel's packet socket directly.  The two monitors
+do not see each other's frames: the kernel's frames were never handed to this
+daemon, and the frames served here are not the kernel's.  Which side a program
+monitors is decided once per program; see
+.BR listen (1)
+and
+.BR axsock (7).
 .SH AX.25 LEVEL 2
 .B ax25netd
 speaks only the AGWPE protocol and does not implement AX.25 level 2.  Link

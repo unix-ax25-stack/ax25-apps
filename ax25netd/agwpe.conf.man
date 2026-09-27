@@ -10,15 +10,24 @@ lists the AGWPE servers ("upstreams") which
 connects to and exposes to its local clients.
 .PP
 This file is read by
-.BR ax25netd (8)
-alone.  A program served by libax25's userspace shim reaches the joined
-radios over the daemon's loop port (see
+.BR ax25netd (8),
+and by a program served by libax25's userspace shim, but only to answer one
+question: which of the ports in
+.BR axports (5)
+name an upstream of this machine.  The shim needs that at
+.BR bind (2)
+to tell an AGWPE port from a port of a local radio, and it asks the
+.I name
+fields below first, so that the answer costs a file read instead of a
+connection.  Where the file does not have the name the shim asks the server
+itself, which is the case whenever the server is on another host; it then
+reaches it over the daemon's loop port (see
 .BR ax25common.conf (5)),
 because the
 .BR AXSOCK_HOST " / " AXSOCK_PORT
 environment variables, the shim's only choice of server, name the daemon
-there by default; point them at one of these servers instead, and the
-daemon is skipped.  Either way the program never reads this file.
+there by default.  Point them at one of these servers instead, and the
+daemon is skipped.
 .PP
 Each line defines one upstream:
 .PP
@@ -62,6 +71,32 @@ layout of the upstreams: upstream \fIi\fR (counting from 0) owns the ports
 "port information" query, so the numbering survives an upstream restart
 with a changed number of channels.  A single-channel Direwolf keeps its
 port number 0.
+.PP
+This numbering is what a client sees.  Which upstream, and which of its
+channels, a client uses is not named in this file but in
+.BR axports (5):
+an entry whose name is the
+.I name
+of an upstream here addresses channel 0 of that upstream, and the same name
+with a
+.BI : N
+suffix addresses channel N.  So an upstream with two channels needs the two
+entries
+.I name
+and
+.IR name :1
+there, and a program is pointed at the second one by that name
+.RI ( "call \-r name:1 ..." ).
+.PP
+Each of those entries carries a callsign of its own, because
+.BR axports (5)
+refuses two entries with the same callsign.  That matches how an AGWPE radio
+server is put together: its ports are given one SSID each, and the callsign
+of the entry is the address that the channel transmits, which is the radio's
+own configuration and not this file's \-
+.I MYCALL
+per channel in
+.BR direwolf.conf (5).
 .PP
 The reserved name
 .B loop
@@ -155,4 +190,5 @@ are ignored.
 .BR ax25common.conf (5),
 .BR agwpe_shadow.conf (5),
 .BR axports (5),
+.BR direwolf.conf (5),
 .BR axsock (7)
