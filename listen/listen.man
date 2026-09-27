@@ -91,8 +91,8 @@ and off again with the last, and every frame it hears arrives.
 .B ax25netd (8)
 (or
 .BR direwolf )
-fills the monitor itself; it has to be reachable, or the socket cannot be
-opened at all.
+fills the monitor itself; it has to be reachable for the socket to carry
+anything.
 .TP 8
 WAMPES
 works for UI frames, through the same
@@ -103,19 +103,44 @@ what it sends to it \-\- into
 .BR ax25netd (8),
 where a
 .B listen
-program picks them up like any AGWPE frame.  The digipeaters of a frame
+program picks them up like any AGWPE frame.  It picks them up on the loop
+port, so a frame of a WAMPES node is reported with
+.B loop
+as its port: that is the AGWPE port it crossed, not the node's own name.  The
+digipeaters of a frame
 received from the node carry the
 .B *
 mark, as on the air.  Connected sessions are not mirrored; a WAMPES node
 traces on its own console instead, and that is where to look.
 .LP
+One run, one backend.  Which of the two is decided once per program, by asking
+the kernel whether it provides
+.B AF_AX25
+at all, so a machine that has a kernel AX.25 stack monitors the kernel and
+shows what the kernel carries.  The frames of an
+.BR ax25netd (8)
+or of a WAMPES node are not in that stream: they were never given to the
+kernel, so the kernel has no way to hand them on.  A program that wants the
+other side asks for it \-
+.B AXSOCK_BACKEND=agwpe
+runs the monitor on the
+.BR ax25netd (8)
+feed instead, and then the kernel's own frames are the ones that go unseen.
+Which of the two is in use is reported under
+.BR AXSOCK_DEBUG .
+See
+.BR axsock (7).
+.LP
 In either backend, when no AGWPE server
 .RB ( ax25netd (8))
-is reachable the raw monitor has nothing to be fed from.  The socket is
-handed out and stays quiet rather than failing, so a program that opens a
-monitor beside its real work is not taken down by the server's absence; a
-line on standard error says so under
-.B AXSOCK_DEBUG .
+is reachable the raw monitor has nothing to be fed from.  While a WAMPES node
+is configured the socket is handed out anyway and stays quiet rather than
+failing, so a program that opens a monitor beside its real work is not taken
+down by the server's absence.  With no node configured either there is nothing
+left to speak for the missing server, and
+.BR socket (2)
+fails.  A line on standard error says so under
+.BR AXSOCK_DEBUG .
 .SH FILES
 @@@AX25_SYSCONFDIR@@@/axports
 .SH "SEE ALSO"
