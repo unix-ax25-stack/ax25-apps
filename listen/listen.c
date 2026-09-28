@@ -68,6 +68,14 @@ static void display_port(char *dev)
 	port = ax25_config_get_name(dev);
 	if (port == NULL)
 		port = dev;
+	/* Nothing came back, and dev is empty as well: the frame arrived
+	 * without a name for the port it came on.  Say so.  Falling through
+	 * prints an empty label, so every such frame looks as if it had come
+	 * in on no port at all, and the line gives the operator nothing to go
+	 * on.  A question mark is not a name either, but it is visibly not
+	 * one, and the callsign on the frame still says where it went.  */
+	if (port == NULL || *port == '\0')
+		port = "?";
 
 	lprintf(T_PORT, "%s: ", port);
 }
