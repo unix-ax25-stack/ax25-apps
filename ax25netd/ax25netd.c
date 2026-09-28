@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>
@@ -47,6 +48,8 @@
 
 #include <netax25/agwpe_config.h>
 #include <netax25/axcommon.h>
+#include <netax25/axlib.h>
+#include <netax25/axconfig.h>
 
 #include "ax25netd.h"
 
@@ -195,6 +198,75 @@ static int daemonize(void)
 	return 0;
 }
 
+/*
+ * Warn about an upstream that no axports entry names.
+ *
+ * A port a client can bind is one that appears in the port table this
+ * daemon hands out, and an entry in that table has to come from axports.
+ * So an upstream named in agwpe.conf with no axports entry naming it has
+ * no ports at all, and neither this daemon nor anything else says so: the
+ * only sign is that a program given the name cannot bind it.  Which is the
+ * case a user cannot see into, because the name is one they wrote down
+ * themselves and the file that should have had it is one they never
+ * opened.
+ *
+ * Not fatal.  An upstream in this file that axports has no entries for is
+ * not a broken daemon, only an unusable upstream, and the other upstreams
+ * are still worth serving, so this warns and carries on.
+ *
+ * Only this direction.  The reverse - an axports entry with no upstream -
+ * is not a misconfiguration: axports names ports of the kernel stack and
+ * of WAMPES nodes as well, and neither is ax25netd's business.  A name is
+ * a port, not an AGWPE channel, and a daemon that warned about the ports it
+ * does not serve would warn on every machine that has any.
+ *
+ * Compared without the colon, because both backends read one: ax25netd
+ * takes "upstream:channel" and axports takes "port:channel", so the part
+ * before the colon is the name on both sides and the rest is a channel
+ * that either file may or may not have.
+ */
+static void warn_about_ports(const struct agwpe_config *cfg)
+{
+	char *name, base[64];
+	int i;
+
+	if (ax25_config_load_ports() == 0) {
+		fprintf(stderr, "ax25netd: warning: no ports in %s, so the "
+			"upstreams cannot be checked against it\n",
+			ax25_config_ports_file());
+		return;
+	}
+
+	/* An upstream with no axports entry: nothing can name its ports. */
+	for (i = 0; i < cfg->count; i++) {
+		const char *up = cfg->upstreams[i].name;
+		const char *colon = strchr(up, ':');
+		size_t len = colon ? (size_t)(colon - up) : strlen(up);
+
+		if (len == 0 || len >= sizeof(base))
+			continue;
+		memcpy(base, up, len);
+		base[len] = '\0';
+		if (cfg->upstreams[i].virtual)
+			continue;
+
+		for (name = ax25_config_get_next(NULL); name != NULL;
+		     name = ax25_config_get_next(name)) {
+			const char *nc = strrchr(name, ':');
+			size_t nlen = nc ? (size_t)(nc - name) : strlen(name);
+
+			if (nlen == len && strncasecmp(name, base, len) == 0)
+				break;
+		}
+		if (name == NULL)
+			fprintf(stderr, "ax25netd: warning: upstream '%s' is "
+				"configured but no entry in %s names it, so no "
+				"program can bind its ports\n",
+				base, ax25_config_ports_file());
+	}
+
+}
+
 int main(int argc, char **argv)
 {
 	int ch, port = AX25NETD_PORT_DEFAULT;
@@ -285,6 +357,8 @@ int main(int argc, char **argv)
 	}
 	if (cfg.count == 0)
 		fprintf(stderr, "ax25netd: warning: no upstreams configured (loop port only)\n");
+	else
+		warn_about_ports(&cfg);
 
 	/*
 	 * The loop port endpoint comes from the shared ax25common.conf,
