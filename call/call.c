@@ -1927,7 +1927,7 @@ static int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
 	int nrparts;
 	int lines;
 	char orgn[13];
-	char prtn[13+3];
+	char prtn[24];	/* orgn plus the suffix written after it */
 	char strn[PATH_MAX];
 	char v[20];
 	char s[80];
@@ -1944,25 +1944,33 @@ static int sevenplname(int mode, WINDOW ** swin, wint * wintab, int *f,
 	lines = (int) strtol(parms + 37, NULL, 16);
 	nrparts = (int) strtol(parms + 7, NULL, 10);
 
-	strncpy(orgn, &parms[11], 12);
+	/* The field is 12 columns of space padding.  strncpy() would leave
+	 * orgn unterminated when the field is full, and orgn[cnt + 1] below
+	 * is what terminates it, so the 12 bytes are taken as they are and
+	 * the terminator is written by hand. */
+	memcpy(orgn, &parms[11], 12);
 	convert_upper_lower(orgn, 12);
 	for (cnt = 11; orgn[cnt] == ' '; cnt--) {
 		if (cnt == 0)
 			break;
 	}
 	orgn[cnt + 1] = 0;
-	if (orgn[cnt - 3] == '.') {
-		strncpy(prtn, orgn, cnt - 2);
+	/* cnt is the index of the last column of the name, so a name shorter
+	 * than three has no column three back to look at, and cnt - 2 below
+	 * would be negative. */
+	if (cnt >= 3 && orgn[cnt - 3] == '.') {
+		memcpy(prtn, orgn, cnt - 2);
 		if (nrparts == 1)
-			sprintf(prtn + cnt - 2, "7pl");
+			snprintf(prtn + cnt - 2, sizeof(prtn) - (cnt - 2), "7pl");
 		else
-			sprintf(prtn + cnt - 2, "p%02x", part);
+			snprintf(prtn + cnt - 2, sizeof(prtn) - (cnt - 2),
+				 "p%02x", part);
 	} else {
-		strcpy(prtn, orgn);
+		snprintf(prtn, sizeof(prtn), "%s", orgn);
 		if (nrparts == 1)
-			sprintf(prtn + cnt, ".7pl");
+			snprintf(prtn + cnt, sizeof(prtn) - cnt, ".7pl");
 		else
-			sprintf(prtn + cnt, ".p%02x", part);
+			snprintf(prtn + cnt, sizeof(prtn) - cnt, ".p%02x", part);
 	}
 
 	strcpy(strn, STD_DWN_DIR);
@@ -2082,6 +2090,9 @@ static int cmd_call(char *call[], int mode, int encoding)
 	unsigned long uplsize = 0;
 	unsigned long uplpos = 0;
 	char uplbuf[128];	/* Upload buffer */
+	char binhdr[MAX_BUFLEN + 64];	/* the #BIN# header, which is
+					 * written to a file and so may not
+					 * be cut short */
 	int upldp = 0;
 	int upllen = 0;
 	char *c, *t;
@@ -2498,7 +2509,7 @@ static int cmd_call(char *call[], int mode, int encoding)
 					upldp = -1;
 					upllen = 0;
 					if (uplsize != -1) {
-						sprintf(s,
+						snprintf(s, sizeof(s),
 								"Uploading %ld bytes from %s",
 								uplsize, t);
 						swin =
@@ -2508,7 +2519,7 @@ static int cmd_call(char *call[], int mode, int encoding)
 								"bytes sent   : ",
 								TRUE);
 					} else {
-						sprintf(s,
+						snprintf(s, sizeof(s),
 								"Uploading from %s",
 								t);
 						swin =
@@ -2567,16 +2578,33 @@ static int cmd_call(char *call[], int mode, int encoding)
 							lseek(uploadfile,
 									0L,
 									SEEK_SET);
-							sprintf(s,
-									"#BIN#%ld#|%u#$%s#%s\r",
-									uplsize,
-									crc,
-									unix_to_sfbin_date_string(file_time),
-									t);
-							if ( write(fd, s,
-										strlen(s)) != strlen(s)) {
-								perror("write");
-								exit(1);
+							/* This header goes into
+							 * the file, so a name cut
+							 * short would be a
+							 * wrong name in it.  A
+							 * name that does not fit
+							 * is reported instead
+							 * of being written. */
+							{
+								int n =
+									snprintf(binhdr,
+									 sizeof(binhdr),
+									 "#BIN#%ld#|%u#$%s#%s\r",
+									 uplsize,
+									 crc,
+									 unix_to_sfbin_date_string(file_time),
+									 t);
+
+								if (n < 0
+								    || (size_t) n >= sizeof(binhdr))
+									statline(mode,
+										 "File name too long to send");
+								else if (write(fd,
+									      binhdr,
+									      n) != n) {
+									perror("write");
+									exit(1);
+								}
 							}
 							uplpos = 0;
 							upldp = -1;
@@ -2615,7 +2643,7 @@ static int cmd_call(char *call[], int mode, int encoding)
 								open(t,
 									O_RDWR | O_APPEND |
 									O_CREAT, 0666)) == -1) {
-						sprintf(s,
+						snprintf(s, sizeof(s),
 								"Unable to open %s",
 								buf + 2);
 						statline(mode, s);
