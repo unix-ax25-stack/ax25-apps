@@ -98,6 +98,15 @@ own configuration and not this file's \-
 per channel in
 .BR direwolf.conf (5).
 .PP
+An upstream named here that
+.BR axports (5)
+does not have an entry for has no ports, and nothing else says so:
+.BR ax25netd (8)
+warns about it at startup and goes on, because the other upstreams are
+still worth serving.  It does not warn the other way round.  A port in
+.BR axports (5)
+with no upstream here may be a port of the kernel stack or of a WAMPES
+node, neither of which this daemon has anything to do with.
 The reserved name
 .B loop
 enables the virtual local loopback upstream (AGWPE port 255).  It needs no
