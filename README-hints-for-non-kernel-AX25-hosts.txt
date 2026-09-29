@@ -4,7 +4,7 @@ Hints for hosts without a kernel AX.25 stack
 The AX.25 stack leaves the Linux kernel in 7.1, and macOS and BSD never had
 one.  Programs written against libax25 still expect socket(AF_AX25, ...) to
 work, and libax25 can answer them itself.  This file is the short version;
-axsock(7) is the whole story, axports(5), agwpe.conf(5) and wampes.conf(5)
+axsock(7) is the whole story, axports(5), ax25netd_agwpe.conf(5) and wampes.conf(5)
 say which backend serves which port.
 
 libax25 can intercept the AX.25 socket calls and serve them from userspace
@@ -27,7 +27,7 @@ it is left out.  So on Linux say --enable-userspace-ax25 when
 
 AXSOCK_BACKEND=kernel|agwpe|wampes overrides that choice for one process.
 Which userspace backend serves a port follows from the configuration:
-agwpe.conf(5) describes the AGWPE upstreams, wampes.conf(5) the WAMPES
+ax25netd_agwpe.conf(5) describes the AGWPE upstreams, wampes.conf(5) the WAMPES
 nodes, and a port named in wampes.conf is handed to its node at bind(2).
 
 ax25-apps and ax25-tools have no such option - they use whatever the

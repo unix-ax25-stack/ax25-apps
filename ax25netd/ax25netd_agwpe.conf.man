@@ -1,10 +1,10 @@
-.\" Man page for agwpe.conf
+.\" Man page for ax25netd_agwpe.conf
 .\"
-.TH AGWPE.CONF 5 "7 Aug 2026" "ax25-apps" "Linux System Administration"
+.TH AX25NETD_AGWPE.CONF 5 "29 Sep 2026" "ax25-apps" "Linux System Administration"
 .SH NAME
-agwpe.conf \- configuration for ax25netd
+ax25netd_agwpe.conf \- configuration for ax25netd
 .SH DESCRIPTION
-.B agwpe.conf
+.B ax25netd_agwpe.conf
 lists the AGWPE servers ("upstreams") which
 .BR ax25netd (8)
 connects to and exposes to its local clients.
@@ -55,13 +55,10 @@ AGWPE server on the same machine without TCP; in that case the
 .I tcp-port
 column is ignored and may be written as
 .B \-
-or left out:
-.PP
-.RS
-.nf
-radio0	/var/run/agwpe/radio.sock	-
-.fi
-.RE
+or left out.  See
+.B UNIX_SOCKET_UPSTREAMS
+below for what a program has to offer before one of these is worth
+writing.
 .PP
 The AGWPE port numbers handed out to the local clients are flat and depend
 only on the order of the upstreams in this file, never on the channel
@@ -138,7 +135,7 @@ selects how much authentication loop port clients need.  The default is
 .BR extern :
 clients connecting over loopback (127.0.0.1 and ::1) are trusted, while any
 other client must log in with credentials from
-.BR agwpe_shadow.conf (5)
+.BR ax25netd_agwpe_shadow.conf (5)
 before it may issue any command.
 .B yes
 asks every client to log in, loopback included;
@@ -159,6 +156,42 @@ the socket group) is not configured here but in the shared
 which
 .BR ax25netd (8)
 and its local clients read alike.
+.PP
+.SH UNIX_SOCKET_UPSTREAMS
+An upstream host beginning with
+.B /
+is a unix domain socket, and the column is worth filling in only if the
+program on the other end actually serves AGWPE over one.  A
+.I "/..."
+path that nothing listens on fails the same way a closed TCP port
+does, which is at least a clear error, so this costs nothing to try; a
+path that does listen but speaks a different protocol does not, and the
+AGWPE handshake then times out or is answered as a bad packet.
+.PP
+The known programs at the time of writing:
+.TP
+.B direwolf
+No.
+.BR direwolf (1)
+speaks AGWPE over TCP, not over a unix domain socket, and there is no
+option to change that.  Reach it with an address and a port - it listens
+on
+.B 8000
+by default - exactly as in the
+.B localhost 8000
+line below.
+.TP
+.B agwpe_unix
+and other wrappers
+Only if the wrapper in question documents a socket.  A file in
+.IR /var/run
+does not by itself make a program speak AGWPE: the common occupant of
+such a path is a program's own IPC socket, which is not AGWPE.
+.PP
+So a unix domain upstream is the exception, and a
+.B 8000
+line is the normal case.  The path above is a shape, not a path any
+distributed program uses; substitute the one your program documents.
 .PP
 An optional line
 .PP
@@ -188,16 +221,16 @@ are ignored.
 	radio0	localhost	8000
 	radio1	192.168.1.20	8000
 	radio2	[2001:db8::1]	8000
-	radio3	/var/run/agwpe/radio.sock	-
+	radio3	/var/run/ax25/sockets/agwpe_radio1.sock	-
 	loop	-	-
 .fi
 .SH FILES
-.I @@@AX25_SYSCONFDIR@@@/agwpe.conf
+.I @@@AX25_SYSCONFDIR@@@/ax25netd_agwpe.conf
 .SH SEE ALSO
 .BR ax25netd (8),
 .BR ax25rtd (8),
 .BR ax25common.conf (5),
-.BR agwpe_shadow.conf (5),
+.BR ax25netd_agwpe_shadow.conf (5),
 .BR axports (5),
 .BR direwolf.conf (5),
 .BR axsock (7)

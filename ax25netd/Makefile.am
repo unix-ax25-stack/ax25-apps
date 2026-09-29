@@ -12,12 +12,12 @@ ax25netd_SOURCES =	\
 
 ax25netd_LDADD = $(AX25_LIB)
 
-man_MANS = ax25netd.8 agwpe.conf.5 agwpe_shadow.conf.5 ax25common.conf.5
+man_MANS = ax25netd.8 ax25netd_agwpe.conf.5 ax25netd_agwpe_shadow.conf.5 ax25common.conf.5
 
-EXTRA_DIST = $(etcfiles) agwpe_shadow.conf.example ax25netd.man agwpe.conf.man \
-	agwpe_shadow.conf.man ax25common.conf.man
-CLEANFILES = ax25netd.8 ax25netd.8.tmp agwpe.conf.5 agwpe.conf.5.tmp \
-	agwpe_shadow.conf.5 agwpe_shadow.conf.5.tmp \
+EXTRA_DIST = $(etcfiles) ax25netd_agwpe_shadow.conf.example ax25netd.man ax25netd_agwpe.conf.man \
+	ax25netd_agwpe_shadow.conf.man ax25common.conf.man
+CLEANFILES = ax25netd.8 ax25netd.8.tmp ax25netd_agwpe.conf.5 ax25netd_agwpe.conf.5.tmp \
+	ax25netd_agwpe_shadow.conf.5 ax25netd_agwpe_shadow.conf.5.tmp \
 	ax25common.conf.5 ax25common.conf.5.tmp
 
 ax25netd.8: ax25netd.man
@@ -28,15 +28,15 @@ ax25netd.8: ax25netd.man
 	    $(srcdir)/ax25netd.man > ax25netd.8.tmp &&				\
 	mv ax25netd.8.tmp ax25netd.8;
 
-agwpe.conf.5: agwpe.conf.man
+ax25netd_agwpe.conf.5: ax25netd_agwpe.conf.man
 	sed -e "s|@@@AX25_SYSCONFDIR@@@|$(AX25_SYSCONFDIR)|g"			\
-	    $(srcdir)/agwpe.conf.man > agwpe.conf.5.tmp &&			\
-	mv agwpe.conf.5.tmp agwpe.conf.5;
+	    $(srcdir)/ax25netd_agwpe.conf.man > ax25netd_agwpe.conf.5.tmp &&			\
+	mv ax25netd_agwpe.conf.5.tmp ax25netd_agwpe.conf.5;
 
-agwpe_shadow.conf.5: agwpe_shadow.conf.man
+ax25netd_agwpe_shadow.conf.5: ax25netd_agwpe_shadow.conf.man
 	sed -e "s|@@@AX25_SYSCONFDIR@@@|$(AX25_SYSCONFDIR)|g"			\
-	    $(srcdir)/agwpe_shadow.conf.man > agwpe_shadow.conf.5.tmp &&		\
-	mv agwpe_shadow.conf.5.tmp agwpe_shadow.conf.5;
+	    $(srcdir)/ax25netd_agwpe_shadow.conf.man > ax25netd_agwpe_shadow.conf.5.tmp &&		\
+	mv ax25netd_agwpe_shadow.conf.5.tmp ax25netd_agwpe_shadow.conf.5;
 
 ax25common.conf.5: ax25common.conf.man
 	sed -e "s|@@@AX25_SYSCONFDIR@@@|$(AX25_SYSCONFDIR)|g"			\
@@ -44,16 +44,16 @@ ax25common.conf.5: ax25common.conf.man
 	mv ax25common.conf.5.tmp ax25common.conf.5;
 
 # Needed so that install is optional
-etcfiles = agwpe.conf ax25common.conf
+etcfiles = ax25netd_agwpe.conf ax25common.conf
 installconf:
 	$(mkinstalldirs) $(DESTDIR)$(AX25_SYSCONFDIR)
 	@list='$(etcfiles)'; for p in $$list; do \
 	  echo " $(INSTALL_DATA) $$p $(DESTDIR)$(AX25_SYSCONFDIR)/$$p"; \
 	  $(INSTALL_DATA) $$p $(DESTDIR)$(AX25_SYSCONFDIR)/$$p; \
 	done
-	@if test ! -f $(DESTDIR)$(AX25_SYSCONFDIR)/agwpe_shadow.conf; then \
-	  echo " $(INSTALL_DATA) -m 600 agwpe_shadow.conf.example $(DESTDIR)$(AX25_SYSCONFDIR)/agwpe_shadow.conf"; \
-	  $(INSTALL_DATA) -m 600 agwpe_shadow.conf.example $(DESTDIR)$(AX25_SYSCONFDIR)/agwpe_shadow.conf; \
+	@if test ! -f $(DESTDIR)$(AX25_SYSCONFDIR)/ax25netd_agwpe_shadow.conf; then \
+	  echo " $(INSTALL_DATA) -m 600 ax25netd_agwpe_shadow.conf.example $(DESTDIR)$(AX25_SYSCONFDIR)/ax25netd_agwpe_shadow.conf"; \
+	  $(INSTALL_DATA) -m 600 ax25netd_agwpe_shadow.conf.example $(DESTDIR)$(AX25_SYSCONFDIR)/ax25netd_agwpe_shadow.conf; \
 	fi
 
 AX25_SYSCONFDIR=$(sysconfdir)/ax25

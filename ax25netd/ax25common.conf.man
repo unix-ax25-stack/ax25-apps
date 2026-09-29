@@ -1,24 +1,28 @@
 .\" Man page for ax25common.conf
 .\"
-.TH AX25COMMON.CONF 5 "11 Aug 2026" "ax25-apps" "Linux System Administration"
+.TH AX25COMMON.CONF 5 "29 Sep 2026" "ax25-apps" "Linux System Administration"
 .SH NAME
 ax25common.conf \- shared loop port configuration of ax25netd and ax25tcpd
 .SH DESCRIPTION
 .B ax25common.conf
 configures the loop port of
 .BR ax25netd (8).
-Both the daemon itself and
-.BR ax25tcpd (8),
-which in its default setup connects to the same loop port, read this
-file, so the endpoint a client connects to can never drift away from
-the endpoint the daemon listens on.  Each line is one directive:
+The daemon itself and every local client of that loop port read this
+file, so the endpoint a client connects to can never drift away from the
+endpoint the daemon listens on.  Each line is one directive:
 .PP
 .RS
 .B loop socket
 .I path
 .br
+.B loop socket
+.B no
+.br
 .B loop tcp
 .I port
+.br
+.B loop tcp
+.B yes\|no
 .br
 .B loop group
 .I name
@@ -27,52 +31,117 @@ the endpoint the daemon listens on.  Each line is one directive:
 .I gid
 .br
 .B loop group
-.B all
+.B all\|default
+.br
+.B loop mode
+.I octal
 .RE
 .PP
 .B loop socket
-enables the unix domain socket of the loop port at
+gives the unix domain socket of the loop port the path
 .IR path .
-Without it the loop port is only reachable over TCP.  The value
+The default is
+.IR /var/run/ax25/sockets/ax25netd.sock ,
+and the directory is created if it is missing.  The value
 .B no
 (or
 .B 0
-) disables the socket again.  The socket file is owned by the user the
-daemon drops privileges to (or the daemon run user), so connecting
-requires write access to the socket file, i.e.\& membership in the
-group named by
+) switches the socket off, which leaves the TCP listener of
+.B loop tcp
+as the only way in.
+.PP
 .B loop group
-.IR name .
-The conventional group for AX.25 users is
+decides who may connect to that socket, and with it which mode the
+socket file gets, since connecting to a unix socket requires write
+access to it.  The value
+.B all
+(every local account) gives the socket mode
+.BR 0666 ,
+and is the default.  A group
+.I name
+or numeric
+.I gid
+gives
+.B 0660
+to that group and the daemon run user.  The conventional group for
+AX.25 users is
 .B hams
 (see axspawn.conf).
-.B loop group all
-makes the socket accessible to every local user; a numeric
-.I gid
-is accepted as well.
+.B loop group default
+means the daemon run user and its primary group, i.e.
+.B 0660
+without naming a group.  Note that a socket at
+.B 0666
+lets every local account onto the loop port, which is normally the
+point: these are the local tools of one station.  It does not reach
+off the host - that is what the directory mode below is for - and
+.B loop group
+narrows it if a host has accounts that should not talk AX.25.
+.PP
+.B loop mode
+sets the mode of the directory holding the socket, as octal.  The
+default is
+.BR 1775 :
+world readable and traversable, so tools running as another user can
+find the socket, and the sticky bit, so that one local account cannot
+rename or remove a socket file belonging to another.  0750 is the
+tighter choice if only one group of local users ever connects.
 .PP
 .B loop tcp
-enables the TCP listener of the loop port on
-.IR port
-(the default is
-.BR 8100 ).
+enables a TCP listener of the loop port on
+.IR port .
+The default is
+.BR "no" ,
+because a TCP loop port is reachable by everything that can open a TCP
+connection to the host and nothing authenticates its peers, whereas the
+local socket is not exposed that way.  If you switch it on, prefer
+.B loop socket no
+with it, or the same service answers twice.
 .B loop tcp yes
 and
 .B loop tcp no
-switch the listener on and off without changing the port.
+switch the listener without changing the port; switched on without a
+port it listens on
+.BR 8100 .
 .PP
 A missing file is not an error and leaves the defaults in place: unix
-socket disabled, TCP listener on port 8100, socket group = the daemon
-run user.
+socket at
+.IR /var/run/ax25/sockets/ax25netd.sock ,
+no TCP listener, socket group
+.BR all ,
+directory mode
+.BR 1775 .
 .PP
 Blank lines and lines beginning with
 .B #
 are ignored.
+.SH "THE LOCAL CLIENTS"
+Every local client of the loop port reads this file, so a change here
+reaches all of them at once:
+.TP
+.B ax25netd (8)
+the server; listens where this file says
+.TP
+.B ax25tcpd (8)
+connects to the loop port, and takes its
+.B target
+from here when
+.B ax25tcpd.conf
+names none
+.TP
+.BR listen (8)
+the generic listener behind
+.BR ax25tcpd (8)
+.TP
+the AGWPE shim in libax25, and so every program using it
+The WAMPES nodes are named separately, in
+.BR wampes.conf (5),
+and reach the same upstreams by their own path.
 .SH FILES
 .I @@@AX25_SYSCONFDIR@@@/ax25common.conf
 .SH "SEE ALSO"
 .BR ax25netd (8),
-.BR agwpe.conf (5),
+.BR ax25netd_agwpe.conf (5),
 .BR ax25tcpd (8),
 .BR ax25 (3),
 .BR axports (5)

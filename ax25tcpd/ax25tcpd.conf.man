@@ -13,8 +13,10 @@ where it listens for its own clients (the front side).
 A missing file is not an error and leaves the defaults in place:
 the back side comes from the defaults of
 .BR ax25common.conf (5)
-(TCP loop port 127.0.0.1:8100), and the front side is one binary tcp
-port 127.0.0.1:8101 whose text port 8102 follows by default, with
+(the unix socket
+.IR /var/run/ax25/sockets/ax25netd.sock ,
+and no TCP loop port), and the front side is one binary tcp port
+127.0.0.1:8101 whose text port 8102 follows by default, with
 .BR mtu
 256.
 .PP
@@ -30,7 +32,19 @@ daemon reads for its listener: one file, one semantics.  The
 .B loop socket
 and
 .B loop tcp
-directives there decide how this frontend reaches the daemon.
+directives there decide how this frontend reaches the daemon, so a
+netd on this host needs no
+.B target
+line at all.  The same file's
+.B loop mode
+gives the mode of the directory a
+.B listen unix
+front side creates, so
+.B ax25netd
+and
+.B ax25tcpd
+cannot leave different modes on the shared directory depending on
+which of them started first.
 .PP
 For a netd on another host an explicit line overrides it:
 .PP
@@ -126,4 +140,4 @@ it a connect or datagram command must name its source call explicitly.
 .BR ax25tcpd (8),
 .BR ax25netd (8),
 .BR ax25common.conf (5),
-.BR agwpe.conf (5)
+.BR ax25netd_agwpe.conf (5)
