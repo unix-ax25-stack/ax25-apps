@@ -223,10 +223,21 @@ static void mux_mirror_raw(const struct agwpe_s *in,
 	*(p - 1) |= 0x01;
 
 	switch (in->datakind) {
-	case AGWPE_CMD_CONNECT:			/* SABME, command */
+	/*
+	 * A connect is shown as a SABM, the level 2 mode this node actually
+	 * operates in.  The AGWPE connect command carries no mode field, so
+	 * nothing on this side of the link ever asks for the extended (mod
+	 * 128) mode and it cannot be coded here.  An upstream that speaks
+	 * eAX.25 may still put a SABME on the air while it tries v2.2 first
+	 * and falls back, but that is the upstream's link setup, not a mode
+	 * this connect requested, and that frame arrives as its own raw
+	 * monitor frame.  Showing SABME here would claim a capability the
+	 * connect never asked for and answer the wrong question.
+	 */
+	case AGWPE_CMD_CONNECT:			/* SABM, command */
 	case AGWPE_CMD_CONNECT_PID:
 	case AGWPE_CMD_CONNECT_VIA:
-		ctl = 0x6F;
+		ctl = 0x2F;
 		break;
 	case AGWPE_CMD_DISCONNECT:		/* DISC, command */
 		ctl = 0x43;
