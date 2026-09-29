@@ -2106,7 +2106,15 @@ static int cmd_call(char *call[], int mode, int encoding)
 	WINDOW *swin = NULL;
 	int cnt;
 	int crc = 0;
-	char s[80];
+	/* Sized so that none of the status lines below is cut while it is
+	 * being built.  The longest of them embeds a whole line of buf -
+	 * a file name, or a command line - after a fixed prefix and a %lu:
+	 *   "Uploading " (10) + 20 digits + " bytes from " (11) + 1021
+	 * which is 1062 plus a terminator.  A buffer that held less would
+	 * not warn the operator about anything, it would just stop the
+	 * message in the middle of the path, and the window it goes into
+	 * clips it to its own width anyway.  */
+	char s[MAX_BUFLEN + 64];
 	int flags = 0;
 	int EOF_on_STDIN = FALSE;
 	sigset_t oursigs, oldsigs;
