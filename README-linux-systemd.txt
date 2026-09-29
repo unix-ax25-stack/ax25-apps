@@ -17,15 +17,37 @@ that for "started by init".  Under systemd the parent of a service IS process
 1, so the fork never happens, the first process never exits, and a unit that
 waits for it waits for ever.
 
-So say Type=simple, and where the program offers it, tell it not to fork:
+So say Type=simple, and say -f where the program has it:
 
     ax25d -f                    since ax25-tools 0.0.10
+    ax25netd -f
+    ax25tcpd -f
     conversd -f                 (a separate project, see below)
 
 A program with no such switch is fine under Type=simple as long as it does
 not fork on its own - which, under systemd, is what daemon_start() already
 arranges by accident.  It is worth saying -f where it exists, so that the
 unit does not depend on that accident.
+
+But the accident is not available to everything here, and for the two
+ax25-apps daemons -f is not tidiness, it is the difference between a unit
+that supervises the daemon and one that loses it.  ax25d reaches for
+daemon_start(), which skips its fork under systemd, as described above.
+ax25netd and ax25tcpd do not use the library's helper: each carries its own
+daemonize() that forks unconditionally and only then looks at the -f flag.
+Under systemd that fork is not skipped, so without -f the daemon detaches,
+the parent exits 0, and systemd is left supervising a process that is no
+longer there.  A unit that does that still reports the service as started,
+which is what makes it hard to notice.
+
+Worse, the same daemonize() points its own standard input, output and error
+at /dev/null after forking.  What the daemon prints while it sets up reaches
+the journal; everything it has to say afterwards - a client that was refused,
+an upstream that went away - is written to /dev/null and gone.  Measured on
+ax25netd, forking and then connecting a client to the loop port: the four
+startup lines are in the log and the connection that follows adds nothing,
+while with -f the same four lines arrive and the later ones with them.  That
+silence is not the absence of events.
 
 
 ax25d
@@ -64,12 +86,20 @@ ax25netd
     Type=simple
     RuntimeDirectory=ax25
     RuntimeDirectoryMode=1775
-    ExecStart=/usr/sbin/ax25netd
+    ExecStart=/usr/sbin/ax25netd -f
     Restart=on-failure
     RestartSec=5
 
     [Install]
     WantedBy=multi-user.target
+
+-f is not optional here, and the reason is not the usual one.  This daemon
+forks through its own daemonize() rather than through the library's
+daemon_start(), so it does not get the getppid() == 1 test that saves ax25d,
+and it sends its own stdin, stdout and error to /dev/null as part of the same
+call.  Without -f, the parent exits at once, systemd is left holding a process
+that no longer exists, and every message from then on goes to /dev/null
+instead of the journal.  See the section on Type=simple above.
 
 It reaches its upstreams over TCP, so After=network.target is not decoration.
 If direwolf runs on the same machine, order it after that unit as well, or
@@ -87,6 +117,11 @@ and /run is a tmpfs: it is empty after every reboot, so the directory has to
 be created on every start.  Two programs here can create it - ax25netd, and
 ax25tcpd for a 'listen unix' front side - and each creates every missing
 component of the path it is given, so whichever starts first is enough.
+
+If ax25tcpd runs as a unit of its own, give it -f for the reason given under
+ax25netd above: it carries its own daemonize(), and it also sends its own
+standard streams to /dev/null, so one that was not asked to stay in the
+foreground takes its log with it.
 
 RuntimeDirectory=ax25 above is the tidier way to have it: systemd creates
 /run/ax25 before ExecStart and removes it again on stop, so nothing is left
