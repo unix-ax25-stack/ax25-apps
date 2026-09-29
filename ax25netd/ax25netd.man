@@ -1,6 +1,6 @@
 .\" Man page for ax25netd
 .\"
-.TH AX25NETD 8 "7 Aug 2026" "ax25-apps" "Linux System Administration"
+.TH AX25NETD 8 "29 Sep 2026" "ax25-apps" "Linux System Administration"
 .SH NAME
 ax25netd \- AGWPE multiplexing daemon
 .SH SYNOPSIS
@@ -34,14 +34,16 @@ route cache for a learned path to the destination on the target port
 and uses it (see
 .B autoroute
 in
-.BR agwpe.conf (5)).
+.BR ax25netd_agwpe.conf (5)).
 This is off for the virtual loop port, and connects with an explicit
 digipeater path are never resolved.
 .PP
 A missing configuration file is not an error: the daemon then serves
 only the virtual loop port, with the loop port listener from
 .BR ax25common.conf (5)
-(by default TCP 127.0.0.1:8100) and no radio upstreams.
+(by default the unix socket
+.IR /var/run/ax25/sockets/ax25netd.sock ,
+and no TCP listener) and no radio upstreams.
 .SH OPTIONS
 .TP
 .B \-f
@@ -51,7 +53,7 @@ Stay in the foreground (do not daemonize).
 Also log to standard error.
 .TP
 .BI \-c " file"
-Configuration file, default \fI@@@AX25_SYSCONFDIR@@@/agwpe.conf\fR.
+Configuration file, default \fI@@@AX25_SYSCONFDIR@@@/ax25netd_agwpe.conf\fR.
 .TP
 .BI \-C " file"
 Shared loop port configuration, default
@@ -68,13 +70,21 @@ or
 are supported.  Default 127.0.0.1.
 .TP
 .BI \-p " port"
-TCP port of the loop port, default 8100.
+TCP port of the loop port, 8100 by default.  The TCP listener is off
+unless
+.B loop tcp
+or
+.B \-\-no\-tcp
+says otherwise; this option names the port for when it is on.
 .TP
 .BI \-U " socket"
 Also listen on this unix domain socket.  Overrides the
 .B loop socket
 directive of
 .BR ax25common.conf (5).
+Every missing directory in the path is created, so
+.B \-U /var/run/ax25/sockets/x.sock
+works on a host where none of them exists yet.
 .TP
 .BI \-g " group"
 Group allowed to connect to the unix socket: a group name, a numeric
@@ -84,6 +94,18 @@ for every local user.  Overrides the
 .B loop group
 directive of
 .BR ax25common.conf (5).
+.TP
+.BI \-\-loop\-mode " octal"
+Mode of the directory holding the unix socket, as octal; 1775 by
+default.  Overrides the
+.B loop mode
+directive of
+.BR ax25common.conf (5).
+.B ax25tcpd (8)
+applies the same directive to the directories it creates, so the two
+daemons cannot leave different modes on the shared
+.I /var/run/ax25/sockets
+depending on which started first.
 .TP
 .B \-\-no-tcp
 Do not listen on TCP at all; the unix socket becomes the only way in.
@@ -138,9 +160,9 @@ your radio to every caller that can reach that address.  Use client
 authentication when listening beyond loopback: enable
 .B auth
 in
-.BR agwpe.conf (5)
+.BR ax25netd_agwpe.conf (5)
 and create credentials in
-.BR agwpe_shadow.conf (5).
+.BR ax25netd_agwpe_shadow.conf (5).
 ax25netd warns at startup when it listens on a non-loopback address without
 authentication.
 .PP
@@ -156,7 +178,7 @@ can be stacked: a remote box lists a "master" box as an upstream and the
 master authenticates it with its own
 .B ax25netd
 credentials from
-.BR agwpe_shadow.conf (5).
+.BR ax25netd_agwpe_shadow.conf (5).
 This aggregates the radios of several hosts behind one master AGWPE port.
 .PP
 Upstreams need not be TCP: an upstream on the same host can be reached over
@@ -165,7 +187,7 @@ a unix domain socket (a
 starting with
 .B /
 in
-.BR agwpe.conf (5)),
+.BR ax25netd_agwpe.conf (5)),
 and IPv6 addresses are supported in the bracketed
 .B [2001:db8::1]
 notation.
@@ -174,7 +196,7 @@ an upstream is down.
 .SH PORT NUMBERS
 The AGWPE port numbers seen by the loop clients are flat and depend only on
 the order of the upstreams in
-.BR agwpe.conf (5),
+.BR ax25netd_agwpe.conf (5),
 never on the channel layout of the upstreams: upstream \fIi\fR (counting
 from 0) owns the ports \fIi*16\fR .. \fIi*16+15\fR and its channel \fIc\fR
 is port \fIi*16+c\fR.  A single-channel Direwolf therefore keeps port
@@ -250,7 +272,7 @@ and
 (see the Direwolf User Guide).
 .SH FILES
 .TP
-.I @@@AX25_SYSCONFDIR@@@/agwpe.conf
+.I @@@AX25_SYSCONFDIR@@@/ax25netd_agwpe.conf
 Upstream and authentication configuration.
 .TP
 .I @@@AX25_SYSCONFDIR@@@/ax25common.conf
@@ -264,16 +286,16 @@ and
 .B AXSOCK_PORT
 environment variables and never reads this file.
 .TP
-.I @@@AX25_SYSCONFDIR@@@/agwpe_shadow.conf
+.I @@@AX25_SYSCONFDIR@@@/ax25netd_agwpe_shadow.conf
 Credentials (mode 0600, owned by root).
 .TP
 .I @@@AX25_LOCALSTATEDIR@@@/mheard/mheard.dat
 Heard-station list (see
 .BR MHEARD ).
 .SH SEE ALSO
-.BR agwpe.conf (5),
+.BR ax25netd_agwpe.conf (5),
 .BR ax25common.conf (5),
-.BR agwpe_shadow.conf (5),
+.BR ax25netd_agwpe_shadow.conf (5),
 .BR axports (5),
 .BR ax25tcpd (8),
 .BR ax25rtd (8),

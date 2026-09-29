@@ -868,7 +868,8 @@ static int mux_ports_ready(void)
  * The merged port information table.  Each radio channel of every
  * upstream is a flat port (i*16+channel) listed as "PortN", N being one
  * more than the port byte, exactly as the AGWPE interface manual and
- * Direwolf do ("Port1" is port 0).  The name comes from agwpe.conf, the
+ * Direwolf do ("Port1" is port 0).  The name comes from the upstream
+ * configuration, the
  * description from the upstream's own 'G' reply.  The virtual loop port
  * (255) is appended so remote clients can reach local services too.
  */

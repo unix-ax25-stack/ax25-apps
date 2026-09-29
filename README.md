@@ -73,7 +73,7 @@ library has changed a lot. Compile details incl. `--enable-userspace-ax25`:
 ### The example below is for the AGWPE connector, with direwolf for the upstream connection
 
 
-(/usr/local/)etc/ax25/agwpe.conf:
+(/usr/local/)etc/ax25/ax25netd_agwpe.conf:
 ```
 auth    extern
 autoroute yes

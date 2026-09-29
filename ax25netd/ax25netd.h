@@ -114,7 +114,7 @@ struct ax25netd_upstream {
 	int			tcp_port;
 	int			virtual;	/* virtual loop upstream, port 255 */
 
-	/* Optional AGWPE login credentials, from agwpe_shadow.conf.  */
+	/* Optional AGWPE login credentials, from ax25netd_agwpe_shadow.conf.  */
 	char			user[AGWPE_AUTH_NAME_MAX];
 	char			pass[AGWPE_AUTH_PASS_MAX];
 
@@ -151,7 +151,7 @@ struct ax25netd_ctx {
 	 * constants from netax25/agwpe_config.h.  In AGWPE_AUTH_EXTERN (the
 	 * default) and AGWPE_AUTH_ALWAYS mode, clients connecting from
 	 * a non-loopback address must log in with credentials from
-	 * agwpe_shadow.conf before any other frame is accepted.  The
+	 * ax25netd_agwpe_shadow.conf before any other frame is accepted.  The
 	 * credentials also cover peer ax25netd boxes connecting in a
 	 * chain.  */
 	int			auth;
@@ -186,8 +186,8 @@ extern void ax25netd_log(int prio, const char *fmt, ...);
 /* loop.c */
 extern int loop_init(const char *bindaddr, int port);
 extern int loop_init_unix(const char *path, int group_mode,
-			  const char *group_name, uid_t run_uid,
-			  gid_t run_gid);
+			  const char *group_name, mode_t dir_mode,
+			  uid_t run_uid, gid_t run_gid);
 extern void loop_accept(int lfd);
 extern void loop_read_client(struct ax25netd_client *cl);
 extern void loop_flush_client(struct ax25netd_client *cl);

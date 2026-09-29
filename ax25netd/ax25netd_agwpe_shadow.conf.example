@@ -7,8 +7,9 @@
 # Format:  <target>  <user>  <password>
 #
 # Target "ax25netd": client authentication of this instance (requires
-#   "auth required" in agwpe.conf).  Every AGWPE client connecting to
-#   the loop port must log in with one of these credentials.
+#   "auth required" in ax25netd_agwpe.conf).  Every AGWPE client
+#   connecting to the loop port must log in with one of these
+#   credentials.
 #
 # Any other target: optional login sent to the upstream of that name
 #   after connecting (AGWPE on Windows, a second ax25netd in a chain).

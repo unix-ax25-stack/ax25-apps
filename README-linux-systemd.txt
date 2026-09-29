@@ -62,6 +62,8 @@ ax25netd
 
     [Service]
     Type=simple
+    RuntimeDirectory=ax25
+    RuntimeDirectoryMode=1775
     ExecStart=/usr/sbin/ax25netd
     Restart=on-failure
     RestartSec=5
@@ -72,6 +74,51 @@ ax25netd
 It reaches its upstreams over TCP, so After=network.target is not decoration.
 If direwolf runs on the same machine, order it after that unit as well, or
 accept that ax25netd retries until the server answers.
+
+
+The loop socket and /run/ax25
+-----------------------------
+
+The loop port is a unix domain socket at
+
+    /var/run/ax25/sockets/ax25netd.sock
+
+and /run is a tmpfs: it is empty after every reboot, so the directory has to
+be created on every start.  Two programs here can create it - ax25netd, and
+ax25tcpd for a 'listen unix' front side - and each creates every missing
+component of the path it is given, so whichever starts first is enough.
+
+RuntimeDirectory=ax25 above is the tidier way to have it: systemd creates
+/run/ax25 before ExecStart and removes it again on stop, so nothing is left
+behind on shutdown.  It is not required, only preferable - and the two are
+not in conflict, because a program that finds the directory already there
+leaves it alone, mode and owner included.
+
+RuntimeDirectoryMode=1775 is the mode ax25netd applies by default, and it
+has to match.  1775 keeps the directory world readable and traversable, so a
+client running as an unprivileged user can find the socket inside it, and the
+sticky bit keeps one local account from renaming or removing a socket file
+that belongs to another.  It is set here rather than left to the daemons
+because with two of them creating the same directory, the one that loses the
+race would otherwise inherit the umask of whichever unit happened to win.
+
+If you narrow the loop port to one group with
+
+    loop group hams
+
+in ax25common.conf(5), then 0750 is the mode to use here, and the unit needs
+the group as well, or the socket ends up in a group nothing can reach:
+
+    RuntimeDirectory=ax25
+    RuntimeDirectoryMode=0750
+    Group=hams
+
+Where a unit runs the daemon as a user rather than as root, say so under
+[Service] with User= and Group=; the socket then belongs to that user and
+'loop group default' means the same account.  The socket mode itself
+(0660 for a named group, 0666 for 'all') is not a RuntimeDirectory setting -
+it comes from 'loop group' in ax25common.conf(5) and is applied to the socket
+file, not to the directory.
 
 
 A program that knows nothing of libax25

@@ -187,7 +187,7 @@ int loop_init(const char *bindaddr, int port)
 	if (!addr_is_loopback(ai->ai_addr, ai->ai_addrlen) && !ax25netd.auth)
 		ax25netd_log(LOG_WARNING,
 			 "listening on non-loopback %s:%d without authentication: anyone who can reach this address controls your radio; consider 'auth required' in %s",
-			 bindaddr, port, "agwpe.conf");
+			 bindaddr, port, "ax25netd_agwpe.conf");
 
 	ax25netd.listener_fd = s;
 	ax25netd_log(LOG_INFO, "listening for AGWPE clients on %s:%d", bindaddr, port);
@@ -198,14 +198,20 @@ int loop_init(const char *bindaddr, int port)
  * Create the parent directory of a unix socket path.  Runtime
  * directories are volatile (/run on Linux is tmpfs and empty after
  * every reboot), so the daemon creates it itself.  Returns 0 on
- * success.  mode and the owning (uid, gid) apply to a directory this
- * call creates; an existing directory is left alone.
+ * success.  mode and the owning (uid, gid) apply to every directory
+ * this call creates; an existing directory is left alone, and no
+ * existing directory is ever chowned or chmodded.
+ *
+ * Every missing component is created, not just the last one: the
+ * default path is /var/run/ax25/sockets/ax25netd.sock, and a single
+ * mkdir(2) of the last component fails while /var/run/ax25 is missing.
  */
 static int loop_mkdir_parent(const char *path, mode_t mode,
 			     uid_t uid, gid_t gid)
 {
-	char *dup, *slash, *dir;
+	char *dup, *p, *slash;
 	struct stat st;
+	int rc = 0;
 
 	if (path[0] == '\0')
 		return -1;
@@ -214,36 +220,70 @@ static int loop_mkdir_parent(const char *path, mode_t mode,
 	if (dup == NULL)
 		return -1;
 
+	/* Cut off the socket's own name, so what is left is the
+	 * directory to create.  */
 	slash = strrchr(dup, '/');
-	if (slash == NULL)
-		dir = ".";
-	else if (slash == dup)
-		dir = "/";
-	else {
-		*slash = '\0';
-		dir = dup;
+	if (slash == NULL) {
+		free(dup);
+		return 0;			/* relative to cwd */
 	}
+	if (slash == dup) {
+		free(dup);
+		return 0;			/* the socket is in "/" */
+	}
+	*slash = '\0';
 
-	if (stat(dir, &st) == 0) {
-		if (!S_ISDIR(st.st_mode)) {
-			free(dup);
-			errno = ENOTDIR;
-			return -1;
+	/* Create every missing component of that directory, from the
+	 * root down.  p walks the separators; each step makes the text
+	 * so far a NUL-terminated path and tries it.  */
+	for (p = dup + 1; *p != '\0'; p++) {
+		if (*p != '/')
+			continue;
+		*p = '\0';
+		if (stat(dup, &st) == 0) {
+			if (!S_ISDIR(st.st_mode)) {
+				errno = ENOTDIR;
+				rc = -1;
+			}
+		} else if (errno != ENOENT) {
+			rc = -1;
+		} else if (mkdir(dup, mode) != 0) {
+			rc = -1;
+		} else if (chown(dup, uid, gid) != 0) {
+			rc = -1;
+		} else if (chmod(dup, mode) != 0) {
+			/* mkdir(2) applies the umask, and the configured
+			 * mode is meant to be the mode, not a suggestion
+			 * the umask gets to reduce.  The sticky bit is
+			 * dropped by a umask too, so it cannot be left to
+			 * mkdir(2).  */
+			rc = -1;
 		}
-		free(dup);
-		return 0;
-	}
-	if (errno != ENOENT) {
-		free(dup);
-		return -1;
+		*p = '/';
+		if (rc < 0)
+			break;
 	}
 
-	if (mkdir(dir, mode) != 0) {
-		free(dup);
-		return -1;
+	/* The last component has no trailing slash of its own, so it
+	 * needs the same treatment here.  */
+	if (rc == 0 && stat(dup, &st) == 0) {
+		if (!S_ISDIR(st.st_mode)) {
+			errno = ENOTDIR;
+			rc = -1;
+		}
+	} else 	if (rc == 0 && errno == ENOENT) {
+		if (mkdir(dup, mode) != 0 || chown(dup, uid, gid) != 0 ||
+		    chmod(dup, mode) != 0)
+			rc = -1;
+	} else if (rc == 0) {
+		rc = -1;
 	}
-	if (chown(dir, uid, gid) != 0) {
+
+	if (rc < 0) {
+		int e = errno;
+
 		free(dup);
+		errno = e;
 		return -1;
 	}
 
@@ -254,7 +294,7 @@ static int loop_mkdir_parent(const char *path, mode_t mode,
 /*
  * Set up the unix domain socket listener for AGWPE clients.
  *
- * group_mode / group_name follow agwpe.conf's "group" directive:
+ * group_mode / group_name follow ax25netd_agwpe.conf's "group" directive:
  *
  *   AGWPE_GROUP_DEFAULT  the socket belongs to the daemon run user
  *                        (run_uid:run_gid), mode 0660;
@@ -263,19 +303,24 @@ static int loop_mkdir_parent(const char *path, mode_t mode,
  *                        only members of that group can connect;
  *   AGWPE_GROUP_ALL      mode 0666, every local user can connect.
  *
- * The parent directory is created with mode 0750 (0755 for
- * AGWPE_GROUP_ALL) and owned by (run_uid, gid); its setgid bit makes
- * the socket inherit the group even when it is recreated by another
- * process.  A stale socket file from a previous run is removed.
- * Returns 0 on success and stores the descriptor and path in ax25netd.
+ * dir_mode is the mode of the parent directory, from ax25common.conf's
+ * "loop mode" directive; it is what lets another local account reach a
+ * socket it does not own, so it is passed in rather than derived from
+ * group_mode.  The setgid bit is added on top of it for a named group,
+ * so that a socket recreated by another process keeps that group; the
+ * configured mode is not otherwise second-guessed.  The directory is
+ * created with that mode and owned by (run_uid, gid).
+ *
+ * A stale socket file from a previous run is removed.  Returns 0 on
+ * success and stores the descriptor and path in ax25netd.
  */
 int loop_init_unix(const char *path, int group_mode, const char *group_name,
-		   uid_t run_uid, gid_t run_gid)
+		   mode_t dir_mode, uid_t run_uid, gid_t run_gid)
 {
 	struct sockaddr_un sa;
 	struct stat st;
 	gid_t gid = run_gid;
-	mode_t dir_mode = 0750, sock_mode = 0660;
+	mode_t sock_mode = 0660;
 	int s;
 
 	if (path == NULL || path[0] == '\0')
@@ -287,7 +332,6 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
 	}
 
 	if (group_mode == AGWPE_GROUP_ALL) {
-		dir_mode = 0755;
 		sock_mode = 0666;
 	} else if (group_mode == AGWPE_GROUP_NAMED) {
 		long num;
@@ -383,7 +427,7 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
 
 /*
  * Validate a login ('P') frame against the credentials from
- * agwpe_shadow.conf.  The data area layout mirrors agwpe_client_login():
+ * ax25netd_agwpe_shadow.conf.  The data area layout mirrors agwpe_client_login():
  * the user name occupies bytes 0..253, the password bytes 255..508,
  * both NUL padded.  Returns 0 on match, -1 otherwise.
  */

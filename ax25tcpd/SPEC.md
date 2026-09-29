@@ -67,7 +67,8 @@ help              Kommando-Übersicht
   (CRLF oder CR allein), antwortet tcpd mit CRLF, sonst mit nacktem LF.
   Der Datenstrom selbst wird nie umgeschrieben.
 - Autoroute (Digipeater-Pfad bei connect ohne Digis) löst **zentral der
-  ax25netd** (siehe `autoroute` in `agwpe.conf(5)`); kein tcpd-Flag nötig.
+  ax25netd** (siehe `autoroute` in `ax25netd_agwpe.conf(5)`); kein tcpd-Flag
+  nötig.
 - Status im TNC-Stil: `*** connected to DB0AAA`, `*** disconnected`.
 - Fehlt `[< SRC]`: Fehler `source call required` (bzw. optionaler
   `default-call` pro Target in der Konfiguration).
@@ -153,10 +154,12 @@ target socket <path>              # netd-Loop über Unix-Socket (Override)
   Ctrl-Port (8011) für Downstream-Frames; Testskripte `mock_upstream.py`,
   `test_data.py`, `test_full.py`, `test_syntax.py` in
   `/var/folders/wc/51f1ls413b70nmmttqww4tyr0000gn/T/opencode/e2e/`.
-- Config-Layout im E2E: `agwpe.conf` (nur noch auth/radio/loop), `ax25common.conf`
+- Config-Layout im E2E: `ax25netd_agwpe.conf` (nur noch auth/radio/loop),
+  `ax25common.conf`
   (`loop socket …/ax25netd.sock`), `ax25tcpd.conf` ohne `target` (Rückseite via
   ax25common.conf). netd + ax25tcpd laufen mit `-C ax25common.conf`.
-  Der Fehlerpfad: `socket`/`tcp`/`group` in agwpe.conf → „belongs in
+  Der Fehlerpfad: `socket`/`tcp`/`group` in ax25netd_agwpe.conf →
+  „belongs in
   ax25common.conf, not here" und netd-Start bricht ab.
 - Gefundene/behobene Bugs in der E2E-Phase:
   - Binäres Datagramm: Payload im selben TCP-Segment wie die Kommandozeile wurde

@@ -22,8 +22,9 @@ and for talking to AX.25 services by hand.
 It runs without a configuration file: the back side is then the default
 loop port of
 .BR ax25common.conf (5)
-(TCP 127.0.0.1:8100), and the front side is one binary tcp listener on
-127.0.0.1:8101 with its text port 8102 following at 8101 + 1.
+(the unix socket /var/run/ax25/sockets/ax25netd.sock), and the front side
+is one binary tcp listener on 127.0.0.1:8101 with its text port 8102
+following at 8101 + 1.
 .SH PORTS
 Every
 .B listen tcp
@@ -157,4 +158,4 @@ Log to standard error.
 .BR ax25tcpd.conf (5),
 .BR ax25netd (8),
 .BR ax25common.conf (5),
-.BR agwpe.conf (5)
+.BR ax25netd_agwpe.conf (5)

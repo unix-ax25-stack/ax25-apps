@@ -96,6 +96,7 @@ struct tpc_listen {
 	char		path[108];	/* unix socket path */
 	int		group_mode;
 	char		group_name[64];
+	mode_t		dir_mode;	/* mode of the socket's directory */
 };
 
 struct tpc_client {
@@ -438,37 +439,83 @@ static int tpc_read_config(const char *path)
 /* Listeners                                                           */
 /* ------------------------------------------------------------------ */
 
-static int tpc_mkdir_parent(const char *path)
+/*
+ * Create the parent directory of a unix socket path.  Every missing
+ * component is created, since the default path is
+ * /var/run/ax25/sockets/ax25tcpd.sock and a single mkdir(2) of the last
+ * component fails while /var/run/ax25 is missing.  mode comes from
+ * ax25common.conf's "loop mode" and is shared with ax25netd, so the two
+ * daemons cannot end up with different modes on the same directory
+ * depending on which one started first.  An existing directory is left
+ * alone, not chmodded and not chowned, so a mode set by an
+ * administrator stays as it is.
+ */
+static int tpc_mkdir_parent(const char *path, mode_t mode)
 {
-	char *dup, *slash;
+	char *dup, *p, *slash;
 	struct stat st;
+	int rc = 0;
+
+	if (path[0] == '\0')
+		return -1;
 
 	dup = strdup(path);
 	if (dup == NULL)
 		return -1;
-	slash = strrchr(dup, '/');
-	if (slash == NULL)
-		strcpy(dup, ".");
-	else if (slash == dup)
-		strcpy(dup, "/");
-	else
-		*slash = '\0';
 
-	if (stat(dup, &st) == 0) {
-		if (!S_ISDIR(st.st_mode)) {
-			free(dup);
-			errno = ENOTDIR;
-			return -1;
+	slash = strrchr(dup, '/');
+	if (slash == NULL) {
+		free(dup);
+		return 0;			/* relative to cwd */
+	}
+	if (slash == dup) {
+		free(dup);
+		return 0;			/* the socket is in "/" */
+	}
+	*slash = '\0';
+
+	for (p = dup + 1; *p != '\0'; p++) {
+		if (*p != '/')
+			continue;
+		*p = '\0';
+		if (stat(dup, &st) == 0) {
+			if (!S_ISDIR(st.st_mode)) {
+				errno = ENOTDIR;
+				rc = -1;
+			}
+		} else if (errno != ENOENT) {
+			rc = -1;
+		} else if (mkdir(dup, mode) != 0) {
+			rc = -1;
+		} else if (chmod(dup, mode) != 0) {
+			/* mkdir(2) applies the umask, and the configured
+			 * mode is meant to be the mode, not a suggestion
+			 * the umask gets to reduce.  */
+			rc = -1;
 		}
-		free(dup);
-		return 0;
+		*p = '/';
+		if (rc < 0)
+			break;
 	}
-	if (errno != ENOENT) {
-		free(dup);
-		return -1;
+
+	/* The last component has no trailing separator of its own.  */
+	if (rc == 0 && stat(dup, &st) == 0) {
+		if (!S_ISDIR(st.st_mode)) {
+			errno = ENOTDIR;
+			rc = -1;
+		}
+	} else if (rc == 0 && errno == ENOENT) {
+		if (mkdir(dup, mode) != 0 || chmod(dup, mode) != 0)
+			rc = -1;
+	} else if (rc == 0) {
+		rc = -1;
 	}
-	if (mkdir(dup, 0750) != 0) {
+
+	if (rc < 0) {
+		int e = errno;
+
 		free(dup);
+		errno = e;
 		return -1;
 	}
 	free(dup);
@@ -513,7 +560,7 @@ static int tpc_listen_tcp(const char *addr, int port)
 }
 
 static int tpc_listen_unix(const char *path, int group_mode,
-			   const char *group_name)
+			   const char *group_name, mode_t dir_mode)
 {
 	struct sockaddr_un sa;
 	struct stat st;
@@ -548,7 +595,7 @@ static int tpc_listen_unix(const char *path, int group_mode,
 		}
 	}
 
-	if (tpc_mkdir_parent(path) != 0) {
+	if (tpc_mkdir_parent(path, dir_mode) != 0) {
 		tpc_log(LOG_ERR, "cannot create directory for %s: %s",
 			path, strerror(errno));
 		return -1;
@@ -1683,6 +1730,7 @@ int main(int argc, char **argv)
 	};
 	const char *conf = AX25_SYSCONFDIR "/ax25tcpd.conf";
 	const char *comconf = AX25_SYSCONFDIR "/ax25common.conf";
+	mode_t loop_mode = AX25COMMON_MODE_DEFAULT;
 	int c, i, r;
 
 	while ((c = getopt(argc, argv, "c:C:fdh")) != -1) {
@@ -1726,6 +1774,11 @@ int main(int argc, char **argv)
 			tpc_log(LOG_ERR, "cannot read %s", comconf);
 			return 1;
 		}
+		/* The same "loop mode" ax25netd applies.  Both daemons
+		 * create /var/run/ax25/sockets, and whichever of them
+		 * starts first would otherwise decide the mode of a
+		 * directory the other one then finds in place.  */
+		loop_mode = com.loop_mode;
 		if (com.loop_socket[0] != '\0') {
 			tpc.target_tcp = 0;
 			strncpy(tpc.target_sock, com.loop_socket,
@@ -1776,9 +1829,13 @@ int main(int argc, char **argv)
 	for (i = 0; i < tpc.nlisten; i++) {
 		struct tpc_listen *l = &tpc.listen[i];
 
+		/* Set here rather than at parse time, so a listener gets
+		 * the mode from ax25common.conf even when the file is
+		 * read after this one.  */
+		l->dir_mode = loop_mode;
 		if (l->unix_sock)
 			l->fd = tpc_listen_unix(l->path, l->group_mode,
-						l->group_name);
+						l->group_name, l->dir_mode);
 		else
 			l->fd = tpc_listen_tcp(l->addr, l->port);
 		if (l->fd < 0) {

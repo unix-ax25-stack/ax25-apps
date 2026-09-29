@@ -57,7 +57,7 @@
 #define	AX25_SYSCONFDIR	"/usr/local/etc/ax25"
 #endif
 
-#define	DEFAULT_CONF	AX25_SYSCONFDIR "/agwpe.conf"
+#define	DEFAULT_CONF	AX25_SYSCONFDIR "/ax25netd_agwpe.conf"
 #define	DEFAULT_COMMON	AX25_SYSCONFDIR "/ax25common.conf"
 
 struct ax25netd_ctx ax25netd;
@@ -95,7 +95,10 @@ static void usage(const char *prog)
 		"             the 'loop socket' directive in ax25common.conf)\n"
 		"  -g <name>  group allowed to connect to the unix socket: a\n"
 		"             group name, a numeric gid, or 'all' for every\n"
-		"             local user (default: the daemon run user)\n"
+		"             local user (default: every local user)\n"
+		"      --loop-mode <octal>  mode of the directory holding the\n"
+		"             unix socket (default: 1775); see 'loop mode'\n"
+		"             in ax25common.conf\n"
 		"      --no-tcp  do not listen on TCP at all; the unix socket\n"
 		"             becomes the only way in (requires -U or 'socket')\n"
 		"  -u <user>  drop root privileges to this user after startup\n"
@@ -157,16 +160,16 @@ static int drop_privileges(const char *user)
 	return 0;
 }
 
-/* The credentials file lives next to agwpe.conf, called
- * agwpe_shadow.conf.  */
+/* The credentials file lives next to ax25netd_agwpe.conf, called
+ * ax25netd_agwpe_shadow.conf.  */
 static void shadow_path(const char *conf, char *buf, size_t buflen)
 {
 	const char *slash = strrchr(conf, '/');
 
 	if (slash == NULL)
-		snprintf(buf, buflen, "agwpe_shadow.conf");
+		snprintf(buf, buflen, "ax25netd_agwpe_shadow.conf");
 	else
-		snprintf(buf, buflen, "%.*sagwpe_shadow.conf",
+		snprintf(buf, buflen, "%.*sax25netd_agwpe_shadow.conf",
 			 (int)(slash - conf + 1), conf);
 }
 
@@ -203,7 +206,7 @@ static int daemonize(void)
  *
  * A port a client can bind is one that appears in the port table this
  * daemon hands out, and an entry in that table has to come from axports.
- * So an upstream named in agwpe.conf with no axports entry naming it has
+ * So an upstream named in ax25netd_agwpe.conf with no axports entry naming it has
  * no ports at all, and neither this daemon nor anything else says so: the
  * only sign is that a program given the name cannot bind it.  Which is the
  * case a user cannot see into, because the name is one they wrote down
@@ -279,6 +282,8 @@ int main(int argc, char **argv)
 	int no_tcp = 0;
 	int port_set = 0;
 	int foreground = 0;
+	mode_t loop_mode = 0;
+	int loop_mode_set = 0;
 	struct agwpe_config cfg;
 	struct ax25common com;
 	int i;
@@ -296,6 +301,7 @@ int main(int argc, char **argv)
 			{ "group",   required_argument, NULL, 'g' },
 			{ "no-tcp",  no_argument,       NULL, 1000 },
 			{ "no-mheard", no_argument,     NULL, 'M' },
+			{ "loop-mode", required_argument, NULL, 1001 },
 			{ NULL, 0, NULL, 0 }
 		};
 
@@ -336,6 +342,24 @@ int main(int argc, char **argv)
 			case 'M':
 				ax25netd.mheard = 0;
 				break;
+			case 1001: {
+				char *end;
+				long v;
+
+				errno = 0;
+				v = strtol(optarg, &end, 8);
+				if (errno != 0 || *optarg == '\0' ||
+				    *end != '\0' || v < 0 || v > 07777) {
+					fprintf(stderr,
+						"ax25netd: invalid --loop-mode '%s', "
+						"expected octal 0000..07777\n",
+						optarg);
+					return 1;
+				}
+				loop_mode = (mode_t)v;
+				loop_mode_set = 1;
+				break;
+			}
 			default:
 				usage(argv[0]);
 				return 1;
@@ -365,11 +389,11 @@ int main(int argc, char **argv)
 	 * the file ax25netd and ax25tcpd read: the daemon listens where
 	 * the file says, and the frontend connects to the same endpoint,
 	 * so the client side always sees what the daemon listens on.
-	 * The libax25 AGWPE shim never reads this file — its only choice
-	 * of server is the AXSOCK_HOST/AXSOCK_PORT environment variables
-	 * (default 127.0.0.1:8100), which happen to point here by
-	 * default.  A missing file leaves the defaults in place (TCP %d,
-	 * no unix socket); the command line options below override it.
+	 * The libax25 AGWPE shim reads this same file for the same reason;
+	 * AXSOCK_HOST overrides it when a station points the shim at a
+	 * radio program instead.  A missing file leaves the defaults in
+	 * place: a unix socket at the built-in path, no TCP listener.  The
+	 * command line options below override the file.
 	 */
 	if (ax25common_config_load(comconf, &com) < 0) {
 		fprintf(stderr, "ax25netd: cannot load %s\n", comconf);
@@ -383,6 +407,9 @@ int main(int argc, char **argv)
 	cfg.group_mode = com.group_mode;
 	strncpy(cfg.group_name, com.group_name, sizeof(cfg.group_name) - 1);
 	cfg.group_name[sizeof(cfg.group_name) - 1] = '\0';
+	cfg.loop_mode = com.loop_mode;
+	if (loop_mode_set)
+		cfg.loop_mode = loop_mode;
 	if (!port_set)
 		port = com.loop_tcp_port;
 
@@ -558,7 +585,8 @@ int main(int argc, char **argv)
 
 		if (cfg.socket_path[0] != '\0' &&
 		    loop_init_unix(cfg.socket_path, cfg.group_mode,
-				   cfg.group_name, run_uid, run_gid) < 0)
+				   cfg.group_name, cfg.loop_mode, run_uid,
+				   run_gid) < 0)
 			return 1;
 	}
 
