@@ -268,7 +268,7 @@ Alpine                            apk add gdbm-dev ...
 
 David Ranch KI6ZHD provided a build-script: build-unix-ax25-stack.sh:
 ```
-  https://github.com/unix-ax25-stack/.github/blob/main/build-unix-ax25-stack.sh
+  https://github.com/unix-ax25-stack/documentation/blob/main/build-unix-ax25-stack.sh
 ```
 
 Then compile and install:
