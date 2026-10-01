@@ -76,7 +76,12 @@
 
 #define	MAX_PACKETLEN	512
 #define	MAX_BUFLEN	2*MAX_PACKETLEN
-#define	MAX_CMPSTRLEN	MAX_PACKETLEN
+/* The leftover of a keyword that straddled a packet boundary is at most as
+ * long as buf, not as long as one AX.25 packet: a read() can hand us two
+ * packets worth at once, and the carry is taken from that read.  One byte
+ * more for the terminator strncpy() below always writes.
+ */
+#define	MAX_CMPSTRLEN	(MAX_BUFLEN + 1)
 
 #define	STD_DWN_DIR	"/var/ax25/"
 
@@ -1839,7 +1844,7 @@ static int eol(char c)
 }
 
 static int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbytes,
-		      char restbuf[], int *restbytes)
+		      char restbuf[], int *restbytes, size_t buflen)
 {
 	static char cmpstr[MAX_CMPSTRLEN];
 	static int cmpstrbyte = 0;
@@ -1851,6 +1856,27 @@ static int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbyte
 	int t = 0;
 
 	if (cmpstrbyte != 0) {
+		/* A keyword from the last packet that had no line end
+		 * behind it.  Carry and new data have to fit in buf
+		 * together, and only buflen says whether they do.  When
+		 * they do not, the copy below would run off the end of
+		 * buf, so keep the part of the carry that fits and hand
+		 * the remainder back the way the caller already loops
+		 * over restbuf.  Dropping the rest would lose received
+		 * text, and clamping it here would only move the
+		 * overflow to the next call.
+		 */
+		if ((size_t) cmpstrbyte + (size_t) * bytes > buflen) {
+			size_t fit = buflen - (size_t) * bytes;
+
+			memmove(buf + fit, buf, *bytes);
+			strncpy(buf, cmpstr, fit);
+			strncpy(restbuf, cmpstr + fit, cmpstrbyte - fit);
+			*restbytes = cmpstrbyte - fit;
+			*bytes += fit;
+			cmpstrbyte = 0;
+			return -1;
+		}
 		memmove(buf + cmpstrbyte, buf, *bytes);
 		*bytes += cmpstrbyte;
 		strncpy(buf, cmpstr, cmpstrbyte);
@@ -1909,8 +1935,20 @@ static int searche_key_words(char buf[], int *bytes, char *parms, int *parmsbyte
 	}
 	t = cmdstpos + strlen(pkey_words[command]);
 	*restbytes = *bytes - cnt;
-	strncpy(parms, &buf[t], cnt - t);
-	*parmsbytes = cnt - t;
+	/* A keyword sitting at the very end of the buffer leaves nothing
+	 * behind it, so cnt - t is negative there.  strncpy() takes a
+	 * size_t, so that negative value turned into a huge count and ran
+	 * off the end of parms and of buf.  Terminate parms as well: the
+	 * handlers below hand it to strcmp() and atof().
+	 */
+	if (cnt > t) {
+		*parmsbytes = cnt - t;
+		memcpy(parms, &buf[t], *parmsbytes);
+		parms[*parmsbytes] = '\0';
+	} else {
+		parms[0] = '\0';
+		*parmsbytes = 0;
+	}
 	strncpy(restbuf, buf + cnt, *restbytes);
 	*bytes = cmdstpos;
 
@@ -2245,7 +2283,7 @@ static int cmd_call(char *call[], int mode, int encoding)
 				 * then searche_key_words misinterprets " go_7+. "
 				 * as start of a line.
 				 */
-				com_num = searche_key_words(buf, &bytes, parms, &parmsbytes, restbuf, &restbytes);
+				com_num = searche_key_words(buf, &bytes, parms, &parmsbytes, restbuf, &restbytes, sizeof(buf));
 				if (bytes != 0) {
 					convert_cr_lf(buf, bytes);
 					if (!sevenplus) {
@@ -2948,6 +2986,7 @@ int main(int argc, char **argv)
 			break;
 		case 'R':
 			remote_commands_enabled = FALSE;
+			break;
 		case 'S':
 			be_silent = 1;
 			break;
