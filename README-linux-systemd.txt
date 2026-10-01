@@ -109,33 +109,31 @@ accept that ax25netd retries until the server answers.
 The loop socket and /run/ax25
 -----------------------------
 
-The loop port is a unix domain socket at
-
-    /var/run/ax25/sockets/ax25netd.sock
-
-and /run is a tmpfs: it is empty after every reboot, so the directory has to
-be created on every start.  Two programs here can create it - ax25netd, and
-ax25tcpd for a 'listen unix' front side - and each creates every missing
-component of the path it is given, so whichever starts first is enough.
+The loop port is a unix domain socket under /run, and /run is a tmpfs, so
+the directory has to exist on every start.  ax25netd creates it, so the
+unit works either way; the settings below only decide who puts it there
+and with which mode.  What the socket path, 'loop group' and 'loop mode'
+mean is in ax25common.conf(5).
 
 If ax25tcpd runs as a unit of its own, give it -f for the reason given under
 ax25netd above: it carries its own daemonize(), and it also sends its own
 standard streams to /dev/null, so one that was not asked to stay in the
 foreground takes its log with it.
 
-RuntimeDirectory=ax25 above is the tidier way to have it: systemd creates
+RuntimeDirectory=ax25 is the tidier way to have it: systemd creates
 /run/ax25 before ExecStart and removes it again on stop, so nothing is left
 behind on shutdown.  It is not required, only preferable - and the two are
 not in conflict, because a program that finds the directory already there
 leaves it alone, mode and owner included.
 
 RuntimeDirectoryMode=1775 is the mode ax25netd applies by default, and it
-has to match.  1775 keeps the directory world readable and traversable, so a
-client running as an unprivileged user can find the socket inside it, and the
-sticky bit keeps one local account from renaming or removing a socket file
-that belongs to another.  It is set here rather than left to the daemons
-because with two of them creating the same directory, the one that loses the
-race would otherwise inherit the umask of whichever unit happened to win.
+has to match - it is 'loop mode' that ends up on the directory.  1775 keeps
+the directory world readable and traversable, so a client running as an
+unprivileged user can find the socket inside it, and the sticky bit keeps
+one local account from renaming or removing a socket file that belongs to
+another.  It is set here rather than left to the daemons because with two
+of them creating the same directory, the one that loses the race would
+otherwise inherit the umask of whichever unit happened to win.
 
 If you narrow the loop port to one group with
 
