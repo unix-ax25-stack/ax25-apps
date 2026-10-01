@@ -4,8 +4,9 @@ Hints for hosts without a kernel AX.25 stack
 The AX.25 stack leaves the Linux kernel in 7.1, and macOS and BSD never had
 one.  Programs written against libax25 still expect socket(AF_AX25, ...) to
 work, and libax25 can answer them itself.  This file is the short version;
-axsock(7) is the whole story, axports(5), ax25netd_agwpe.conf(5) and wampes.conf(5)
-say which backend serves which port.
+axsock(7) is the whole story: axports(5) maps the AX.25 port names onto
+the AGWPE or WAMPES servers, ax25netd_agwpe.conf(5) tells ax25netd what to
+multiplex, and wampes.conf(5) names the WAMPES nodes.
 
 libax25 can intercept the AX.25 socket calls and serve them from userspace
 instead of from the kernel stack - from an AGWPE server (direwolf, or
@@ -26,9 +27,21 @@ it is left out.  So on Linux say --enable-userspace-ax25 when
     if it does not.
 
 AXSOCK_BACKEND=kernel|agwpe|wampes overrides that choice for one process.
-Which userspace backend serves a port follows from the configuration:
-ax25netd_agwpe.conf(5) describes the AGWPE upstreams, wampes.conf(5) the WAMPES
-nodes, and a port named in wampes.conf is handed to its node at bind(2).
+The AGWPE backend keeps one connection, to the server named by the
+environment variable AXSOCK_HOST.  A value starting with / is a unix
+socket and is used as given; anything else is a TCP host, and AXSOCK_PORT
+then gives the port (default 8100).  With neither variable set, libax25
+reads ax25common.conf - the same file ax25netd(8) reads - and uses the
+loop port it finds there, so the two cannot drift apart.  That is a unix
+socket by default, /var/run/ax25/sockets/ax25netd.sock, so by default
+every AGWPE socket goes through the daemon, which joins several radio
+programs and offers each upstream as an AGWPE port.  Point AXSOCK_HOST at
+a radio program instead - a direwolf listens on 8000 - and the daemon is
+skipped and libax25 speaks AGWPE with that program directly.
+ax25netd_agwpe.conf(5) is read by ax25netd alone and tells it which
+upstreams to join; libax25
+never reads it.  wampes.conf(5) names the WAMPES nodes, and a port named
+there is handed to its node at bind(2).
 
 ax25-apps and ax25-tools have no such option - they use whatever the
 libax25 they were built and linked against provides.
@@ -37,7 +50,7 @@ A program that was never linked against libax25 - a script, or a daemon that
 opens AF_AX25 by itself - can be served all the same, by loading the library
 before the C library:
 
-  LD_PRELOAD=/usr/local/lib/libax25.so.0 program
+  LD_PRELOAD=/usr/lib/libax25.so.0 program
 
 On Linux the library defines socket(), bind(), connect() and the rest as
 ordinary strong symbols, so getting it loaded first is the whole trick: ELF

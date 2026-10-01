@@ -42,7 +42,20 @@ gives the unix domain socket of the loop port the path
 .IR path .
 The default is
 .IR /var/run/ax25/sockets/ax25netd.sock ,
-and the directory is created if it is missing.  The value
+and the directory is created if it is missing.  That path is under
+.IR /run ,
+which is a tmpfs and therefore empty after every reboot, so the directory
+has to be created again on every start.  Two programs here can create it,
+ax25netd and ax25tcpd for a
+.B "listen unix"
+front side, and each creates every missing component of the path it is
+given, so whichever starts first is enough.  Under systemd,
+.B RuntimeDirectory=ax25
+is the tidier way to arrange it, since systemd creates
+.I /run/ax25
+before
+.B ExecStart
+and removes it again on stop; see README-linux-systemd.txt.  The value
 .B no
 (or
 .B 0
