@@ -292,6 +292,50 @@ static int loop_mkdir_parent(const char *path, mode_t mode,
 }
 
 /*
+ * Is something already listening on this unix socket?
+ *
+ * A socket file left behind by a crashed daemon has to be removed
+ * before we can bind, but a socket that a running daemon is serving
+ * must not be touched: unlinking it would take the path away from the
+ * live daemon and every client would then reach a socket nobody
+ * accepts on.  lstat(2) cannot tell the two apart, so ask the socket
+ * itself: connect(2) succeeds when a daemon is there and fails with
+ * ECONNREFUSED when the file is a leftover.  ENOENT means it is
+ * already gone.
+ *
+ * Returns 1 when a daemon answered (leave it alone), 0 when the file
+ * is absent or demonstrably stale (safe to remove), and -1 when the
+ * answer is unclear (permission denied, backlog full, ...) - errno is
+ * preserved for the caller's log message.  Being wrong towards "in
+ * use" only costs a failed start; being wrong the other way breaks a
+ * running daemon.
+ */
+static int loop_socket_is_live(const char *path)
+{
+	struct sockaddr_un sa;
+	int fd, rc, err;
+
+	fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (fd < 0)
+		return -1;
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sun_family = AF_UNIX;
+	strncpy(sa.sun_path, path, sizeof(sa.sun_path) - 1);
+
+	rc = connect(fd, (struct sockaddr *)&sa, SUN_LEN(&sa));
+	err = errno;
+	close(fd);
+
+	if (rc == 0)
+		return 1;
+	if (err == ECONNREFUSED || err == ENOENT)
+		return 0;
+	errno = err;
+	return -1;
+}
+
+/*
  * Set up the unix domain socket listener for AGWPE clients.
  *
  * group_mode / group_name follow ax25netd_agwpe.conf's "group" directive:
@@ -311,8 +355,9 @@ static int loop_mkdir_parent(const char *path, mode_t mode,
  * configured mode is not otherwise second-guessed.  The directory is
  * created with that mode and owned by (run_uid, gid).
  *
- * A stale socket file from a previous run is removed.  Returns 0 on
- * success and stores the descriptor and path in ax25netd.
+ * A socket file left behind by a previous run is removed, but not when
+ * another ax25netd is still serving it - see loop_socket_is_live().
+ * Returns 0 on success and stores the descriptor and path in ax25netd.
  */
 int loop_init_unix(const char *path, int group_mode, const char *group_name,
 		   mode_t dir_mode, uid_t run_uid, gid_t run_gid)
@@ -361,14 +406,30 @@ int loop_init_unix(const char *path, int group_mode, const char *group_name,
 		return -1;
 	}
 
-	/* A stale socket from a previous run blocks the bind.  Only
-	 * remove it when it really is a socket, never another file.  */
+	/* A socket left over by a previous run blocks the bind and has
+	 * to go, but only when no daemon is serving it: removing a live
+	 * one hands the running daemon's clients a dead path.  Only
+	 * remove a socket, never another file.  */
 	if (lstat(path, &st) == 0) {
 		if (!S_ISSOCK(st.st_mode)) {
 			ax25netd_log(LOG_ERR,
 				 "loop: %s exists and is not a socket; not removing it",
 				 path);
 			return -1;
+		}
+		switch (loop_socket_is_live(path)) {
+		case 1:
+			ax25netd_log(LOG_ERR,
+				 "loop: another ax25netd is already listening on %s; not removing it",
+				 path);
+			return -1;
+		case -1:
+			ax25netd_log(LOG_ERR,
+				 "loop: cannot tell whether %s is in use: %s",
+				 path, strerror(errno));
+			return -1;
+		default:
+			break;
 		}
 		if (unlink(path) != 0) {
 			ax25netd_log(LOG_ERR, "loop: cannot remove stale socket %s: %s",
