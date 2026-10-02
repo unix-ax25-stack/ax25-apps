@@ -26,7 +26,7 @@
 #include <netax25/agwpe_client.h>
 #include <netax25/agwpe_config.h>
 
-#define	AX25NETD_PORT_DEFAULT	8100
+#define	AX25NETD_PORT_DEFAULT	8200
 #define	AX25NETD_BIND_DEFAULT	"127.0.0.1"
 #define	AX25NETD_RECONNECT_DELAY	5
 
