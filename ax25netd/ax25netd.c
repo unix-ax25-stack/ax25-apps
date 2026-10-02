@@ -227,10 +227,20 @@ static int daemonize(void)
  * takes "upstream:channel" and axports takes "port:channel", so the part
  * before the colon is the name on both sides and the rest is a channel
  * that either file may or may not have.
+ *
+ * The "agwpe-" prefix has to come off the axports name first, though.
+ * A port served by this daemon is named "agwpe-<upstream>" in axports
+ * so it cannot be confused with a kernel interface (see axports(5)), so
+ * comparing the two names as they stand compares "agwpe-direwolf" with
+ * "direwolf" and never matches.  Without the prefix stripped this
+ * warned about every upstream on every machine, which makes the warning
+ * worse than none: the configuration it complains about is the one the
+ * man page tells you to write.
  */
 static void warn_about_ports(const struct agwpe_config *cfg)
 {
 	char *name, base[64];
+	size_t nlen;
 	int i;
 
 	if (ax25_config_load_ports() == 0) {
@@ -255,10 +265,15 @@ static void warn_about_ports(const struct agwpe_config *cfg)
 
 		for (name = ax25_config_get_next(NULL); name != NULL;
 		     name = ax25_config_get_next(name)) {
-			const char *nc = strrchr(name, ':');
-			size_t nlen = nc ? (size_t)(nc - name) : strlen(name);
+			const char *pname = name;
+			const char *nc;
 
-			if (nlen == len && strncasecmp(name, base, len) == 0)
+			if (strncasecmp(pname, "agwpe-", 6) == 0)
+				pname += 6;
+			nc = strrchr(pname, ':');
+			nlen = nc ? (size_t)(nc - pname) : strlen(pname);
+
+			if (nlen == len && strncasecmp(pname, base, len) == 0)
 				break;
 		}
 		if (name == NULL)
