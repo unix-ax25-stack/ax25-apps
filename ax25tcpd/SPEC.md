@@ -115,9 +115,9 @@ target socket <path>              # netd-Loop über Unix-Socket (Override)
 | Port            | Rolle                                       |
 |-----------------|---------------------------------------------|
 | 8000            | Direwolf-AGWPE-Server (netd-Outgoing)       |
-| 8100            | netd-Loop TCP, nur wenn ax25common.conf es  |
+| 8200            | netd-Loop TCP, nur wenn ax25common.conf es  |
 |                  | aktiviert - Default ist der Unix-Socket      |
-| 8101/8102       | ax25tcpd-Front binary/text                  |
+| 8202/8203       | ax25tcpd-Front binary/text                  |
 | /var/run/ax25/sockets/ax25netd.sock | netd-Loop-Unix-Socket (Default) |
 | /var/run/ax25/sockets/ax25tcpd.sock | ax25tcpd-Front-Socket (Sample)  |
 

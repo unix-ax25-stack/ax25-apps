@@ -111,7 +111,7 @@ and
 .B loop tcp no
 switch the listener without changing the port; switched on without a
 port it listens on
-.BR 8100 .
+.BR 8200 .
 .PP
 A missing file is not an error and leaves the defaults in place: unix
 socket at

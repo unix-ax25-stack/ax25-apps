@@ -16,7 +16,7 @@ the back side comes from the defaults of
 (the unix socket
 .IR /var/run/ax25/sockets/ax25netd.sock ,
 and no TCP loop port), and the front side is one binary tcp port
-127.0.0.1:8101 whose text port 8102 follows by default, with
+127.0.0.1:8202 whose text port 8203 follows by default, with
 .BR mtu
 256.
 .PP
@@ -123,11 +123,11 @@ The source callsign used when a command line does not give one.  Without
 it a connect or datagram command must name its source call explicitly.
 .SH EXAMPLE
 .nf
-	# binary port 8101, text port 8102 follows at 8101 + 1
+	# binary port 8202, text port 8203 follows at 8202 + 1
 	# back side from ax25common.conf (loop socket/tcp)
-	listen	tcp	127.0.0.1	8101
+	listen	tcp	127.0.0.1	8202
 	#listen	unix	@@@AX25_LOCALSTATEDIR@@@/ax25tcpd.sock
-	#target	tcp	192.0.2.10	8100
+	#target	tcp	192.0.2.10	8200
 	mtu	256
 	default-call	DG8HT
 .fi

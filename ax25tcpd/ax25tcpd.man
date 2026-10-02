@@ -23,8 +23,8 @@ It runs without a configuration file: the back side is then the default
 loop port of
 .BR ax25common.conf (5)
 (the unix socket /var/run/ax25/sockets/ax25netd.sock), and the front side
-is one binary tcp listener on 127.0.0.1:8101 with its text port 8102
-following at 8101 + 1.
+is one binary tcp listener on 127.0.0.1:8202 with its text port 8203
+following at 8202 + 1.
 .SH PORTS
 Every
 .B listen tcp

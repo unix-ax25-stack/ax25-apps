@@ -30,7 +30,7 @@ AXSOCK_BACKEND=kernel|agwpe|wampes overrides that choice for one process.
 The AGWPE backend keeps one connection, to the server named by the
 environment variable AXSOCK_HOST.  A value starting with / is a unix
 socket and is used as given; anything else is a TCP host, and AXSOCK_PORT
-then gives the port (default 8100).  With neither variable set, libax25
+then gives the port (default 8200).  With neither variable set, libax25
 reads ax25common.conf - the same file ax25netd(8) reads - and uses the
 loop port it finds there, so the two cannot drift apart.  That is a unix
 socket by default, /var/run/ax25/sockets/ax25netd.sock, so by default

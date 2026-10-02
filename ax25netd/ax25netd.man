@@ -70,7 +70,7 @@ or
 are supported.  Default 127.0.0.1.
 .TP
 .BI \-p " port"
-TCP port of the loop port, 8100 by default.  The TCP listener is off
+TCP port of the loop port, 8200 by default.  The TCP listener is off
 unless
 .B loop tcp
 or

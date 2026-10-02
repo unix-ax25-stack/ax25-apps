@@ -74,9 +74,9 @@ enum {
 
 /* The front side taken when no configuration file exists or it opens no
  * listener: one binary tcp port, whose text port (X + 1) follows by
- * default, exactly as a single "listen tcp 127.0.0.1 8101" line would.  */
+ * default, exactly as a single "listen tcp 127.0.0.1 8202" line would.  */
 #define	TPC_DEFAULT_LISTEN_ADDR	"127.0.0.1"
-#define	TPC_DEFAULT_LISTEN_PORT	8101
+#define	TPC_DEFAULT_LISTEN_PORT	8202
 
 /* One port entry learned from the 'G' reply: the flat port byte and the
  * upstream name.  The lowest channel of an upstream is its base; the
@@ -1797,8 +1797,8 @@ int main(int argc, char **argv)
 	}
 	if (tpc.nlisten == 0) {
 		/* No listener configured: fall back to the default
-		 * front side, one binary tcp port on 127.0.0.1:8101
-		 * whose text port (8102) follows automatically.  */
+		 * front side, one binary tcp port on 127.0.0.1:8202
+		 * whose text port (8203) follows automatically.  */
 		struct tpc_listen *l = &tpc.listen[tpc.nlisten++];
 
 		memset(l, 0, sizeof(*l));
