@@ -13,29 +13,25 @@ endpoint the daemon listens on.  Each line is one directive:
 .PP
 .RS
 .B loop socket
-.I path
-.br
-.B loop socket
-.B no
+.I path|no
 .br
 .B loop tcp
-.I port
-.br
-.B loop tcp
-.B yes\|no
+.I port|yes|no
 .br
 .B loop group
-.I name
-.br
-.B loop group
-.I gid
-.br
-.B loop group
-.B all\|default
+.I name|gid|all|default
 .br
 .B loop mode
 .I octal
 .RE
+.PP
+Every directive is optional; an absent one leaves its default in place.
+If the same directive appears more than once the last line wins, so
+.B loop socket no
+after a
+.B loop socket
+.I path
+turns the socket off again, and vice versa.
 .PP
 .B loop socket
 gives the unix domain socket of the loop port the path
