@@ -7,6 +7,10 @@ installconf:
 
 bin_PROGRAMS = call
 
+AX25_LOCALSTATEDIR=$(localstatedir)/ax25
+
+AM_CPPFLAGS = -DAX25_LOCALSTATEDIR=\""$(AX25_LOCALSTATEDIR)"\"
+
 man_MANS = call.1
 CLEANFILES = call.1 call.1.tmp
 
