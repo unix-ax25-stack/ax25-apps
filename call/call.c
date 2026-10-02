@@ -83,7 +83,11 @@
  */
 #define	MAX_CMPSTRLEN	(MAX_BUFLEN + 1)
 
-#define	STD_DWN_DIR	"/var/ax25/"
+/* AutoBin downloads land next to the other runtime data.  The trailing
+ * slash matters: both uses below append a file name to it directly, and
+ * AX25_LOCALSTATEDIR is configured without one.
+ */
+#define	STD_DWN_DIR	AX25_LOCALSTATEDIR"/"
 
 #define	FLAG_RECONNECT	0x01
 
