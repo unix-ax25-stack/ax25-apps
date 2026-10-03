@@ -621,45 +621,47 @@ static void loop_connect(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 	}
 }
 
-/* Data on an established loop connection.  First data on a link that has
- * no session yet establishes it, exactly as for a radio upstream.  */
+/* Data on an established loop connection.  The session has to exist
+ * already: AGWPE carries neither a stream nor connection state, so the
+ * session recorded at connect time is the only proof the link is up.  An
+ * I-frame arriving without one is dropped - creating a session here, as
+ * this used to, let stray data raise a disconnected link and a fresh
+ * login on the far side.  The peer is named by the reverse session, which
+ * keeps the delivery tied to the connection rather than to whichever
+ * client happens to hold the destination call.  */
 static void loop_data(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		      const unsigned char *data, size_t len)
 {
 	struct ax25netd_upstream *u = &ax25netd.loop;
+	struct ax25netd_session *s;
 	struct ax25netd_client *owner;
-	unsigned char pid = session_pid(hdr->pid);
 
-	owner = loop_call_by_call(hdr->call_to);
-	if (owner == NULL)
+	if (session_find(u, hdr->call_from, hdr->call_to, 0, cl->fd) == NULL)
 		return;
 
-	if (session_find(u, hdr->call_from, hdr->call_to, pid, cl->fd) == NULL) {
-		if (!session_pair_active(u, hdr->call_from, hdr->call_to)) {
-			struct agwpe_s ch;
-
-			agwpe_header_init(&ch, hdr->port, AGWPE_CMD_CONNECT,
-					  pid, hdr->call_from, hdr->call_to, 0);
-			loop_connect(cl, &ch, NULL, 0);
-		}
-		if (session_find(u, hdr->call_from, hdr->call_to, pid,
-				 cl->fd) == NULL)
-			session_add(u, hdr->call_from, hdr->call_to, pid,
-				    cl->fd, 0);
-	}
+	s = session_find(u, hdr->call_to, hdr->call_from, 0, -1);
+	owner = s != NULL ? client_by_fd(s->fd)
+			  : loop_call_by_call(hdr->call_to);
+	if (owner == NULL || owner == cl)
+		return;
 
 	loop_send_client(owner, hdr, data, len);
 }
 
 /* Disconnect on the loop: tear the link down in both directions and
- * deliver the disconnect to the other side, if it is still there.  */
+ * deliver the disconnect to the other side, if it is still there.  The
+ * peer is the other end of the session being torn down; asking for it by
+ * callsign could name a client that merely holds the call by now.  */
 static void loop_disconnect(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			    const unsigned char *data, size_t len)
 {
 	struct ax25netd_upstream *u = &ax25netd.loop;
+	struct ax25netd_session *s;
 	struct ax25netd_client *owner;
 
-	owner = loop_call_by_call(hdr->call_to);
+	s = session_find(u, hdr->call_to, hdr->call_from, 0, -1);
+	owner = s != NULL ? client_by_fd(s->fd)
+			  : loop_call_by_call(hdr->call_to);
 	loop_link_remove(u, hdr->call_from, hdr->call_to);
 	if (owner != NULL && owner != cl)
 		loop_send_client(owner, hdr, data, len);
