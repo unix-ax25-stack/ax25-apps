@@ -46,6 +46,17 @@ remote is passed through unchanged.  The text port
 is telnet friendly: its own messages end with LF and a CR from the
 remote is shown as LF.
 .PP
+The text port also speaks the small part of TELNET a
+.BR telnet (1)
+client needs.  A telnet client does not send a Ctrl-C byte for the
+interrupt character but a TELNET interrupt command ("IAC IP"); the text
+port turns that back into a real Ctrl-C for the remote session.  A raw
+0xFF in the payload is escaped on the way out, so nothing is lost to
+the telnet protocol.  The binary port does not interpret TELNET: use it
+with
+.BR nc (1)
+or a script.
+.PP
 The ports differ again when data is framed.  A connected session
 .RB ( connect )
 is a raw byte stream on both ports, so that control characters such as

@@ -118,10 +118,22 @@ struct tpc_listen {
 	mode_t		dir_mode;	/* mode of the socket's directory */
 };
 
+/* TELNET negotiation state of a text port client.  */
+enum {
+	TPC_TN_DATA,		/* normal data */
+	TPC_TN_IAC,		/* saw IAC, expecting a command */
+	TPC_TN_OPT,		/* saw WILL/WONT/DO/DONT, expecting option */
+	TPC_TN_SB,		/* inside a subnegotiation */
+	TPC_TN_SB_IAC,		/* inside a subnegotiation, saw IAC */
+};
+
 struct tpc_client {
 	int		fd;
 	int		state;
 	int		text;		/* line oriented endpoint */
+	int		telnet;		/* speaks TELNET (TCP text port) */
+	int		tn_state;
+	unsigned char	tn_cmd;
 	int		silent;
 	int		keep;
 	int		registered;	/* call_from registered on the netd */
@@ -716,7 +728,7 @@ static void tpc_client_remove(struct tpc_client *cl)
 	cl->rlen = cl->dlen = 0;
 }
 
-static struct tpc_client *tpc_client_add(int fd, int text)
+static struct tpc_client *tpc_client_add(int fd, int text, int telnet)
 {
 	struct tpc_client *cl;
 
@@ -729,6 +741,7 @@ static struct tpc_client *tpc_client_add(int fd, int text)
 	cl->fd = fd;
 	cl->state = TPC_CMD;
 	cl->text = text;
+	cl->telnet = telnet;
 	cl->pid = AGWPE_PID_AX25;
 	cl->silent = 0;
 	cl->keep = 0;
@@ -982,16 +995,23 @@ static void tpc_on_data(agwpe_client_t *c, const struct agwpe_s *hdr,
 			tpc_client_remove(cl);
 		return;
 	}
-	/* Text port: telnet friendly, CR and CRLF become LF.  */
+	/* Text port: telnet friendly, CR and CRLF become LF.  A telnet
+	 * client must not see a raw 0xFF, escape it as IAC IAC.  */
 	for (off = 0; off < len; ) {
-		for (o = 0; off < len && o < sizeof(buf); off++) {
+		for (o = 0; o < sizeof(buf) && off < len; ) {
 			if (data[off] == '\r') {
 				buf[o++] = '\n';
 				if (off + 1 < len && data[off + 1] == '\n')
 					off++;
+			} else if (data[off] == 0xff && cl->telnet) {
+				if (o + 2 > sizeof(buf))
+					break;
+				buf[o++] = 0xff;
+				buf[o++] = 0xff;
 			} else {
 				buf[o++] = data[off];
 			}
+			off++;
 		}
 		if (tpc_write_all(cl->fd, buf, o) != 0) {
 			tpc_client_remove(cl);
@@ -1513,12 +1533,86 @@ static ssize_t tpc_line_len(const unsigned char *buf, size_t len, size_t *consum
 	return -1;
 }
 
+/* Refuse a TELNET request we do not implement, so that a telnet client
+ * gives up negotiating instead of trying again and again.  */
+static void tpc_telnet_reply(struct tpc_client *cl, unsigned char cmd,
+			     unsigned char opt)
+{
+	unsigned char r[3];
+
+	if (cmd != 0xfb && cmd != 0xfd)		/* only WILL and DO */
+		return;
+	r[0] = 0xff;				/* IAC */
+	r[1] = (cmd == 0xfd) ? 0xfc : 0xfe;	/* DO -> WONT, WILL -> DONT */
+	r[2] = opt;
+	tpc_write_all(cl->fd, r, sizeof(r));
+}
+
+/* TELNET filter for the byte stream of a TCP text port.  A telnet
+ * client does not send 0x03 for ^C but an IAC IP command; turn that back
+ * into a real Ctrl-C so the interrupt reaches the remote shell.  IAC IAC
+ * is a literal 0xFF and the negotiation commands are refused.  Returns
+ * the number of application bytes in out.  */
+static size_t tpc_telnet_decode(struct tpc_client *cl,
+				const unsigned char *in, size_t len,
+				unsigned char *out, size_t outsz)
+{
+	size_t i, o = 0;
+
+	for (i = 0; i < len && o < outsz; i++) {
+		unsigned char b = in[i];
+
+		switch (cl->tn_state) {
+		case TPC_TN_DATA:
+			if (b == 0xff)
+				cl->tn_state = TPC_TN_IAC;
+			else
+				out[o++] = b;
+			break;
+		case TPC_TN_IAC:
+			if (b == 0xff) {		/* escaped 0xFF */
+				out[o++] = 0xff;
+				cl->tn_state = TPC_TN_DATA;
+			} else if (b == 0xfa) {		/* IAC SB */
+				cl->tn_state = TPC_TN_SB;
+			} else if (b >= 0xfb && b <= 0xfe) {
+				cl->tn_cmd = b;		/* WILL/WONT/DO/DONT */
+				cl->tn_state = TPC_TN_OPT;
+			} else {
+				if (b == 0xf4)		/* IAC IP */
+					out[o++] = 0x03;
+				cl->tn_state = TPC_TN_DATA;
+			}
+			break;
+		case TPC_TN_OPT:
+			tpc_telnet_reply(cl, cl->tn_cmd, b);
+			cl->tn_state = TPC_TN_DATA;
+			break;
+		case TPC_TN_SB:
+			if (b == 0xff)
+				cl->tn_state = TPC_TN_SB_IAC;
+			break;
+		case TPC_TN_SB_IAC:
+			/* IAC SE ends the subnegotiation, IAC IAC is a
+			 * literal 0xFF and anything else is data again.  */
+			cl->tn_state = (b == 0xf0) ?
+				TPC_TN_DATA : TPC_TN_SB;
+			break;
+		}
+	}
+	return o;
+}
+
 static int tpc_client_readable(struct tpc_client *cl)
 {
 	unsigned char tmp[4096];
+	unsigned char app[sizeof(tmp)];
 	ssize_t n;
 
 	for (;;) {
+		const unsigned char *data;
+		size_t dn;
+
 		n = read(cl->fd, tmp, sizeof(tmp));
 		if (n < 0) {
 			if (errno == EINTR)
@@ -1529,27 +1623,35 @@ static int tpc_client_readable(struct tpc_client *cl)
 		}
 		if (n == 0)
 			break;
+		if (cl->telnet) {
+			dn = tpc_telnet_decode(cl, tmp, (size_t)n,
+					       app, sizeof(app));
+			data = app;
+		} else {
+			dn = (size_t)n;
+			data = tmp;
+		}
 		if (cl->state == TPC_DATA) {
 			unsigned char out[sizeof(tmp)];
 			size_t off = 0, o = 0;
 
 			if (!cl->text) {
 				/* Binary port: 8 bit clean byte stream.  */
-				memcpy(out, tmp, (size_t)n);
-				o = (size_t)n;
+				memcpy(out, data, dn);
+				o = dn;
 			} else {
 				/* Text port: interactive byte stream, but
 				 * packet radio lines end with CR: a CRLF
 				 * or a bare LF becomes one CR.  Control
 				 * characters such as ^C pass through at
 				 * once, so the session never stalls.  */
-				for (; off < (size_t)n; off++) {
-					if (tmp[off] == '\n') {
+				for (; off < dn; off++) {
+					if (data[off] == '\n') {
 						if (o > 0 && out[o - 1] == '\r')
 							continue;
 						out[o++] = '\r';
 					} else {
-						out[o++] = tmp[off];
+						out[o++] = data[off];
 					}
 				}
 			}
@@ -1569,49 +1671,49 @@ static int tpc_client_readable(struct tpc_client *cl)
 		}
 		if (cl->state == TPC_CONNECTING) {
 			/* Hold until the connect is confirmed.  */
-			if (cl->dlen + (size_t)n > cl->dcap) {
+			if (cl->dlen + dn > cl->dcap) {
 				size_t ncap = cl->dcap ? cl->dcap * 2 : 4096;
 
-				while (cl->dlen + (size_t)n > ncap)
+				while (cl->dlen + dn > ncap)
 					ncap *= 2;
 				cl->dbuf = realloc(cl->dbuf, ncap);
 				if (cl->dbuf == NULL)
 					break;
 				cl->dcap = ncap;
 			}
-			memcpy(cl->dbuf + cl->dlen, tmp, (size_t)n);
-			cl->dlen += (size_t)n;
+			memcpy(cl->dbuf + cl->dlen, data, dn);
+			cl->dlen += dn;
 			continue;
 		}
 		if (cl->state == TPC_DGRAM && !cl->text && !cl->dgram_tnc2) {
 			/* Binary datagram: accumulate, flush on close.  */
-			if (cl->dlen + (size_t)n > cl->dcap) {
+			if (cl->dlen + dn > cl->dcap) {
 				size_t ncap = cl->dcap ? cl->dcap * 2 : 4096;
 
-				while (cl->dlen + (size_t)n > ncap)
+				while (cl->dlen + dn > ncap)
 					ncap *= 2;
 				cl->dbuf = realloc(cl->dbuf, ncap);
 				if (cl->dbuf == NULL)
 					break;
 				cl->dcap = ncap;
 			}
-			memcpy(cl->dbuf + cl->dlen, tmp, (size_t)n);
-			cl->dlen += (size_t)n;
+			memcpy(cl->dbuf + cl->dlen, data, dn);
+			cl->dlen += dn;
 			continue;
 		}
 
 		/* CMD and datagram: accumulate and take lines.  */
-		if (cl->rlen + (size_t)n > TPC_LINE_MAX * 4) {
+		if (cl->rlen + dn > TPC_LINE_MAX * 4) {
 			/* Never lets a line grow past the limit.  */
 			cl->rlen = 0;
 			if (cl->state == TPC_CMD)
 				tpc_client_printf(cl, "*** ERROR: line too long\r\n");
 			continue;
 		}
-		if (cl->rlen + (size_t)n > cl->rcap) {
+		if (cl->rlen + dn > cl->rcap) {
 			size_t ncap = cl->rcap ? cl->rcap * 2 : 1024;
 
-			while (cl->rlen + (size_t)n > ncap)
+			while (cl->rlen + dn > ncap)
 				ncap *= 2;
 			if (ncap > TPC_LINE_MAX * 4)
 				ncap = TPC_LINE_MAX * 4;
@@ -1620,8 +1722,8 @@ static int tpc_client_readable(struct tpc_client *cl)
 				break;
 			cl->rcap = ncap;
 		}
-		memcpy(cl->rbuf + cl->rlen, tmp, (size_t)n);
-		cl->rlen += (size_t)n;
+		memcpy(cl->rbuf + cl->rlen, data, dn);
+		cl->rlen += dn;
 
 		for (;;) {
 			size_t consumed;
@@ -1745,7 +1847,8 @@ static void tpc_accept(struct tpc_listen *l, int lfd)
 			if (fl >= 0)
 				fcntl(fd, F_SETFL, fl | O_NONBLOCK);
 		}
-		if (tpc_client_add(fd, l->text) == NULL) {
+		if (tpc_client_add(fd, l->text,
+				   l->text && !l->unix_sock) == NULL) {
 			static const unsigned char full[] = "*** ERROR: server full\r\n";
 
 			tpc_write_all(fd, full, sizeof(full) - 1);
