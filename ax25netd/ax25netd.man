@@ -83,7 +83,7 @@ Also listen on this unix domain socket.  Overrides the
 directive of
 .BR ax25common.conf (5).
 Every missing directory in the path is created, so
-.B \-U /var/run/ax25/sockets/x.sock
+.B \-U /path/to/ax25netd.sock
 works on a host where none of them exists yet.
 .TP
 .BI \-g " group"
