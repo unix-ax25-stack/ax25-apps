@@ -133,6 +133,34 @@ target socket <path>              # netd-Loop über Unix-Socket (Override)
   (paclen): Fallback-Kette Frame/Kommando → axports → Conf-Default
   (`default-mtu`, auskommentiert) → builtin 256.
 
+### Backend-Anbindung (offen, Alternativen)
+
+`call` erreicht jeden axports-Port, weil es die libax25-Socket-API nutzt und
+`bind`/`connect` pro Port auf das Backend verteilen (wampes.conf → WAMPES,
+sonst AGWPE, Kernel per Probe).  `ax25tcpd` ist dagegen ein reiner
+AGWPE-Client: `tpc_parse_port_spec()` löst Namen nur aus der `'G'`-Tabelle
+des netd auf, und dort stehen nur die `ports_ready`-AGWPE-Upstreams.
+WAMPES- und Kernel-Ports (`radio0`, `bpq0`) fehlen, deshalb scheitert
+`connect radio0`, während `call radio0` geht.  Einen öffentlichen
+libax25-Aufruf für axports-Name → flacher Port gibt es nicht
+(`axsock_port_of_entry`, `axsock_gport_channel`, `axsock_ports_fetch` sind
+`static`).
+
+1. **A (klein)**: libax25-Wrapper um `axsock_port_of_entry()` öffentlich
+   machen, in `tpc_parse_port_spec()` nutzen, `'G'`-Tabelle erneuern.  Behebt
+   nur AGWPE-Namen.
+2. **B (groß)**: ax25tcpd auf die libax25-Socket-API umbauen (Parität zu
+   `call`, Backends Kernel/WAMPES/AGWPE).  Der AGWPE-Client entfällt.
+3. **C (Hybrid, bevorzugt)**: `connect` über die Socket-API (Backend pro
+   Port), `datagram` über AGWPE auf allen dreien.  Der AGWPE-Client bleibt;
+   UI/PID/Digis sind über `SOCK_DGRAM` + `sax25_pid` + `agwpe_sendto` /
+   `wampes_sendto` ausdrückbar.
+
+Randbedingung: der Linux-Shim (AGWPE/WAMPES) wird nur mit
+`--enable-userspace-ax25` gebaut; ohne ihn geht `AF_AX25` an den Kernel und
+der Userspace-Zweig fehlt.  tcpd müsste dann seinen direkten AGWPE-Pfad
+behalten.
+
 ## Implementierung (ax25-apps/ax25tcpd/)
 
 - `ax25tcpd.c` — Konfig-Parser, Listener (getaddrinfo-Bind + Unix-Socket nach
