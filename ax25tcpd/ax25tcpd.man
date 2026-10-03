@@ -25,6 +25,12 @@ loop port of
 (the unix socket /var/run/ax25/sockets/ax25netd.sock), and the front side
 is one binary tcp listener on 127.0.0.1:8202 with its text port 8203
 following at 8202 + 1.
+.PP
+At startup the back side is asked for its version.  A server that does not
+answer is not an
+.BR ax25netd
+and is reported, rather than leaving every connect pending until it times
+out.
 .SH PORTS
 Every
 .B listen tcp

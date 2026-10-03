@@ -78,6 +78,11 @@ enum {
  * ever; give up after this many seconds.  */
 #define	TPC_CONNECT_TIMEOUT	600	/* 10 min */
 
+/* How long to wait for the netd to answer the version request at startup.
+ * A server that never answers is not an AGWPE server (a stray service may
+ * hold the port), and every later connect would just sit in CONNECTING.  */
+#define	TPC_BACKSIDE_TIMEOUT	5	/* seconds */
+
 /* The front side taken when no configuration file exists or it opens no
  * listener: one binary tcp port, whose text port (X + 1) follows by
  * default, exactly as a single "listen tcp 127.0.0.1 8202" line would.  */
@@ -141,6 +146,7 @@ static struct {
 	char			target_sock[108];
 
 	agwpe_client_t		*netd;
+	int			backside_ok;	/* netd answered at startup */
 
 	struct tpc_client	clients[TPC_MAX_CLIENT];
 
@@ -834,6 +840,7 @@ static void tpc_on_raw_frame(agwpe_client_t *c, const struct agwpe_s *hdr,
 			     const unsigned char *data, size_t len)
 {
 	(void)c;
+	tpc.backside_ok = 1;
 	if (hdr->datakind == AGWPE_DK_PORTS)
 		tpc_port_parse(data, len);
 }
@@ -1899,6 +1906,36 @@ int main(int argc, char **argv)
 		tpc_log(LOG_ERR, "cannot connect to %s: %s",
 			tpc.target_tcp ? tpc.target_host : tpc.target_sock,
 			strerror(agwpe_client_err(tpc.netd)));
+		agwpe_client_free(tpc.netd);
+		return 1;
+	}
+
+	if (tpc.debug) {
+		if (tpc.target_tcp)
+			tpc_log(LOG_DEBUG, "back side: tcp %s:%d",
+				tpc.target_host, tpc.target_port);
+		else
+			tpc_log(LOG_DEBUG, "back side: unix socket %s",
+				tpc.target_sock);
+	}
+
+	/* A stray service holding the loop port accepts the connection but
+	 * never speaks AGWPE; every connect would then sit in CONNECTING
+	 * until it times out.  Ask for the version and require an answer so
+	 * the mix-up is reported at once instead of looking like a dead
+	 * radio.  Any AGWPE server (ax25netd, Direwolf, AGWPE) answers it.  */
+	tpc.backside_ok = 0;
+	agwpe_client_get_version(tpc.netd);
+	agwpe_client_pump(tpc.netd, TPC_BACKSIDE_TIMEOUT * 1000);
+	if (!tpc.backside_ok) {
+		if (tpc.target_tcp)
+			tpc_log(LOG_ERR,
+				"no answer from tcp %s:%d - not an AGWPE netd?",
+				tpc.target_host, tpc.target_port);
+		else
+			tpc_log(LOG_ERR,
+				"no answer from unix socket %s - not an AGWPE netd?",
+				tpc.target_sock);
 		agwpe_client_free(tpc.netd);
 		return 1;
 	}
