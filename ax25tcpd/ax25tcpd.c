@@ -105,6 +105,7 @@ struct tpc_client {
 	int		text;		/* line oriented endpoint */
 	int		silent;
 	int		keep;
+	int		registered;	/* call_from registered on the netd */
 	int		crlf;		/* client's terminator uses '\r' */
 	int		dgram_tnc2;	/* datagram lines are TNC2 frames */
 	unsigned char	pid;
@@ -656,8 +657,20 @@ static int tpc_listen_unix(const char *path, int group_mode,
 /* Clients                                                             */
 /* ------------------------------------------------------------------ */
 
+/* Give the client's source call back to the netd.  A registration left
+ * behind would keep the call owned by this frontend and route later
+ * frames for it here instead of to whoever uses the call next.  */
+static void tpc_client_unregister(struct tpc_client *cl)
+{
+	if (cl->registered && tpc.netd != NULL) {
+		agwpe_client_unregister(tpc.netd, cl->port, cl->call_from);
+		cl->registered = 0;
+	}
+}
+
 static void tpc_client_remove(struct tpc_client *cl)
 {
+	tpc_client_unregister(cl);
 	if (cl->fd >= 0)
 		close(cl->fd);
 	cl->fd = -1;
@@ -881,6 +894,9 @@ static void tpc_on_disconnect(agwpe_client_t *c, const struct agwpe_s *hdr,
 		else
 			tpc_client_printf(cl, "*** DISCONNECTED\r\n");
 	}
+	/* The session is over, so the source call is free again whether
+	 * this client keeps its connection or not.  */
+	tpc_client_unregister(cl);
 	if (cl->state == TPC_CONNECTING) {
 		cl->state = TPC_CMD;
 		tpc_prompt(cl);
@@ -1181,6 +1197,7 @@ static int tpc_cmd_connect(struct tpc_client *cl, int argc, char **argv)
 	/* Register our own call on the target port so the netd routes
 	 * the connect confirm and later frames back to us.  */
 	agwpe_client_register(tpc.netd, cl->port, cl->call_from);
+	cl->registered = 1;
 	if (cl->ndigis > 0) {
 		const char *digv[AGWPE_MAX_DIGIS - 1];
 
