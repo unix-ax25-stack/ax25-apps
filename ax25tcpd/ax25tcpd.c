@@ -1661,6 +1661,15 @@ static void tpc_accept(struct tpc_listen *l)
 				tpc_log(LOG_WARNING, "accept: %s", strerror(errno));
 			return;
 		}
+		/* The client read loop drains until EAGAIN and so needs a
+		 * non-blocking descriptor.  Linux does not inherit the flag
+		 * from the listening socket, BSD/macOS does.  */
+		{
+			int fl = fcntl(fd, F_GETFL);
+
+			if (fl >= 0)
+				fcntl(fd, F_SETFL, fl | O_NONBLOCK);
+		}
 		if (tpc_client_add(fd, l->text) == NULL) {
 			static const unsigned char full[] = "*** ERROR: server full\r\n";
 
