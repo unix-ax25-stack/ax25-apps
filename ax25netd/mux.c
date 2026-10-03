@@ -949,6 +949,12 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 	struct ax25netd_upstream *u;
 	unsigned char port = hdr->port;
 
+	if (ax25netd.debug)
+		ax25netd_log(LOG_DEBUG,
+			     "client %d: kind='%c' port=%u from=%.10s to=%.10s len=%zu",
+			     cl->fd, hdr->datakind, hdr->port, hdr->call_from,
+			     hdr->call_to, len);
+
 	/*
 	 * Mirror local outbound traffic to raw monitor clients before the
 	 * request is routed, so the attempt is visible even when the radio
