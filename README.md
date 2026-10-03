@@ -7,7 +7,25 @@ AX.25 networking for Unix — userspace and kernelspace, with connector to the o
 - **libax25 / ax25apps / ax25tools** — the classic AX.25 library, applications, and tools
 - **wampes** — a `net` derivative (ka9q nos) with a full userspace AX.25 stack
 
-## What's new
+
+## Status 2026-10-03 
+
+programs like call, beacon, ax25d/axspawn, ax25netd, etc. are working.
+
+Many other tools, scenarios, etc. are tested, and many are untested. The toolset of
+ax25-apps/-tools is very large.
+
+See the Non-kernelmod-packet-config-scenarios.odp in the Documentation repo for more details.
+
+There are known limitaios and bugs the new ax25tcpd being worked on.
+Not critical, if you never missed his feature, you don't need it anyway.
+
+More as a proof of concept: in production on **DB0FHN** since August 2026.
+
+Testing and bug reports are welcome; so are ideas — use GitHub Discussions.
+
+
+## About the new concept
 
 The suite used to run on Linux only, tied to the in-kernel AX.25 stack. Today
 *libax25* also runs without it (`--enable-userspace-ax25`) and talks directly
@@ -18,10 +36,6 @@ This project has now a home at https://github.com/unix-ax25-stack
 
 See Annoucement in https://github.com/orgs/unix-ax25-stack/discussions/1
 
-## Status
-
-Proof of concept, in production on **DB0FHN** since August 2026. Testing and
-bug reports are welcome; so are ideas — use GitHub Discussions.
 
 ## Background
 
