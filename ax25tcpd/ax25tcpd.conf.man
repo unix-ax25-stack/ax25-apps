@@ -15,10 +15,13 @@ the back side comes from the defaults of
 .BR ax25common.conf (5)
 (the unix socket
 .IR /var/run/ax25/sockets/ax25netd.sock ,
-and no TCP loop port), and the front side is one binary tcp port
-127.0.0.1:8202 whose text port 8203 follows by default, with
+and no TCP loop port), and the front side is one binary tcp port on
+.B localhost:8202
+whose text port 8203 follows by default, with
 .BR mtu
 256.
+.B localhost
+covers both the IPv4 and the IPv6 loopback.
 .PP
 Blank lines and lines beginning with
 .B #
@@ -86,17 +89,32 @@ line the default front side applies (see above).
 .B listen tcp
 binds the binary port at
 .IR address : binary-port .
-The binary port treats everything received after the command line as
-one packet: it is accumulated and sent as a single AX.25 frame when the
-connection closes, split into
+.I address
+is resolved like a host name and every address it resolves to is bound,
+so
+.B localhost
+opens both the IPv4 and the IPv6 loopback; a literal
+.B 127.0.0.1
+or
+.B ::1
+restricts it to that one address, while
+.B 0.0.0.0
+and
+.B ::
+listen on all IPv4 or all IPv6 interfaces.
+.PP
+A connected session
+.RB ( connect )
+is a raw byte stream on both ports.  A datagram on the binary port
+treats everything received after the command line as one packet: it is
+accumulated and sent as a single AX.25 frame when the connection closes,
+split into
 .B mtu
 sized chunks.  The text port, by default one number above the binary
 port (or at
 .I text-port
-when given), sends each CR, LF or CRLF terminated line as one frame.
-The address
-.B 0.0.0.0
-listens on all interfaces.
+when given), sends each CR, LF or CRLF terminated datagram line as one
+frame.
 .PP
 .B listen unix
 listens on a unix domain socket which behaves exactly like a text port.
@@ -124,8 +142,9 @@ it a connect or datagram command must name its source call explicitly.
 .SH EXAMPLE
 .nf
 	# binary port 8202, text port 8203 follows at 8202 + 1
+	# IPv4 and IPv6 loopback
 	# back side from ax25common.conf (loop socket/tcp)
-	listen	tcp	127.0.0.1	8202
+	listen	tcp	localhost	8202
 	#listen	unix	@@@AX25_LOCALSTATEDIR@@@/ax25tcpd.sock
 	#target	tcp	192.0.2.10	8200
 	mtu	256

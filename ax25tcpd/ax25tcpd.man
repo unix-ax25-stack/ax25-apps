@@ -23,8 +23,11 @@ It runs without a configuration file: the back side is then the default
 loop port of
 .BR ax25common.conf (5)
 (the unix socket /var/run/ax25/sockets/ax25netd.sock), and the front side
-is one binary tcp listener on 127.0.0.1:8202 with its text port 8203
-following at 8202 + 1.
+is one binary tcp listener on
+.B localhost:8202
+with its text port 8203 following at 8202 + 1.
+.B localhost
+covers both the IPv4 and the IPv6 loopback.
 .PP
 At startup the back side is asked for its version.  A server that does not
 answer is not an
@@ -34,19 +37,25 @@ out.
 .SH PORTS
 Every
 .B listen tcp
-line creates two TCP listeners that differ in their end of line and in
-how the input is packetised.  The binary port
+line creates two TCP listeners that differ in their end of line.  The
+binary port
 .I X
-is 8 bit clean and keeps the packet radio end of line: everything sent
-after the command line is a raw byte stream, a datagram is accumulated
-and delivered as one packet when the connection closes, split into
-.B mtu
-sized chunks, and a CR from the remote is passed through unchanged.
-The text port
+is 8 bit clean and keeps the packet radio end of line: a CR from the
+remote is passed through unchanged.  The text port
 .I X+1
-is telnet friendly: each input line is one packet with its end of line
-normalised to CR, its own messages end with LF and a CR from the remote
-is shown as LF.  A
+is telnet friendly: its own messages end with LF and a CR from the
+remote is shown as LF.
+.PP
+The ports differ again when data is framed.  A connected session
+.RB ( connect )
+is a raw byte stream on both ports, so that control characters such as
+^C reach the remote at once; on the text port a CRLF or a bare LF in
+the outgoing stream becomes a single CR, the packet radio end of line.
+An unconnected datagram on the binary port takes the whole stream as one
+packet, split into
+.B mtu
+sized chunks and delivered when the connection closes, while on the
+text port every line is one packet.  A
 .B listen unix
 socket behaves like a text port.
 .SH COMMANDS
