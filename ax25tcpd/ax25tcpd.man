@@ -34,15 +34,19 @@ out.
 .SH PORTS
 Every
 .B listen tcp
-line creates two TCP listeners.  The binary port
+line creates two TCP listeners that differ in their end of line and in
+how the input is packetised.  The binary port
 .I X
-passes the raw stream: everything sent after the command line is
-accumulated and delivered as one packet when the connection closes,
-split into
+is 8 bit clean and keeps the packet radio end of line: everything sent
+after the command line is a raw byte stream, a datagram is accumulated
+and delivered as one packet when the connection closes, split into
 .B mtu
-sized chunks.  The text port
+sized chunks, and a CR from the remote is passed through unchanged.
+The text port
 .I X+1
-sends each CR, LF or CRLF terminated line as one packet.  A
+is telnet friendly: each input line is one packet with its end of line
+normalised to CR, its own messages end with LF and a CR from the remote
+is shown as LF.  A
 .B listen unix
 socket behaves like a text port.
 .SH COMMANDS
@@ -82,9 +86,9 @@ Commas and spaces both separate a path, and mix freely:
 means the same as
 .IR "DB0AAA-8,DB0BBB" .
 .PP
-Replies are written in the client's own line convention: a client whose
-lines end with a carriage return (CR or CRLF) gets CRLF replies, any
-other gets bare LF.  Data is never rewritten.
+The binary port ends every message with CR and passes the remote data
+through unchanged; the text port ends every message with LF and turns a
+CR from the remote into LF.
 .TP
 .B quit
 .BR bye

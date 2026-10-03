@@ -5,9 +5,13 @@
  * first line is a command, later bytes are packet data.
  *
  * Ports:
- *   X      binary: everything sent after the command line is one
- *                  packet, split into mtu sized chunks on close.
- *   X+1    text:   each CR/LF terminated line is one packet.
+ *   X      binary: 8 bit clean byte stream.  Messages end with CR,
+ *                  remote data is passed through unchanged.  A
+ *                  datagram is one packet, split into mtu sized
+ *                  chunks on close.
+ *   X+1    text:   line oriented.  Each input line is one packet with
+ *                  its end of line normalised to CR; messages end with
+ *                  LF and a CR from the remote is shown as LF.
  *   unix socket:   behaves like the text port.
  *
  * Commands (unambiguous prefixes work):
@@ -21,8 +25,8 @@
  *   quit | bye
  *   help
  *
- * Answers are in the client's own line convention: a client ending its
- * lines with '\r' gets CRLF replies, any other gets bare LF.
+ * The end of line depends on the port, not on the client: the binary
+ * port is raw packet radio (CR), the text port is telnet friendly (LF).
  *
  * The back side is one AGWPE connection to an ax25netd loop port, over
  * TCP or a unix domain socket, using the AGWPE client library.
@@ -117,7 +121,6 @@ struct tpc_client {
 	int		silent;
 	int		keep;
 	int		registered;	/* call_from registered on the netd */
-	int		crlf;		/* client's terminator uses '\r' */
 	time_t		connect_deadline;	/* 0 = not connecting */
 	int		dgram_tnc2;	/* datagram lines are TNC2 frames */
 	unsigned char	pid;
@@ -742,9 +745,9 @@ static void tpc_client_printf(struct tpc_client *cl, const char *fmt, ...)
 	va_end(ap);
 	if (n <= 0 || cl->fd < 0)
 		return;
-	if (!cl->crlf) {
-		/* The client ends its lines with bare LF: answer with bare
-		 * LF too, i.e. drop the '\r' of every CRLF in the message.  */
+	if (cl->text) {
+		/* Text port: telnet friendly, every line ends with LF.
+		 * Drop the carriage return of each CRLF.  */
 		char out[sizeof(buf)];
 		char *d = out;
 		int i;
@@ -756,7 +759,18 @@ static void tpc_client_printf(struct tpc_client *cl, const char *fmt, ...)
 		}
 		tpc_write_all(cl->fd, (unsigned char *)out, (size_t)(d - out));
 	} else {
-		tpc_write_all(cl->fd, (unsigned char *)buf, (size_t)n);
+		/* Binary port: 8 bit clean, packet radio lines end with
+		 * CR.  Drop the line feed of each CRLF.  */
+		char out[sizeof(buf)];
+		char *d = out;
+		int i;
+
+		for (i = 0; i < n; i++) {
+			if (buf[i] == '\n' && i > 0 && buf[i - 1] == '\r')
+				continue;
+			*d++ = buf[i];
+		}
+		tpc_write_all(cl->fd, (unsigned char *)out, (size_t)(d - out));
 	}
 }
 
@@ -936,12 +950,35 @@ static void tpc_on_data(agwpe_client_t *c, const struct agwpe_s *hdr,
 			const unsigned char *data, size_t len)
 {
 	struct tpc_client *cl = tpc_client_find(hdr, 0);
+	unsigned char buf[1024];
+	size_t off, o;
 
 	(void)c;
 	if (cl == NULL || cl->state != TPC_DATA)
 		return;
-	if (tpc_write_all(cl->fd, data, len) != 0)
-		tpc_client_remove(cl);
+	if (!cl->text) {
+		/* Binary port: 8 bit clean, the remote's CR is passed
+		 * through unchanged.  */
+		if (tpc_write_all(cl->fd, data, len) != 0)
+			tpc_client_remove(cl);
+		return;
+	}
+	/* Text port: telnet friendly, CR and CRLF become LF.  */
+	for (off = 0; off < len; ) {
+		for (o = 0; off < len && o < sizeof(buf); off++) {
+			if (data[off] == '\r') {
+				buf[o++] = '\n';
+				if (off + 1 < len && data[off + 1] == '\n')
+					off++;
+			} else {
+				buf[o++] = data[off];
+			}
+		}
+		if (tpc_write_all(cl->fd, buf, o) != 0) {
+			tpc_client_remove(cl);
+			return;
+		}
+	}
 }
 
 /* ------------------------------------------------------------------ */
@@ -1473,10 +1510,11 @@ static int tpc_client_readable(struct tpc_client *cl)
 		}
 		if (n == 0)
 			break;
-		if (cl->state == TPC_DATA) {
+		if (cl->state == TPC_DATA && !cl->text) {
 			size_t off = 0;
 
-			/* Byte stream: send each chunk as a 'D' frame.  */
+			/* Binary port: 8 bit clean byte stream, send each
+			 * chunk as a 'D' frame as it arrives.  */
 			while (off < (size_t)n) {
 				size_t c = (size_t)n - off;
 
@@ -1523,7 +1561,8 @@ static int tpc_client_readable(struct tpc_client *cl)
 			continue;
 		}
 
-		/* CMD and text datagram: accumulate and take lines.  */
+		/* CMD, text datagram and text DATA: accumulate and take
+		 * lines.  */
 		if (cl->rlen + (size_t)n > TPC_LINE_MAX * 4) {
 			/* Never lets a line grow past the limit.  */
 			cl->rlen = 0;
@@ -1554,8 +1593,6 @@ static int tpc_client_readable(struct tpc_client *cl)
 			llen = tpc_line_len(cl->rbuf, cl->rlen, &consumed);
 			if (llen < 0)
 				break;
-			if (cl->rbuf[llen] == '\r')
-				cl->crlf = 1;	/* answer in CRLF from here on */
 			if ((size_t)llen >= sizeof(line)) {
 				/* Overlong line: drop the whole thing.  */
 				memmove(cl->rbuf, cl->rbuf + consumed + (size_t)llen,
@@ -1613,6 +1650,16 @@ static int tpc_client_readable(struct tpc_client *cl)
 					tpc_client_printf(cl,
 						"*** ERROR: empty packet\r\n");
 				}
+			} else if (cl->state == TPC_DATA) {
+				/* Text port: one input line is one packet.
+				 * Packet radio lines end with CR, whatever
+				 * the client used as its end of line.  */
+				line[llen] = '\r';
+				agwpe_client_send_data(tpc.netd, cl->port,
+						       cl->pid, cl->call_from,
+						       cl->call_to,
+						       (unsigned char *)line,
+						       (size_t)llen + 1);
 			}
 		}
 	}
