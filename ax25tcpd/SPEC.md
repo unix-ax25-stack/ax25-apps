@@ -22,6 +22,13 @@ Loop-Port 255 von ax25netd (über dessen Unix-Socket oder TCP); netax25
 - Unix-Socket (`listen unix <path> [group <g>]`): verhält sich wie der
   Text-Port; Zugriff über Datei-Rechte (group-Semantik wie netd).
 - Clients: `telnet`, `nc`, `socat`, `conversd`, eigene Skripte.
+- Der **Text-Port** spricht das nötige TELNET: ein telnet-Client sendet
+  für ^C kein Ctrl-C-Byte, sondern `IAC IP`; das wird zurück in ein
+  echtes Ctrl-C übersetzt, damit die Unterbrechung die Gegenseite
+  erreicht.  Ein rohes 0xFF der Nutzdaten wird als `IAC IAC` maskiert,
+  `IAC`-Verhandlungen werden abgelehnt.  Der **Binary-Port** bleibt roh
+  (8 bit clean) und interpretiert TELNET nicht; für telnet den
+  Text-Port nehmen, für `nc`/Skripte den Binary-Port.
 
 ## Protokoll pro Verbindung
 
