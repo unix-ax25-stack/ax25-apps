@@ -841,6 +841,10 @@ static void tpc_on_raw_frame(agwpe_client_t *c, const struct agwpe_s *hdr,
 {
 	(void)c;
 	tpc.backside_ok = 1;
+	if (tpc.debug && hdr->datakind != AGWPE_DK_DATA)
+		tpc_log(LOG_DEBUG, "netd: kind='%c' port=%u from=%.10s to=%.10s len=%zu",
+			hdr->datakind, hdr->port, hdr->call_from, hdr->call_to,
+			len);
 	if (hdr->datakind == AGWPE_DK_PORTS)
 		tpc_port_parse(data, len);
 }
@@ -862,8 +866,13 @@ static void tpc_on_connection(agwpe_client_t *c, const struct agwpe_s *hdr,
 	char m[128];
 
 	(void)c;
-	if (cl == NULL)
+	if (cl == NULL) {
+		if (tpc.debug)
+			tpc_log(LOG_DEBUG,
+				"connect confirm without a waiting client: port=%u from=%.10s to=%.10s",
+				hdr->port, hdr->call_from, hdr->call_to);
 		return;
+	}
 	if (!cl->silent) {
 		if (msg != NULL && msg[0] != '\0') {
 			strncpy(m, msg, sizeof(m) - 1);
@@ -1213,6 +1222,9 @@ static int tpc_cmd_connect(struct tpc_client *cl, int argc, char **argv)
 	 * the connect confirm and later frames back to us.  */
 	agwpe_client_register(tpc.netd, cl->port, cl->call_from);
 	cl->registered = 1;
+	if (tpc.debug)
+		tpc_log(LOG_DEBUG, "connect: %s -> %s port %u pid 0x%02x",
+			cl->call_from, cl->call_to, cl->port, cl->pid);
 	if (cl->ndigis > 0) {
 		const char *digv[AGWPE_MAX_DIGIS - 1];
 
