@@ -53,7 +53,8 @@ Start an AX.25 connection.  The port is a name from the netd port list,
 optionally with a channel number, or a flat port number;
 .B loop
 names the virtual loopback port.  While connecting, input is held and
-delivered once the connection is up.  On the binary port the connection
+delivered once the connection is up.  A connect the netd does not answer
+within ten minutes is given up.  On the binary port the connection
 ends when the client closes the connection; on the text ports it ends
 when the remote disconnects, or after
 .B quit

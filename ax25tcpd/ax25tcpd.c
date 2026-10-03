@@ -45,7 +45,9 @@
 #include <signal.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <sys/un.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -71,6 +73,10 @@ enum {
 #define	TPC_LINE_MAX	4096
 #define	TPC_DATA_CHUNK	256	/* connected 'D' frame size */
 #define	TPC_DEFAULT_MTU	256
+
+/* A connect the netd never answers would keep the client waiting for
+ * ever; give up after this many seconds.  */
+#define	TPC_CONNECT_TIMEOUT	600	/* 10 min */
 
 /* The front side taken when no configuration file exists or it opens no
  * listener: one binary tcp port, whose text port (X + 1) follows by
@@ -107,6 +113,7 @@ struct tpc_client {
 	int		keep;
 	int		registered;	/* call_from registered on the netd */
 	int		crlf;		/* client's terminator uses '\r' */
+	time_t		connect_deadline;	/* 0 = not connecting */
 	int		dgram_tnc2;	/* datagram lines are TNC2 frames */
 	unsigned char	pid;
 	unsigned char	port;		/* resolved flat port */
@@ -862,6 +869,7 @@ static void tpc_on_connection(agwpe_client_t *c, const struct agwpe_s *hdr,
 		}
 	}
 	cl->state = TPC_DATA;
+	cl->connect_deadline = 0;
 
 	/* Flush anything that arrived while connecting.  */
 	if (cl->dlen > 0) {
@@ -1211,6 +1219,7 @@ static int tpc_cmd_connect(struct tpc_client *cl, int argc, char **argv)
 				     cl->call_from, cl->call_to);
 	}
 	cl->state = TPC_CONNECTING;
+	cl->connect_deadline = time(NULL) + TPC_CONNECT_TIMEOUT;
 	if (!silent)
 		tpc_client_printf(cl, "*** CONNECTING to %s\r\n", cl->call_to);
 	return 0;
@@ -1591,6 +1600,21 @@ static int tpc_client_readable(struct tpc_client *cl)
 	return 1;		/* EOF or fatal error */
 }
 
+/* The netd never confirmed or refused the connect.  Tear the pending
+ * link down, give the source call back and let the client try again.  */
+static void tpc_connect_timeout(struct tpc_client *cl)
+{
+	cl->connect_deadline = 0;
+	if (!cl->silent)
+		tpc_client_printf(cl, "*** CONNECT to %s timed out\r\n",
+				  cl->call_to);
+	agwpe_client_disconnect(tpc.netd, cl->port,
+				cl->call_from, cl->call_to);
+	tpc_client_unregister(cl);
+	cl->state = TPC_CMD;
+	tpc_prompt(cl);
+}
+
 static void tpc_client_gone(struct tpc_client *cl)
 {
 	if (cl->state == TPC_DATA || cl->state == TPC_CONNECTING)
@@ -1632,6 +1656,8 @@ static void tpc_loop(void)
 	for (;;) {
 		fd_set rfds;
 		int maxfd = -1, nfds, i, netd_fd = agwpe_client_fd(tpc.netd);
+		struct timeval tv, *tvp = NULL;
+		time_t now, next;
 
 		FD_ZERO(&rfds);
 		for (i = 0; i < tpc.nlisten; i++) {
@@ -1649,36 +1675,66 @@ static void tpc_loop(void)
 					maxfd = tpc.clients[i].fd;
 			}
 
-		nfds = select(maxfd + 1, &rfds, NULL, NULL, NULL);
+		/* Wake up in time for the earliest pending connect.  */
+		now = time(NULL);
+		next = 0;
+		for (i = 0; i < TPC_MAX_CLIENT; i++) {
+			struct tpc_client *cl = &tpc.clients[i];
+
+			if (cl->fd < 0 || cl->state != TPC_CONNECTING ||
+			    cl->connect_deadline == 0)
+				continue;
+			if (next == 0 || cl->connect_deadline < next)
+				next = cl->connect_deadline;
+		}
+		if (next != 0) {
+			long left = (long)(next - now);
+
+			tv.tv_sec = left > 0 ? left : 0;
+			tv.tv_usec = 0;
+			tvp = &tv;
+		}
+
+		nfds = select(maxfd + 1, &rfds, NULL, NULL, tvp);
 		if (nfds < 0) {
 			if (errno == EINTR)
 				continue;
 			tpc_log(LOG_ERR, "select: %s", strerror(errno));
 			return;
 		}
-		if (nfds == 0)
-			continue;
 
-		for (i = 0; i < tpc.nlisten; i++)
-			if (FD_ISSET(tpc.listen[i].fd, &rfds))
-				tpc_accept(&tpc.listen[i]);
+		if (nfds > 0) {
+			for (i = 0; i < tpc.nlisten; i++)
+				if (FD_ISSET(tpc.listen[i].fd, &rfds))
+					tpc_accept(&tpc.listen[i]);
 
-		if (FD_ISSET(netd_fd, &rfds)) {
-			if (agwpe_client_recv(tpc.netd) < 0) {
-				tpc_log(LOG_ERR, "connection to the netd lost: %s",
-					strerror(agwpe_client_err(tpc.netd)));
-				return;
+			if (FD_ISSET(netd_fd, &rfds)) {
+				if (agwpe_client_recv(tpc.netd) < 0) {
+					tpc_log(LOG_ERR, "connection to the netd lost: %s",
+						strerror(agwpe_client_err(tpc.netd)));
+					return;
+				}
 			}
+
+			for (i = 0; i < TPC_MAX_CLIENT; i++)
+				if (tpc.clients[i].fd >= 0 &&
+				    FD_ISSET(tpc.clients[i].fd, &rfds)) {
+					struct tpc_client *cl = &tpc.clients[i];
+
+					if (tpc_client_readable(cl))
+						tpc_client_gone(cl);
+				}
 		}
 
-		for (i = 0; i < TPC_MAX_CLIENT; i++)
-			if (tpc.clients[i].fd >= 0 &&
-			    FD_ISSET(tpc.clients[i].fd, &rfds)) {
-				struct tpc_client *cl = &tpc.clients[i];
+		now = time(NULL);
+		for (i = 0; i < TPC_MAX_CLIENT; i++) {
+			struct tpc_client *cl = &tpc.clients[i];
 
-				if (tpc_client_readable(cl))
-					tpc_client_gone(cl);
-			}
+			if (cl->fd >= 0 && cl->state == TPC_CONNECTING &&
+			    cl->connect_deadline != 0 &&
+			    now >= cl->connect_deadline)
+				tpc_connect_timeout(cl);
+		}
 	}
 }
 
