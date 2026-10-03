@@ -798,7 +798,8 @@ static struct tpc_client *tpc_client_find(const struct agwpe_s *hdr,
 	for (cl = tpc.clients; cl < tpc.clients + TPC_MAX_CLIENT; cl++) {
 		if (cl->fd < 0 || cl->state == TPC_CMD)
 			continue;
-		if ((cl->state == TPC_CONNECTING) != want_connecting)
+		if (want_connecting >= 0 &&
+		    (cl->state == TPC_CONNECTING) != want_connecting)
 			continue;
 		if (cl->port != hdr->port)
 			continue;
@@ -861,7 +862,7 @@ static void tpc_on_connection(agwpe_client_t *c, const struct agwpe_s *hdr,
 static void tpc_on_disconnect(agwpe_client_t *c, const struct agwpe_s *hdr,
 			      const char *msg)
 {
-	struct tpc_client *cl = tpc_client_find(hdr, 0);
+	struct tpc_client *cl = tpc_client_find(hdr, -1);
 	char m[128];
 
 	(void)c;
@@ -880,7 +881,10 @@ static void tpc_on_disconnect(agwpe_client_t *c, const struct agwpe_s *hdr,
 		else
 			tpc_client_printf(cl, "*** DISCONNECTED\r\n");
 	}
-	if (cl->keep) {
+	if (cl->state == TPC_CONNECTING) {
+		cl->state = TPC_CMD;
+		tpc_prompt(cl);
+	} else if (cl->keep) {
 		cl->state = TPC_CMD;
 		tpc_prompt(cl);
 	} else {
