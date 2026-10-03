@@ -73,6 +73,7 @@ enum {
 };
 
 #define	TPC_MAX_LISTEN	8
+#define	TPC_MAX_ADDR	4	/* bound addresses per tcp listen line */
 #define	TPC_MAX_CLIENT	128
 #define	TPC_LINE_MAX	4096
 #define	TPC_DATA_CHUNK	256	/* connected 'D' frame size */
@@ -88,9 +89,11 @@ enum {
 #define	TPC_BACKSIDE_TIMEOUT	5	/* seconds */
 
 /* The front side taken when no configuration file exists or it opens no
- * listener: one binary tcp port, whose text port (X + 1) follows by
- * default, exactly as a single "listen tcp 127.0.0.1 8202" line would.  */
-#define	TPC_DEFAULT_LISTEN_ADDR	"127.0.0.1"
+ * listener: one binary tcp port on every loopback address, whose text
+ * port (X + 1) follows by default, exactly as a single
+ * "listen tcp localhost 8202" line would.  "localhost" (not a literal
+ * 127.0.0.1) makes the listener cover both IPv4 and IPv6 loopback.  */
+#define	TPC_DEFAULT_LISTEN_ADDR	"localhost"
 #define	TPC_DEFAULT_LISTEN_PORT	8202
 
 /* One port entry learned from the 'G' reply: the flat port byte and the
@@ -102,7 +105,8 @@ struct tpc_port {
 };
 
 struct tpc_listen {
-	int		fd;
+	int		fd[TPC_MAX_ADDR];	/* bound listening sockets */
+	int		nfd;
 	int		unix_sock;
 	int		text;		/* tcp text port */
 	char		addr[64];	/* tcp bind address */
@@ -539,41 +543,56 @@ static int tpc_mkdir_parent(const char *path, mode_t mode)
 	return 0;
 }
 
-static int tpc_listen_tcp(const char *addr, int port)
+/* Bind every address the listen line resolves to, so that "localhost"
+ * opens both the IPv4 and the IPv6 loopback.  An address that cannot be
+ * bound (a family the host does not have, a port already taken) is
+ * reported and skipped; the line fails only when none could be bound.  */
+static int tpc_listen_tcp(struct tpc_listen *l)
 {
 	struct addrinfo hints, *res, *rp;
 	char service[16];
-	int s = -1;
-	int on = 1;
+	int on = 1, e;
 
+	l->nfd = 0;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
-	snprintf(service, sizeof(service), "%d", port);
+	snprintf(service, sizeof(service), "%d", l->port);
 
-	if (getaddrinfo(addr, service, &hints, &res) != 0)
+	e = getaddrinfo(l->addr, service, &hints, &res);
+	if (e != 0) {
+		tpc_log(LOG_ERR, "cannot resolve %s: %s", l->addr,
+			gai_strerror(e));
 		return -1;
-	for (rp = res; rp != NULL; rp = rp->ai_next) {
+	}
+	for (rp = res; rp != NULL && l->nfd < TPC_MAX_ADDR; rp = rp->ai_next) {
+		int s;
+
+		if (rp->ai_family != AF_INET && rp->ai_family != AF_INET6)
+			continue;
 		s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
 		if (s < 0)
 			continue;
 		setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-		if (bind(s, rp->ai_addr, rp->ai_addrlen) == 0)
-			break;
-		close(s);
-		s = -1;
+		if (bind(s, rp->ai_addr, rp->ai_addrlen) != 0) {
+			tpc_log(LOG_WARNING, "cannot bind tcp %s:%d: %s",
+				l->addr, l->port, strerror(errno));
+			close(s);
+			continue;
+		}
+		if (listen(s, 16) != 0) {
+			tpc_log(LOG_WARNING, "cannot listen on tcp %s:%d: %s",
+				l->addr, l->port, strerror(errno));
+			close(s);
+			continue;
+		}
+		fcntl(s, F_SETFL, O_NONBLOCK);
+		l->fd[l->nfd++] = s;
+		tpc_log(LOG_INFO, "listening on tcp %s:%d", l->addr, l->port);
 	}
 	freeaddrinfo(res);
-	if (s < 0)
-		return -1;
-	if (listen(s, 16) != 0) {
-		close(s);
-		return -1;
-	}
-	fcntl(s, F_SETFL, O_NONBLOCK);
-	tpc_log(LOG_INFO, "listening on tcp %s:%d", addr, port);
-	return s;
+	return l->nfd == 0 ? -1 : 0;
 }
 
 static int tpc_listen_unix(const char *path, int group_mode,
@@ -1510,20 +1529,40 @@ static int tpc_client_readable(struct tpc_client *cl)
 		}
 		if (n == 0)
 			break;
-		if (cl->state == TPC_DATA && !cl->text) {
-			size_t off = 0;
+		if (cl->state == TPC_DATA) {
+			unsigned char out[sizeof(tmp)];
+			size_t off = 0, o = 0;
 
-			/* Binary port: 8 bit clean byte stream, send each
-			 * chunk as a 'D' frame as it arrives.  */
-			while (off < (size_t)n) {
-				size_t c = (size_t)n - off;
+			if (!cl->text) {
+				/* Binary port: 8 bit clean byte stream.  */
+				memcpy(out, tmp, (size_t)n);
+				o = (size_t)n;
+			} else {
+				/* Text port: interactive byte stream, but
+				 * packet radio lines end with CR: a CRLF
+				 * or a bare LF becomes one CR.  Control
+				 * characters such as ^C pass through at
+				 * once, so the session never stalls.  */
+				for (; off < (size_t)n; off++) {
+					if (tmp[off] == '\n') {
+						if (o > 0 && out[o - 1] == '\r')
+							continue;
+						out[o++] = '\r';
+					} else {
+						out[o++] = tmp[off];
+					}
+				}
+			}
+			/* Send each chunk as a 'D' frame as it arrives.  */
+			for (off = 0; off < o; ) {
+				size_t c = o - off;
 
 				if (c > TPC_DATA_CHUNK)
 					c = TPC_DATA_CHUNK;
 				agwpe_client_send_data(tpc.netd, cl->port,
 						       cl->pid, cl->call_from,
 						       cl->call_to,
-						       tmp + off, c);
+						       out + off, c);
 				off += c;
 			}
 			continue;
@@ -1561,8 +1600,7 @@ static int tpc_client_readable(struct tpc_client *cl)
 			continue;
 		}
 
-		/* CMD, text datagram and text DATA: accumulate and take
-		 * lines.  */
+		/* CMD and datagram: accumulate and take lines.  */
 		if (cl->rlen + (size_t)n > TPC_LINE_MAX * 4) {
 			/* Never lets a line grow past the limit.  */
 			cl->rlen = 0;
@@ -1650,16 +1688,6 @@ static int tpc_client_readable(struct tpc_client *cl)
 					tpc_client_printf(cl,
 						"*** ERROR: empty packet\r\n");
 				}
-			} else if (cl->state == TPC_DATA) {
-				/* Text port: one input line is one packet.
-				 * Packet radio lines end with CR, whatever
-				 * the client used as its end of line.  */
-				line[llen] = '\r';
-				agwpe_client_send_data(tpc.netd, cl->port,
-						       cl->pid, cl->call_from,
-						       cl->call_to,
-						       (unsigned char *)line,
-						       (size_t)llen + 1);
 			}
 		}
 	}
@@ -1695,12 +1723,12 @@ static void tpc_client_gone(struct tpc_client *cl)
 /* Main loop                                                           */
 /* ------------------------------------------------------------------ */
 
-static void tpc_accept(struct tpc_listen *l)
+static void tpc_accept(struct tpc_listen *l, int lfd)
 {
 	int fd;
 
 	for (;;) {
-		fd = accept(l->fd, NULL, NULL);
+		fd = accept(lfd, NULL, NULL);
 		if (fd < 0) {
 			if (errno == EINTR)
 				continue;
@@ -1736,9 +1764,13 @@ static void tpc_loop(void)
 
 		FD_ZERO(&rfds);
 		for (i = 0; i < tpc.nlisten; i++) {
-			FD_SET(tpc.listen[i].fd, &rfds);
-			if (tpc.listen[i].fd > maxfd)
-				maxfd = tpc.listen[i].fd;
+			int k;
+
+			for (k = 0; k < tpc.listen[i].nfd; k++) {
+				FD_SET(tpc.listen[i].fd[k], &rfds);
+				if (tpc.listen[i].fd[k] > maxfd)
+					maxfd = tpc.listen[i].fd[k];
+			}
 		}
 		FD_SET(netd_fd, &rfds);
 		if (netd_fd > maxfd)
@@ -1779,9 +1811,14 @@ static void tpc_loop(void)
 		}
 
 		if (nfds > 0) {
-			for (i = 0; i < tpc.nlisten; i++)
-				if (FD_ISSET(tpc.listen[i].fd, &rfds))
-					tpc_accept(&tpc.listen[i]);
+			for (i = 0; i < tpc.nlisten; i++) {
+				int k;
+
+				for (k = 0; k < tpc.listen[i].nfd; k++)
+					if (FD_ISSET(tpc.listen[i].fd[k], &rfds))
+						tpc_accept(&tpc.listen[i],
+							   tpc.listen[i].fd[k]);
+			}
 
 			if (FD_ISSET(netd_fd, &rfds)) {
 				if (agwpe_client_recv(tpc.netd) < 0) {
@@ -1822,9 +1859,12 @@ static void tpc_unlink_sockets(void)
 	int i;
 
 	for (i = 0; i < tpc.nlisten; i++)
-		if (tpc.listen[i].unix_sock && tpc.listen[i].fd >= 0) {
-			close(tpc.listen[i].fd);
-			tpc.listen[i].fd = -1;
+		if (tpc.listen[i].unix_sock) {
+			int k;
+
+			for (k = 0; k < tpc.listen[i].nfd; k++)
+				close(tpc.listen[i].fd[k]);
+			tpc.listen[i].nfd = 0;
 			unlink(tpc.listen[i].path);
 		}
 }
@@ -2015,13 +2055,22 @@ int main(int argc, char **argv)
 		 * the mode from ax25common.conf even when the file is
 		 * read after this one.  */
 		l->dir_mode = loop_mode;
-		if (l->unix_sock)
-			l->fd = tpc_listen_unix(l->path, l->group_mode,
-						l->group_name, l->dir_mode);
-		else
-			l->fd = tpc_listen_tcp(l->addr, l->port);
-		if (l->fd < 0) {
-			tpc_log(LOG_ERR, "cannot listen: %s", strerror(errno));
+		if (l->unix_sock) {
+			int ufd = tpc_listen_unix(l->path, l->group_mode,
+						  l->group_name, l->dir_mode);
+
+			if (ufd < 0) {
+				tpc_log(LOG_ERR, "cannot listen: %s",
+					strerror(errno));
+				tpc_unlink_sockets();
+				agwpe_client_free(tpc.netd);
+				return 1;
+			}
+			l->fd[0] = ufd;
+			l->nfd = 1;
+		} else if (tpc_listen_tcp(l) < 0) {
+			tpc_log(LOG_ERR, "cannot listen on tcp %s:%d",
+				l->addr, l->port);
 			tpc_unlink_sockets();
 			agwpe_client_free(tpc.netd);
 			return 1;
@@ -2050,9 +2099,9 @@ int main(int argc, char **argv)
 		strncpy(lt->addr, l->addr, sizeof(lt->addr) - 1);
 		lt->addr[sizeof(lt->addr) - 1] = '\0';
 		lt->port = l->text_port;
-		lt->fd = tpc_listen_tcp(lt->addr, lt->port);
-		if (lt->fd < 0) {
-			tpc_log(LOG_ERR, "cannot listen: %s", strerror(errno));
+		if (tpc_listen_tcp(lt) < 0) {
+			tpc_log(LOG_ERR, "cannot listen on tcp %s:%d",
+				lt->addr, lt->port);
 			tpc_unlink_sockets();
 			agwpe_client_free(tpc.netd);
 			return 1;
