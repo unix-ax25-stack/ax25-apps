@@ -162,6 +162,15 @@ stop, with a non-zero exit status.  An
 .BR ax25netd (8)
 that is being restarted comes back on its own, without restarting
 .BR @@@listen@@@ .
+.LP
+Frames that cannot be printed are a different matter again, and they are not
+a reason to stop watching for them.  One line per frame goes to a terminal
+that whatever else is running on it is filling up at the same time, and a
+terminal with no room left answers \-EAGAIN, which used to be exit(1) with
+nothing said about it: a monitor that appears to have lost the band, over a
+reason that has nothing to do with the band.  Output that cannot be written is
+now said once on standard error, the frames are dropped until the output works,
+and listening goes on throughout; when the output works again that is said too.
 .SH FILES
 @@@AX25_SYSCONFDIR@@@/axports
 .SH "SEE ALSO"
