@@ -598,6 +598,13 @@ void loop_accept(int lfd)
 	cl->rlen = 0;
 	cl->monitor = 0;
 	cl->raw = 0;
+	/* Everything a client may ask for, at its default.  The slot comes
+	 * from a free list, so it still holds what the client that had it
+	 * last asked for - and monitor and raw above are reset for the same
+	 * reason.  Without this a listen(1) that connects after a mheardd(8)
+	 * inherits that mheardd's payload mask and gets its own frames cut
+	 * down without having asked for it.  */
+	cl->monmask = AGWPE_MONMASK_ALL;
 	if (cl->rbuf == NULL) {
 		cl->dead = 1;
 		loop_close_client(cl);

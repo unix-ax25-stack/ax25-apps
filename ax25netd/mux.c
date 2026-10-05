@@ -111,6 +111,59 @@ static int loop_send_upstream(struct ax25netd_client *cl,
 }
 
 /*
+ * How much of a raw frame this client wants.
+ *
+ * A raw monitor frame is KISS encapsulated: the data marker, two or more
+ * addresses of seven bytes with 0x01 set on the last one, the control byte,
+ * the PID, and then the information field.  Taking the payloads off means
+ * stopping after the PID.
+ *
+ * A frame this cannot take apart goes out whole.  That is not politeness: a
+ * frame whose address field never ends, or that is too short to hold a
+ * control byte, is not a frame whose payload we may drop - it is a frame we
+ * do not understand, and cutting one at a guessed offset produces something
+ * that decodes as a different frame rather than as this one with less in it.
+ * The mask says what may be left out of a frame, never where a frame ends.
+ */
+static size_t raw_monitor_len(unsigned char mask, const unsigned char *data,
+			      size_t len)
+{
+	size_t off = 1;		/* past the KISS data marker */
+
+	if (data == NULL)
+		return 0;
+	if ((mask & AGWPE_MONMASK_ALL) == AGWPE_MONMASK_ALL)
+		return len;
+
+	for (;;) {
+		if (off + 7 > len)
+			return len;			/* no end of address */
+		off += 7;
+		if (data[off - 1] & 0x01)
+			break;
+	}
+	if (off + 2 > len)
+		return len;				/* no control and PID */
+
+	{
+		unsigned char ctl = data[off];
+		int is_i = (ctl & 0x01) == 0;		/* I frame */
+		int is_ui = (ctl & 0x7f) == 0x03;	/* UI frame */
+
+		/*
+		 * The two bits are one frame apart, not two.  Anything
+		 * else - SABM, DISC, UA, RR - has no information field to
+		 * leave out, so it goes whole to everybody, and its length
+		 * is off + 2 anyway.
+		 */
+		if ((is_i && !(mask & AGWPE_MONMASK_I)) ||
+		    (is_ui && !(mask & AGWPE_MONMASK_UI)))
+			return off + 2;
+	}
+	return len;
+}
+
+/*
  * Deliver a raw ('K') frame to every client that turned on raw monitor.
  * The header carries the original port so listen shows it on the right
  * interface, and the data is KISS encapsulated exactly as the upstream
@@ -122,13 +175,22 @@ static void mux_mirror_send(const struct agwpe_s *in,
 	struct agwpe_s hdr;
 	int i;
 
-	agwpe_header_init(&hdr, in->port, AGWPE_DK_RAW, 0,
-			  in->call_from, in->call_to, len);
 	for (i = 0; i < ax25netd.nclients; i++) {
 		struct ax25netd_client *cl = &ax25netd.clients[i];
+		size_t n;
 
-		if (cl->fd >= 0 && cl->raw)
-			loop_send_client(cl, &hdr, data, len);
+		if (cl->fd < 0 || !cl->raw)
+			continue;
+
+		/* Per client, and not once for the frame: two monitors on
+		 * one machine can want different things, and the mask is
+		 * how they say so.  Everything here is per client, and a
+		 * version that worked out one length and sent it to
+		 * everybody is the bug this shape is written against. */
+		n = raw_monitor_len(cl->monmask, data, len);
+		agwpe_header_init(&hdr, in->port, AGWPE_DK_RAW, 0,
+				  in->call_from, in->call_to, n);
+		loop_send_client(cl, &hdr, data, n);
 	}
 }
 
@@ -814,6 +876,30 @@ static void mux_ctl_kill(struct ax25netd_client *cl, const struct agwpe_s *hdr)
 	}
 }
 
+static void mux_ctl_monmask(struct ax25netd_client *cl, unsigned char mask)
+{
+	/*
+	 * What this client wants its raw frames to carry.  It takes effect
+	 * from the next frame on and is not retroactive, which is the only
+	 * way it can work: a frame is already in the client's socket buffer
+	 * by the time it is asked about, and there is no way back into it.
+	 *
+	 * Per client, and that is the whole point.  listen(1) and mheardd(8)
+	 * on one machine are two clients on one server and want opposite
+	 * things - every byte of the frame, and none of the payload - and
+	 * whichever way this is decided, it is decided per client and not
+	 * for the server.
+	 *
+	 * Only about the frames this server sends.  A kernel packet socket
+	 * is the kernel's, and the library says under AXSOCK_DEBUG that the
+	 * mask does not reach it: a frame that is cut here becomes a frame
+	 * that decodes as something else.
+	 */
+	cl->monmask = (unsigned char)(mask & AGWPE_MONMASK_ALL);
+	ax25netd_log(LOG_INFO, "client %d: raw monitor payload mask 0x%02x",
+		     cl->fd, cl->monmask);
+}
+
 static void mux_ctl_param(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			  const unsigned char *data, size_t len)
 {
@@ -1276,6 +1362,9 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		else if (data != NULL && len > 0 &&
 			 data[0] == AGWPE_CTL_PARAM)
 			mux_ctl_param(cl, hdr, data, len);
+		else if (data != NULL && len > 1 &&
+			 data[0] == AGWPE_CTL_MONMASK)
+			mux_ctl_monmask(cl, data[1]);
 		break;
 
 	default:
@@ -1401,9 +1490,13 @@ void mux_upstream_frame(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
 		ax25netd_mheard_frame(u, data, len);
 		for (i = 0; i < ax25netd.nclients; i++) {
 			struct ax25netd_client *cl = &ax25netd.clients[i];
+			size_t n;
 
-			if (cl->fd >= 0 && cl->raw)
-				loop_send_upstream(cl, u, hdr, data, len);
+			if (cl->fd < 0 || !cl->raw)
+				continue;
+			/* Per client, same as the local mirror above. */
+			n = raw_monitor_len(cl->monmask, data, len);
+			loop_send_upstream(cl, u, hdr, data, n);
 		}
 		break;
 
