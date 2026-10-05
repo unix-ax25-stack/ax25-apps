@@ -12,12 +12,21 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <errno.h>
 
 #include "listen.h"
 
 int color = 0;			/* Colorized? */
 int sevenbit = 1;		/* Are we on a 7-bit terminal? */
 int ibmhack = 0;		/* IBM mapping? */
+
+/*
+ * Whether we have already said that the output cannot be written.  One flag
+ * and not a counter, because the thing that goes wrong is one thing - there is
+ * no output to be had - and it says itself once per outage, not once per
+ * frame.  See lprintf() below.
+ */
+static int output_failed = 0;
 
 /* mapping of IBM codepage 437 chars 128-159 to ISO latin1 equivalents
  * (158 and 159 are mapped to space)
@@ -72,10 +81,41 @@ void lprintf(int dtype, char *fmt, ...)
 			if ((*p < 32 && *p != '\n')
 			    || (*p > 126 && (unsigned char) *p < 160 && sevenbit))
 				*p = '.';
-		if (fputs(str, stdout) == -1)
-			exit(1);
-		if (fflush(stdout) == -1)
-			exit(1);
+		if (fputs(str, stdout) == EOF || fflush(stdout) == EOF) {
+			/*
+			 * Output that cannot be written is not the monitor
+			 * failing.  A terminal whose buffer is full, a
+			 * pipe whose reader has gone, a pty nobody is
+			 * draining - none of that says anything about
+			 * the frames, and a listener that exits for it
+			 * has stopped watching the band over a reason
+			 * that has nothing to do with the band.  The
+			 * line that ends a busy terminal is one byte
+			 * long and it is enough: this program writes
+			 * one line per frame to a terminal that the
+			 * other end is filling up at the same time.
+			 *
+			 * So: say once that the frames are going
+			 * nowhere, keep listening, and keep trying -
+			 * the terminal may drain, and when it does the
+			 * output carries on where it left off.  Say
+			 * that too, because a monitor that goes quiet
+			 * and then starts again is otherwise
+			 * indistinguishable from one that lost the
+			 * band and found it.
+			 */
+			if (!output_failed) {
+				output_failed = 1;
+				fprintf(stderr, "listen: cannot write to "
+					"standard output (%s); frames are "
+					"dropped until it works again\n",
+					strerror(errno));
+			}
+		} else if (output_failed) {
+			output_failed = 0;
+			fprintf(stderr, "listen: standard output works "
+				"again\n");
+		}
 	}
 }
 
