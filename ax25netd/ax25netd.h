@@ -67,6 +67,8 @@ struct ax25netd_client {
 	size_t			oa;
 	int			monitor;	/* wants monitored frames */
 	int			raw;		/* wants raw frames */
+	unsigned char		monmask;	/* raw payloads it wants,
+						  * AGWPE_MONMASK_* */
 	int			want_ports;	/* 'G' request deferred */
 	time_t			ports_since;	/* when the request arrived */
 };
