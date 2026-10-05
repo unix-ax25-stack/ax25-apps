@@ -51,6 +51,17 @@ when used with the -8 and -c parameters.
 .BI "\-p port"
 Monitor only those frames received on a particular port, by default all
 AX.25 devices are monitored.
+.I port
+is an
+.BR axports (5)
+name, and need not be a kernel interface: a port that belongs to
+.BR ax25netd (8)
+and the
+.B loop
+port among them are monitored as well as any interface.  A name in no
+.BR axports (5)
+entry at all is refused, so a typo is not silently turned into a monitor of
+everything.
 .TP 10
 .BI \-r
 Dump the data portion in a "readable" fashion, which is more suitable
@@ -77,13 +88,13 @@ line on each dump line.
 Display the version.
 .SH "WHERE THE FRAMES COME FROM"
 .LP
-The packet socket is the whole mechanism, so what can be monitored is
-whatever fills one.  Where the kernel serves AX.25 that is the kernel, and
-this program needs nothing said about it.  Where
+Two mechanisms, and where the machine has both of them both are read.  Where
+the kernel serves AX.25 there is a packet socket, and this program needs
+nothing said about it.  Where
 .B libax25
 serves AX.25 from userspace instead \-\- see
 .BR axsock (7)
-\-\- it depends on the backend:
+\- there is a monitor stream, and what fills it depends on the backend:
 .TP 8
 AGWPE
 works.  The server's raw monitor is switched on with the first packet socket
@@ -102,7 +113,7 @@ side pushes the UI frames it carries \-\- what it receives from the node and
 what it sends to it \-\- into
 .BR ax25netd (8),
 where a
-.B listen
+.B @@@listen@@@
 program picks them up like any AGWPE frame.  It picks them up on the loop
 port, so a frame of a WAMPES node is reported with
 .B loop
@@ -113,34 +124,44 @@ received from the node carry the
 mark, as on the air.  Connected sessions are not mirrored; a WAMPES node
 traces on its own console instead, and that is where to look.
 .LP
-One run, one backend.  Which of the two is decided once per program, by asking
-the kernel whether it provides
-.B AF_AX25
-at all, so a machine that has a kernel AX.25 stack monitors the kernel and
-shows what the kernel carries.  The frames of an
+All of them, in one run.  Where the kernel serves AX.25 there is a packet
+socket; where
+.B libax25
+serves it from userspace there is a
 .BR ax25netd (8)
-or of a WAMPES node are not in that stream: they were never given to the
-kernel, so the kernel has no way to hand them on.  A program that wants the
-other side asks for it \-
-.B AXSOCK_BACKEND=agwpe
-runs the monitor on the
+monitor stream.  A machine that has both has both, and both are read: the kernel
+socket for the ports the kernel owns, the monitor for the rest \-
+including the WAMPES traffic, which is mirrored into the
 .BR ax25netd (8)
-feed instead, and then the kernel's own frames are the ones that go unseen.
-Which of the two is in use is reported under
+monitor channel because there is no packet socket for a node to put frames on.
+A run that used one or the other showed half the band without saying so, which
+for the program whose whole job is to show the band is the worst kind of wrong.
+An
+.BR ax25netd (8)
+that is not up costs nothing here: the kernel side keeps working, and the monitor
+side starts receiving by itself as soon as the server is reachable again \-
+there is nothing to restart.  With no kernel AX.25 stack at all there is still
+the
+.BR ax25netd (8)
+monitor, and with neither there is nothing to monitor, which is said on standard
+error rather than shown as a run that prints nothing.
+.IP
+Which of the two are in use is reported under
 .BR AXSOCK_DEBUG .
 See
 .BR axsock (7).
 .LP
-In either backend, when no AGWPE server
-.RB ( ax25netd (8))
-is reachable the raw monitor has nothing to be fed from.  While a WAMPES node
-is configured the socket is handed out anyway and stays quiet rather than
-failing, so a program that opens a monitor beside its real work is not taken
-down by the server's absence.  With no node configured either there is nothing
-left to speak for the missing server, and
-.BR socket (2)
-fails.  A line on standard error says so under
-.BR AXSOCK_DEBUG .
+If one of the two ends while the other is running \-
+the
+.BR ax25netd (8)
+side, normally \-
+the loss is said on standard error and the rest of the run carries on.  Only
+when the last source is gone does
+.B @@@listen@@@
+stop, with a non-zero exit status.  An
+.BR ax25netd (8)
+that is being restarted comes back on its own, without restarting
+.BR @@@listen@@@ .
 .SH FILES
 @@@AX25_SYSCONFDIR@@@/axports
 .SH "SEE ALSO"

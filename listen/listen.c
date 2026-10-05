@@ -59,7 +59,6 @@ static struct timeval t_recv;
 static int tflag = 0;
 static int32_t thiszone;	/* seconds offset from gmt to local time */
 static int sigint;
-static int sock;
 
 static void display_port(char *dev)
 {
@@ -222,9 +221,14 @@ static int32_t gmt2local(time_t t)
 
 static void handle_sigint(int signal)
 {
+	/*
+	 * Just the flag.  poll() is interrupted by a signal whether or not it
+	 * is restarted, so the wait comes back with EINTR and the loop below
+	 * sees sigint - there is no blocking recvfrom to disturb any more,
+	 * and there are several descriptors now, so there is no single one
+	 * to close.
+	 */
 	sigint++;
-	close(sock);	/* disturb blocking recvfrom  */
-	sock = -1;
 }
 
 #define ASCII		0
@@ -233,20 +237,12 @@ static void handle_sigint(int signal)
 
 #define BUFSIZE		1500
 
-/* The libax25 AGWPE shim backs SOCK_PACKET monitors with an AF_UNIX
- * stream and delivers every frame as one length prefixed unit (see
- * netax25/axmon.h).  Detect it via getsockopt: the shim answers
- * ENOPROTOOPT for SOL_SOCKET options on its virtual sockets, while a
- * kernel packet socket reports its real SO_DOMAIN and is read one
- * frame per recvfrom() as before.  */
-static int monitor_framed(int fd)
-{
-	return axmon_framed(fd);
-}
-
-/* Read one monitor frame.  On the shim backend a frame is [4 byte
- * big-endian length][payload]; on a kernel packet socket each recvfrom
- * returns exactly one frame.  Returns the payload length, or -1.  */
+/*
+ * Read one monitor frame.  On the monitor side a frame arrives as one
+ * length-prefixed unit and on a kernel packet socket each recvfrom returns
+ * exactly one frame; axmon_read() hands over the payload either way.  Returns
+ * the payload length, 0 at end of file, or -1.
+ */
 static int recv_frame(int fd, unsigned char *buf, size_t buflen,
 		      struct sockaddr *sa, socklen_t *asize, int framed)
 {
@@ -259,12 +255,12 @@ int main(int argc, char **argv)
 	int dumpstyle = ASCII;
 	int size;
 	int s;
-	char *port = NULL, *dev = NULL;
+	char *port = NULL;
 	struct sockaddr sa;
-	socklen_t asize = sizeof(sa);
+	socklen_t asize;
 	struct ifreq ifr;
+	struct axmon mon;
 	int proto = ETH_P_AX25;
-	int framed;
 	int exit_code = EXIT_SUCCESS;
 
 	while ((s = getopt(argc, argv, "8achip:rtv")) != -1) {
@@ -325,38 +321,38 @@ int main(int argc, char **argv)
 	if (ax25_config_load_ports() == 0)
 		fprintf(stderr, "listen: no AX.25 port data configured\n");
 
-	if (port != NULL) {
-		dev = ax25_config_get_dev(port);
-		if (dev == NULL) {
+	/*
+	 * Every source of raw frames this machine has, not one of them.
+	 * On a host that has a kernel AX.25 stack as well as an ax25netd
+	 * that is a packet socket and a monitor stream side by side, and
+	 * both carry frames the operator asked to see.  -p restricts both:
+	 * the kernel socket by device where the port has one, the monitor
+	 * by name where it does not - and a name in no axports entry is
+	 * still the refusal it always was, so a typo is not silently
+	 * turned into "monitor everything".
+	 */
+	if (axmon_open(htons(proto), port, &mon) < 0) {
+		if (errno == EINVAL)
 			fprintf(stderr, "listen: invalid port name - %s\n",
 				port);
-			return 1;
-		}
-	}
-
-	sock = socket(PF_PACKET, SOCK_PACKET, htons(proto));
-	if (sock == -1) {
-		perror("socket");
+		else
+			perror("listen: cannot watch for AX.25 frames");
 		return 1;
 	}
 
-	framed = monitor_framed(sock);
-	if (framed && getenv("AXSOCK_DEBUG") != NULL)
-		fprintf(stderr, "listen: raw monitor via libax25 ax25netd "
-			"(framed)\n");
+	for (s = 0; s < mon.nfd; s++)
+		if (mon.framed[s] && getenv("AXSOCK_DEBUG") != NULL)
+			fprintf(stderr, "listen: raw monitor via libax25 "
+				"ax25netd (framed)\n");
 
-	/* Restrict the monitor to a single port: on Linux this binds the
-	 * SOCK_PACKET socket to the device; on macOS/BSD the libax25 shim
-	 * intercepts it and filters the AGWPE raw stream accordingly.  */
-	if (dev != NULL) {
-		memset(&sa, 0, sizeof(sa));
-		sa.sa_family = AF_PACKET;
-		strncpy(sa.sa_data, dev, sizeof(sa.sa_data) - 1);
-		if (bind(sock, &sa, sizeof(sa)) == -1) {
-			perror("bind");
-			return 1;
-		}
-	}
+	/* -p is answered by the two binds inside axmon_open() now, so
+	 * there is no name left to compare each frame against here: the
+	 * frames that arrive have been filtered already, by the interface
+	 * on one side and by the port name on the other.  That is why the
+	 * kernel side needs no comparison - a packet socket bound to an
+	 * interface only ever sees that interface - and why the monitor
+	 * side needs none either, having been handed the same name in the
+	 * same call.  */
 
 	if (color) {
 		color = initcolor();	/* Initialize color support */
@@ -367,103 +363,140 @@ int main(int argc, char **argv)
 	setservent(1);
 
 	while (!sigint) {
-		asize = sizeof(sa);
+		unsigned ready = 0;
+		int n, f;
 
 		signal(SIGINT, handle_sigint);
 		signal(SIGTERM, handle_sigint);
-		size = recv_frame(sock, buffer, sizeof(buffer), &sa, &asize,
-				   framed);
-		if (size == 0) {
-			/* The monitor ended.  Not an error: the link to
-			 * ax25netd went away, and a frame is never empty,
-			 * so there is nothing here to decode.  Say why the
-			 * output stopped and leave with a failure code -
-			 * a caller that cannot tell this from a frame of
-			 * no bytes prints nothing at all and never exits,
-			 * which is how a lost server used to look.  */
-			fprintf(stderr, "listen: the AX.25 monitor closed\n");
-			exit_code = ENOTCONN;
-			break;
-		}
-		if (size == -1) {
-			/*
-			 * Signals are cared for by the handler, and we
-			 * don't want to abort on SIGWINCH
-			 */
+
+		n = axmon_poll(&mon, -1, &ready);
+		if (n < 0) {
 			if (errno == EINTR) {
 				refresh();
 				continue;
-			} else if (!(errno == EBADF && sigint)) {
-				perror("recv");
-				exit_code = errno;
 			}
+			perror("poll");
+			exit_code = errno;
 			break;
 		}
-		gettimeofday(&t_recv, NULL);
-		signal(SIGINT, SIG_DFL);
-		signal(SIGTERM, SIG_DFL);
-		if (sock == -1 || sigint)
-			break;
+		if (n == 0)
+			continue;	/* a signal, not an answer */
 
-		if (dev != NULL && strcmp(dev, sa.sa_data) != 0)
-			continue;
+		for (f = 0; f < mon.nfd && !sigint; f++) {
+			if ((ready & (1u << f)) == 0)
+				continue;
 
-		if (proto == ETH_P_ALL) {
-			strcpy(ifr.ifr_name, sa.sa_data);
-			signal(SIGINT, handle_sigint);
-			signal(SIGTERM, handle_sigint);
-			if (ioctl(sock, SIOCGIFHWADDR, &ifr) == -1) {
-				if (!(errno == EBADF && sigint)) {
+			asize = sizeof(sa);
+			size = recv_frame(mon.fd[f], buffer, sizeof(buffer),
+					  &sa, &asize, mon.framed[f]);
+			if (size == 0) {
+				/* The monitor ended.  Not an error: the
+				 * link to ax25netd went away, and a frame is
+				 * never empty, so there is nothing here to
+				 * decode.  Say why that output stopped - a
+				 * caller that cannot tell this from a frame
+				 * of no bytes prints nothing at all and
+				 * never exits, which is how a lost server
+				 * used to look.
+				 *
+				 * One source ending is not the whole monitor
+				 * ending, and on a host with a kernel AX.25
+				 * stack it is not even close: the kernel's
+				 * ports are still on the air and still have
+				 * a socket behind them.  Drop this one and
+				 * carry on with the rest; the message says
+				 * which half went, so a user is not left
+				 * watching what looks like the whole band
+				 * and seeing half of it.  */
+				int left = axmon_alive(&mon) - 1;
+
+				fprintf(stderr, "listen: the %s closed%s\n",
+					mon.kind[f] == AXMON_KERNEL
+						? "AX.25 packet socket"
+						: "AX.25 monitor",
+					left > 0 ? ", watching the other "
+						  "source" : "");
+				close(mon.fd[f]);
+				mon.fd[f] = -1;
+				if (left == 0) {
+					exit_code = ENOTCONN;
+					break;
+				}
+				continue;
+			}
+			if (size == -1) {
+				/*
+				 * Signals are cared for by the handler,
+				 * and we don't want to abort on SIGWINCH.
+				 */
+				if (errno == EINTR) {
+					refresh();
+					continue;
+				}
+				perror("recv");
+				exit_code = errno;
+				break;
+			}
+			gettimeofday(&t_recv, NULL);
+			signal(SIGINT, SIG_DFL);
+			signal(SIGTERM, SIG_DFL);
+			if (sigint)
+				break;
+
+			if (proto == ETH_P_ALL && mon.kind[f] == AXMON_KERNEL) {
+				strcpy(ifr.ifr_name, sa.sa_data);
+				signal(SIGINT, handle_sigint);
+				signal(SIGTERM, handle_sigint);
+				if (ioctl(mon.fd[f], SIOCGIFHWADDR, &ifr) == -1) {
 					perror("SIOCGIFHWADDR");
 					exit_code = errno;
 					break;
 				}
+				signal(SIGINT, SIG_DFL);
+				signal(SIGTERM, SIG_DFL);
+				if (sigint)
+					break;
+				if (ifr.LISTEN_IFR_HWADDR.sa_family != AF_AX25)
+					continue;
+				if (size > 2 && *buffer == 0xcc) {
+					/* IP packets from the ax25 de-segmenter
+					 * are seen on socket "PF_PACKET,
+					 * SOCK_PACKET, ETH_P_ALL" without
+					 * AX.25 header (just the IP-frame),
+					 * prefixed by 0xcc (AX25_P_IP).
+					 * It's unclear why in the kernel code
+					 * this happens (unsegmentet AX25 PID
+					 * AX25_P_IP have not this behavior).
+					 * We have already displayed all the
+					 * segments and like to ignore this
+					 * data.
+					 * AX.25 packets start with a kiss
+					 * byte (buffer[0]); ax25_dump()
+					 * looks for it.
+					 * There's no kiss command 0xcc
+					 * defined; kiss bytes are checked
+					 * against & 0xf (= 0x0c), which is
+					 * also not defined.
+					 * Kiss commands may have one argument.
+					 * => We can make safely make the
+					 * assumption for first byte == 0xcc
+					 * and length > 2, that we safeley can
+					 * detect those IP frames, and then
+					 * ignore it.
+					 */
+					continue;
+				}
 			}
-			signal(SIGINT, SIG_DFL);
-			signal(SIGTERM, SIG_DFL);
-			if (sock == -1 || sigint)
-				break;
-			if (ifr.LISTEN_IFR_HWADDR.sa_family == AF_AX25) {
-                                if (size > 2 && *buffer == 0xcc) {
-                                        /* IP packets from the ax25 de-segmenter
-                                           are seen on socket "PF_PACKET,
-                                           SOCK_PACKET, ETH_P_ALL" without
-                                           AX.25 header (just the IP-frame),
-                                           prefixed by 0xcc (AX25_P_IP).
-                                           It's unclear why in the kernel code
-                                           this happens (unsegmentet AX25 PID
-                                           AX25_P_IP have not this behavior).
-                                           We have already displayed all the
-                                           segments and like to ignore this
-                                           data.
-                                           AX.25 packets start with a kiss
-                                           byte (buffer[0]); ax25_dump()
-                                           looks for it.
-                                           There's no kiss command 0xcc
-                                           defined; kiss bytes are checked
-                                           against & 0xf (= 0x0c), which is
-                                           also not defined.
-                                           Kiss commands may have one argument.
-                                           => We can make safely make the
-                                           assumption for first byte == 0xcc
-                                           and length > 2, that we safeley can
-                                           detect those IP frames, and then
-                                           ignore it.
-                                         */
-                                        continue;
-                                }
-				display_port(sa.sa_data);
-				ki_dump(buffer, size, dumpstyle);
-/*				lprintf(T_DATA, "\n");  */
-			}
-		} else {
 			display_port(sa.sa_data);
 			ki_dump(buffer, size, dumpstyle);
-/*                      lprintf(T_DATA, "\n");  */
+/*			lprintf(T_DATA, "\n");  */
+			if (color)
+				refresh();
 		}
-		if (color)
-			refresh();
+		if (sigint)
+			break;
 	}
+	axmon_close(&mon);
 	if (color)
 		endwin();
 
