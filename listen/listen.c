@@ -373,6 +373,18 @@ int main(int argc, char **argv)
 		signal(SIGTERM, handle_sigint);
 		size = recv_frame(sock, buffer, sizeof(buffer), &sa, &asize,
 				   framed);
+		if (size == 0) {
+			/* The monitor ended.  Not an error: the link to
+			 * ax25netd went away, and a frame is never empty,
+			 * so there is nothing here to decode.  Say why the
+			 * output stopped and leave with a failure code -
+			 * a caller that cannot tell this from a frame of
+			 * no bytes prints nothing at all and never exits,
+			 * which is how a lost server used to look.  */
+			fprintf(stderr, "listen: the AX.25 monitor closed\n");
+			exit_code = ENOTCONN;
+			break;
+		}
 		if (size == -1) {
 			/*
 			 * Signals are cared for by the handler, and we
