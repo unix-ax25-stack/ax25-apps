@@ -23,9 +23,8 @@ It runs without a configuration file: the back side is then the default
 loop port of
 .BR ax25common.conf (5)
 (the unix socket /var/run/ax25/sockets/ax25netd.sock), and the front side
-is one binary tcp listener on
-.B localhost:8202
-with its text port 8203 following at 8202 + 1.
+is one tcp listener on
+.BR localhost:8202 .
 .B localhost
 covers both the IPv4 and the IPv6 loopback.
 .PP
@@ -34,81 +33,165 @@ answer is not an
 .BR ax25netd
 and is reported, rather than leaving every connect pending until it times
 out.
-.SH PORTS
-Every
-.B listen tcp
-line creates two TCP listeners that differ in their end of line.  The
-binary port
-.I X
-is 8 bit clean and keeps the packet radio end of line: a CR from the
-remote is passed through unchanged.  The text port
-.I X+1
-is telnet friendly: its own messages end with LF and a CR from the
-remote is shown as LF.
-.PP
-The text port also speaks the small part of TELNET a
+.SH MODES
+A connection is in one of two modes, and the client chooses:
+.TP
+.B ascii
+Line oriented, and the default.  Each input line is one packet with its end
+of line normalised to CR, the packet radio end of line.  Messages from this
+daemon end with LF.  This is what a person at a terminal wants and what a
 .BR telnet (1)
-client needs.  A telnet client does not send a Ctrl-C byte for the
-interrupt character but a TELNET interrupt command ("IAC IP"); the text
-port turns that back into a real Ctrl-C for the remote session.  A raw
-0xFF in the payload is escaped on the way out, so nothing is lost to
-the telnet protocol.  The binary port does not interpret TELNET: use it
-with
-.BR nc (1)
-or a script.
-.PP
-The ports differ again when data is framed.  A connected session
-.RB ( connect )
-is a raw byte stream on both ports, so that control characters such as
-^C reach the remote at once; on the text port a CRLF or a bare LF in
-the outgoing stream becomes a single CR, the packet radio end of line.
-An unconnected datagram on the binary port takes the whole stream as one
-packet, split into
+client speaks.
+.TP
+.B binary
+An 8 bit clean byte stream.  Remote data is passed through unchanged and a
+0xFF in a payload is a 0xFF.  An unconnected datagram is one packet: the
+whole remaining stream, split into
 .B mtu
-sized chunks and delivered when the connection closes, while on the
-text port every line is one packet.  A
-.B listen unix
-socket behaves like a text port.
+sized chunks and delivered when the connection closes.
+.PP
+The mode is set by a line of its own before the command,
+.B binary
+or
+.BR ascii ,
+the way
+.BR wampes (1)
+asks for it, so that a script sending a binary blob has said so before the
+first byte of it rather than after.  It belongs to the connection and not to
+one command: a script which has said
+.B binary
+once may connect as often as it likes, and a person who has said
+.B binary
+gets binary again until they say
+.BR ascii .
+.PP
+A unix socket is
+.B ascii
+unless the client says otherwise.  Nothing about the transport decides it.
+.SH TELNET
+TELNET is recognised, not offered.  There is no server side IAC on connect,
+because that would put three bytes of protocol in front of the first packet
+of every binary client, and a client that has not asked to speak TELNET has
+not asked to be sent any.
+.PP
+Instead the first 0xFF in an
+.B ascii
+connection is taken for an IAC and the connection speaks TELNET from there
+on.  With a server that says nothing,
+.BR telnet (1)
+is quiet until the interrupt key is pressed, and that is the byte that
+arrives first: IAC IP rather than a 0x03.  So the detection lands on the
+^C that reaches the remote as a real 0x03, which is the only thing a telnet
+client needs from us.  A 0xFF in the payload is escaped on the way out as
+IAC IAC, so nothing is lost to the protocol.
+.PP
+The byte is looked for in a session and in the order the stream is in, not
+by scanning whatever one read() returned.  A command line cannot turn a
+connection into TELNET: no command carries a 0xFF, and the only byte a
+telnet client sends before there is a session is the interrupt key, which
+at the prompt means nothing.
+.PP
+A
+.B binary
+connection never looks for it, which is what makes it 8 bit clean.  Once a
+connection has been recognised as TELNET,
+.B binary
+is refused for the rest of that connection, because a stream we would now
+eat bytes from has already been declared TELNET.  Open a new connection to
+get a binary one.
+.SH FRAMING
+How a session is framed follows from the mode the client asked for, not from
+a port number.  There is no "binary port" and no "text port" to remember, and
+one listener serves both.
+.PP
+A connected session
+.RB ( connect )
+is a byte stream in both modes, so that control characters such as ^C reach
+the remote at once.  In
+.B ascii
+a CRLF or a bare LF in the outgoing stream becomes a single CR, and a CRLF
+which the client split across two of its own writes is still one CR rather
+than two, so no blank line appears on the far side that was never typed.  In
+.B binary
+nothing is translated.  Data from the remote is passed through unchanged in
+.B binary
+and has its CR turned into LF in
+.BR ascii .
 .SH COMMANDS
-Unambiguous prefixes of the commands are accepted.  The end of a
-session is signalled by closing the connection, or, on the text ports,
-by the
+Unambiguous prefixes of the commands are accepted.  The end of a session is
+signalled by closing the connection, or by the
 .B quit
 or
 .B bye
 commands.
 .TP
-.BI "connect [" options "] " port [ : chan ] " " dest [, digi , ...] " [< SRC]"
-Start an AX.25 connection.  The port is a name from the netd port list,
-optionally with a channel number, or a flat port number;
-.B loop
-names the virtual loopback port.  While connecting, input is held and
-delivered once the connection is up.  A connect the netd does not answer
-within ten minutes is given up.  On the binary port the connection
-ends when the client closes the connection; on the text ports it ends
-when the remote disconnects, or after
-.B quit
-.
+.B ascii
+.BR binary
+Select the mode, on a line of its own.  Both are refused while the connection
+is busy with a command, and
+.B binary
+is refused once the connection speaks TELNET (see
+.BR TELNET ).
 .TP
-.BI "datagram [" options "] " port [ : chan ] " [" dest [, digi , ...] "] " [< SRC]"
-Send unconnected (UI) frames.  On the binary port the whole remaining
-stream is one datagram, split into mtu sized chunks when the connection
-closes; on the text ports every line is one frame.
+.I connect " [" options "]" " [" port "[" / chan "]" ":" "]" dest "[" , digi , ... "]" " [" < SRC" ]"
+Start an AX.25 connection.  The port is a name from the netd port list,
+optionally with a channel number after a
+.BR / ,
+or a flat port number;
+.B loop
+names the virtual loopback port.  A channel has to be a number from 0 to 15;
+anything else is an error rather than channel 0.  Commas and spaces both
+separate a path and mix freely, so
+.I "DB0AAA-8 DB0BBB"
+means the same as
+.IR DB0AAA-8,DB0BBB .
+.PP
+The port and the destination are one argument,
+.IR "hf/2:DB0AAA" ,
+because two arguments cannot say which of them is which.  With an
+autorouter on the far side,
+.B "connect hf DB0AAA"
+reads equally well as port
+.B hf
+to
+.BR DB0AAA ,
+and as a call to
+.B hf
+digipeated by
+.BR DB0AAA .
+The colon settles it: the argument is split on its first colon, always,
+since a callsign has no colon in it.  The old two argument form is refused
+with a message that quotes the argument as it was typed, so that it can be
+pasted back after fixing the one character it is about.
+.PP
+Without a port the
+.B default-port
+from
+.BR ax25tcpd.conf (5)
+is used, and the netd resolves a digipeater path itself.  With neither the
+command is refused.  While connecting, input is held and delivered once the
+connection is up, through the same path as everything that follows, so the
+first packet of a session is framed like the second one even when a script
+wrote command and payload together.  A connect the netd does not answer
+within ten minutes is given up.
+.TP
+.I datagram " [" options "]" " [" port "[" / chan "]" ":" "]" " [" dest "[" , digi , ... "]" "]" " [" < SRC" ]"
+Send unconnected (UI) frames.  In
+.B ascii
+every line is one frame.  In
+.B binary
+the whole remaining stream is one datagram, accumulated and sent when the
+connection closes.
+.PP
 With a
-.IR dest
+.I dest
 the header is fixed for the whole session and every line is payload.
 Without one, every line is a whole TNC2 frame
 .RB ( "SRC>DEST,DIGI,...:payload" )
-whose source and path come out of the line itself.
-.PP
-Commas and spaces both separate a path, and mix freely:
-.I "DB0AAA-8 DB0BBB"
-means the same as
-.IR "DB0AAA-8,DB0BBB" .
-.PP
-The binary port ends every message with CR and passes the remote data
-through unchanged; the text port ends every message with LF and turns a
-CR from the remote into LF.
+whose source and path come out of the line itself.  Like
+.BR connect ,
+it needs a port, from the argument or from
+.BR default-port .
 .TP
 .B quit
 .BR bye
@@ -135,8 +218,12 @@ Set the protocol identifier.  Accepts
 or a number.  The default is text (0xF0).
 .TP
 .BI \-\-port " port"
-Give the port separately, allowing the destination as the first
-argument.
+Give the port separately, as an alternative spelling of the
+.I port:dest
+form, for a script which keeps the port in a variable and finds the colon
+awkward.  A channel after a
+.B /
+is accepted here too.
 .TP
 .BI \-\-mycall " call"
 Give the source call, exactly like the
@@ -189,4 +276,5 @@ Log to standard error.
 .BR ax25tcpd.conf (5),
 .BR ax25netd (8),
 .BR ax25common.conf (5),
-.BR ax25netd_agwpe.conf (5)
+.BR ax25netd_agwpe.conf (5),
+.BR wampes (1)

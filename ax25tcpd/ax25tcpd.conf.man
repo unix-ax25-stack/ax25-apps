@@ -15,9 +15,9 @@ the back side comes from the defaults of
 .BR ax25common.conf (5)
 (the unix socket
 .IR /var/run/ax25/sockets/ax25netd.sock ,
-and no TCP loop port), and the front side is one binary tcp port on
-.B localhost:8202
-whose text port 8203 follows by default, with
+and no TCP loop port), and the front side is one tcp port on
+.BR localhost:8202 ,
+with
 .BR mtu
 256.
 .B localhost
@@ -72,23 +72,22 @@ a unix domain socket at
 .IR path .
 .SH LISTEN
 Each
-.B listen tcp
-line opens one binary front side listener plus its text port; several
-are allowed.  Without any
+.B listen
+line opens one front side listener and several are allowed.  Without any
 .B listen
 line the default front side applies (see above).
 .PP
 .RS
 .B listen tcp
-.I address binary-port [ text-port ]
+.I address port
 .br
 .B listen unix
 .I path [ group all|default|name|gid ]
 .RE
 .PP
 .B listen tcp
-binds the binary port at
-.IR address : binary-port .
+binds
+.IR address : port .
 .I address
 is resolved like a host name and every address it resolves to is bound,
 so
@@ -103,21 +102,33 @@ and
 .B ::
 listen on all IPv4 or all IPv6 interfaces.
 .PP
-A connected session
+There is one listener per line, not one per mode.  Whether a connection is
+.B ascii
+or
+.B binary
+is the client's decision, taken per connection, so a listener serves both
+and there is no second port number to configure.  See
+.BR MODES
+in
+.BR ax25tcpd (8).
+.PP
+What follows from the mode is how a session is framed.  A connected session
 .RB ( connect )
-is a raw byte stream on both ports.  A datagram on the binary port
-treats everything received after the command line as one packet: it is
-accumulated and sent as a single AX.25 frame when the connection closes,
-split into
+is a byte stream in both modes; an
+.B ascii
+datagram sends every line as one frame, while a
+.B binary
+datagram treats everything received after the command line as one packet:
+it is accumulated and sent as a single AX.25 frame when the connection
+closes, split into
 .B mtu
-sized chunks.  The text port, by default one number above the binary
-port (or at
-.I text-port
-when given), sends each CR, LF or CRLF terminated datagram line as one
-frame.
+sized chunks.
 .PP
 .B listen unix
-listens on a unix domain socket which behaves exactly like a text port.
+listens on a unix domain socket, which is
+.B ascii
+unless the client says
+.BR binary .
 With
 .B group
 the socket is restricted to the given group (a name or a numeric gid);
@@ -139,16 +150,40 @@ The datagram packet chunk size, 16 to 4096 bytes.  The default is 256.
 .PP
 The source callsign used when a command line does not give one.  Without
 it a connect or datagram command must name its source call explicitly.
+.PP
+.RS
+.B default-port
+.I port
+.RE
+.PP
+The port used when a command names no port, so that
+.B connect DB0AAA
+means something.  It is global, like
+.BR default-call ,
+and not a property of a listener: a client chooses its mode, but it does
+not choose which port a missing one is taken to mean.
+.PP
+The netd needs a port even to autoroute, so this is what makes the form
+without a port more than a synonym for typing the port out.  It has to be a
+port the netd knows, with the same spelling as in a command line, so
+.B default-port hf
+for a high frequency port and
+.B default-port loop
+for the virtual loopback.  Unset by default: a command without a port is
+then refused with a message that names the setting, rather than silently
+going out on a port nobody chose.
 .SH EXAMPLE
 .nf
-	# binary port 8202, text port 8203 follows at 8202 + 1
-	# IPv4 and IPv6 loopback
+	# one listener on 8202, IPv4 and IPv6 loopback
 	# back side from ax25common.conf (loop socket/tcp)
 	listen	tcp	localhost	8202
 	#listen	unix	@@@AX25_LOCALSTATEDIR@@@/ax25tcpd.sock
 	#target	tcp	192.0.2.10	8200
 	mtu	256
 	default-call	DG8HT
+	# so that "connect DB0AAA" goes out on the hf port and the
+	# netd resolves the digipeater path itself
+	default-port	hf
 .fi
 .SH FILES
 .I @@@AX25_SYSCONFDIR@@@/ax25tcpd.conf
