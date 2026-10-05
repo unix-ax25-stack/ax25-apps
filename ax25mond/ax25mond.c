@@ -349,6 +349,20 @@ int main(int argc, char *argv[])
 			size =
 			    recvfrom(monrx_fd, buf, sizeof(buf), 0,
 				     &monfrom, &monfromlen);
+			if (size <= 0) {
+				/* End of file, or an error.  A zero
+				 * length read is not a frame: a KISS
+				 * framed AX.25 packet carries at least a
+				 * channel byte.  It used to be forwarded
+				 * as an empty packet to every client and
+				 * then read again - a descriptor at end of
+				 * file stays readable - so the daemon
+				 * spun here a hundred times a second and
+				 * forwarded nothing at all.  */
+				syslog(LOG_ERR, "the AX.25 monitor closed\n");
+				end = 1;
+				break;
+			}
 			/* Send the packet to all connected sockets  */
 			for (i = 0; i < conn_num; i++) {
 				if (conn_monmode[i] == 0)
@@ -380,6 +394,14 @@ int main(int argc, char *argv[])
 			size =
 			    recvfrom(monrxtx_fd, buf, sizeof(buf), 0,
 				     &monfrom, &monfromlen);
+			if (size <= 0) {
+				/* As on the RX-only monitor: not a frame,
+				 * and forwarding it would leave the
+				 * descriptor readable for ever.  */
+				syslog(LOG_ERR, "the AX.25 monitor closed\n");
+				end = 1;
+				break;
+			}
 			/* Check, if we have received a AX.25-packet  */
 			strcpy(ifr.ifr_name, monfrom.sa_data);
 			ioctl(monrxtx_fd, SIOCGIFHWADDR, &ifr);
