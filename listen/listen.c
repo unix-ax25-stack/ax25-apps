@@ -389,53 +389,61 @@ int main(int argc, char **argv)
 			asize = sizeof(sa);
 			size = recv_frame(mon.fd[f], buffer, sizeof(buffer),
 					  &sa, &asize, mon.framed[f]);
-			if (size == 0) {
-				/* The monitor ended.  Not an error: the
-				 * link to ax25netd went away, and a frame is
-				 * never empty, so there is nothing here to
-				 * decode.  Say why that output stopped - a
-				 * caller that cannot tell this from a frame
-				 * of no bytes prints nothing at all and
-				 * never exits, which is how a lost server
-				 * used to look.
-				 *
-				 * One source ending is not the whole monitor
-				 * ending, and on a host with a kernel AX.25
-				 * stack it is not even close: the kernel's
-				 * ports are still on the air and still have
-				 * a socket behind them.  Drop this one and
-				 * carry on with the rest; the message says
-				 * which half went, so a user is not left
-				 * watching what looks like the whole band
-				 * and seeing half of it.  */
-				int left = axmon_alive(&mon) - 1;
+			if (size <= 0) {
+				const char *which = axmon_source_name(&mon, f);
+				int err = (size < 0) ? errno : 0;
+				int left;
 
-				fprintf(stderr, "listen: the %s closed%s\n",
-					mon.kind[f] == AXMON_KERNEL
-						? "AX.25 packet socket"
-						: "AX.25 monitor",
-					left > 0 ? ", watching the other "
-						  "source" : "");
-				close(mon.fd[f]);
-				mon.fd[f] = -1;
-				if (left == 0) {
-					exit_code = ENOTCONN;
-					break;
-				}
-				continue;
-			}
-			if (size == -1) {
 				/*
-				 * Signals are cared for by the handler,
-				 * and we don't want to abort on SIGWINCH.
+				 * Two ways a source can stop, and neither of
+				 * them is the monitor stopping.
+				 *
+				 * A read that returned nothing is the end of
+				 * a stream: a frame is never empty, so there
+				 * is nothing here to decode.  A read that
+				 * failed is a socket that will not come
+				 * back - the kernel AX.25 module unloaded
+				 * under this process, an interface taken
+				 * away, a peer gone mid frame.  Neither is
+				 * worth a program that still has another
+				 * source: on a host with a kernel stack the
+				 * kernel's ports stay on the air, and the
+				 * ax25netd beside them has nothing to do
+				 * with a packet socket that failed.
+				 *
+				 * Both end the same way and both are said
+				 * out loud, with the reason and with what is
+				 * left, because a listener that goes quiet
+				 * without a word looks exactly like one
+				 * that is hearing nothing.
 				 */
-				if (errno == EINTR) {
+				if (err == EINTR) {
+					/*
+					 * Signals are cared for by the
+					 * handler, and we don't want to abort
+					 * on SIGWINCH.
+					 */
 					refresh();
 					continue;
 				}
-				perror("recv");
-				exit_code = errno;
-				break;
+				ready &= ~(1u << f);
+				left = axmon_retire(&mon, f);
+				if (err == 0)
+					fprintf(stderr, "listen: the %s closed%s\n",
+						which,
+						left > 0 ? ", watching the other "
+							  "source" : "");
+				else
+					fprintf(stderr,
+						"listen: the %s failed: %s%s\n",
+						which, strerror(err),
+						left > 0 ? ", watching the other "
+							  "source" : "");
+				if (left == 0) {
+					exit_code = err ? err : ENOTCONN;
+					break;
+				}
+				continue;
 			}
 			gettimeofday(&t_recv, NULL);
 			signal(SIGINT, SIG_DFL);
@@ -448,9 +456,25 @@ int main(int argc, char **argv)
 				signal(SIGINT, handle_sigint);
 				signal(SIGTERM, handle_sigint);
 				if (ioctl(mon.fd[f], SIOCGIFHWADDR, &ifr) == -1) {
-					perror("SIOCGIFHWADDR");
-					exit_code = errno;
-					break;
+					/*
+					 * -a asks for every protocol, so a
+					 * frame arrives here with the name
+					 * of the interface it came from and
+					 * nothing else to say what it was.
+					 * An interface that is gone, or that
+					 * has no hardware address to give,
+					 * means this frame is not an AX.25
+					 * one from a port we can name - the
+					 * same question the line below asks
+					 * and answers for a live interface.
+					 * It is a question about the frame,
+					 * not about the socket: the next one
+					 * may be an AX.25 frame again, so
+					 * the frame is dropped and the
+					 * socket stays.
+					 */
+					refresh();
+					continue;
 				}
 				signal(SIGINT, SIG_DFL);
 				signal(SIGTERM, SIG_DFL);
