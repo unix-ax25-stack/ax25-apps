@@ -151,12 +151,12 @@ Which of the two are in use is reported under
 See
 .BR axsock (7).
 .LP
-If one of the two ends while the other is running \-
-the
-.BR ax25netd (8)
-side, normally \-
-the loss is said on standard error and the rest of the run carries on.  Only
-when the last source is gone does
+If one of the two ends while the other is running, or a read on one of them
+fails \-
+the kernel AX.25 module unloaded under this process, an interface taken
+away, a server gone \-
+the loss is said on standard error with its reason, and the rest of the run
+carries on.  Only when the last source is gone does
 .B @@@listen@@@
 stop, with a non-zero exit status.  An
 .BR ax25netd (8)
