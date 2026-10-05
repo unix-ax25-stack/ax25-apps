@@ -4,29 +4,50 @@
  * service.  Each incoming connection is an interactive session: the
  * first line is a command, later bytes are packet data.
  *
- * Ports:
- *   X      binary: 8 bit clean byte stream.  Messages end with CR,
- *                  remote data is passed through unchanged.  A
- *                  datagram is one packet, split into mtu sized
- *                  chunks on close.
- *   X+1    text:   line oriented.  Each input line is one packet with
- *                  its end of line normalised to CR; messages end with
- *                  LF and a CR from the remote is shown as LF.
- *   unix socket:   behaves like the text port.
+ * Front side: one listener per listen line, and a connection in one of
+ * two modes that the client chooses:
+ *   ascii    line oriented.  Each input line is one packet with its end
+ *            of line normalised to CR; messages end with LF.  The
+ *            default, because it is what a person at a terminal wants
+ *            and what a telnet client speaks.
+ *   binary   8 bit clean byte stream.  Remote data is passed through
+ *            unchanged.  A datagram is one packet, the whole stream,
+ *            split into mtu sized chunks and delivered on close.
+ *
+ * The mode is a line of its own before the command - "binary" - the
+ * way wampes asks for it, so that a script which sends a binary blob
+ * has said so before the first byte of it.  A unix socket is ascii
+ * unless the client says otherwise; nothing about the transport
+ * decides it.
+ *
+ * TELNET is recognised, not offered.  There is no server side IAC on
+ * connect, because that would put three bytes of protocol into the
+ * first packet of every binary client.  Instead the first 0xFF in an
+ * ascii connection is taken for an IAC and the connection speaks TELNET
+ * from there on: a telnet(1) sends IAC IP rather than a 0x03 for the
+ * interrupt key, and that first IAC is what tells us.  A binary
+ * connection never looks, which is what makes it 8 bit clean.
  *
  * Commands (unambiguous prefixes work):
+ *   ascii | binary          the mode, in a line of its own
  *   connect [--silent] [--keep] [--pid=XX] [--port <port>] [--mycall <call>]
- *           <port>[:chan] <dest>[,<digi>,...] [< SRC]
+ *           <port>[/<chan>]:<dest>[,<digi>,...] [< SRC]
+ *   connect [--silent] ...  <dest>[,<digi>,...] [< SRC]
+ *           without a port the configured default-port is used, and the
+ *           netd resolves a digipeater path itself
  *   datagram [--silent] [--keep] [--pid=XX] [--port <port>] [--mycall <call>]
- *            <port>[:chan] [<dest>[,<digi>,...]] [< SRC]
+ *            <port>[/<chan>]:[<dest>[,<digi>,...]] [< SRC]
  *            Without a destination every line is a whole TNC2 frame
  *            ("SRC>DEST,DIGI,...:payload") whose header is its own;
  *            with one, the header is fixed and lines are payload.
  *   quit | bye
  *   help
  *
- * The end of line depends on the port, not on the client: the binary
- * port is raw packet radio (CR), the text port is telnet friendly (LF).
+ * A port and its destination are one argument, "hf/2:DB0AAA", because
+ * two arguments cannot say which of them is which: with an autorouter
+ * on the far side, "connect hf DB0AAA" reads equally well as port hf to
+ * DB0AAA and as a call to hf digipeated by DB0AAA.  The colon settles
+ * it, and the form without a port stays the autoroute.
  *
  * The back side is one AGWPE connection to an ax25netd loop port, over
  * TCP or a unix domain socket, using the AGWPE client library.
@@ -89,16 +110,15 @@ enum {
 #define	TPC_BACKSIDE_TIMEOUT	5	/* seconds */
 
 /* The front side taken when no configuration file exists or it opens no
- * listener: one binary tcp port on every loopback address, whose text
- * port (X + 1) follows by default, exactly as a single
- * "listen tcp localhost 8202" line would.  "localhost" (not a literal
- * 127.0.0.1) makes the listener cover both IPv4 and IPv6 loopback.  */
+ * listener: one tcp port on every loopback address.  "localhost" (not a
+ * literal 127.0.0.1) makes the listener cover both IPv4 and IPv6
+ * loopback.  */
 #define	TPC_DEFAULT_LISTEN_ADDR	"localhost"
 #define	TPC_DEFAULT_LISTEN_PORT	8202
 
 /* One port entry learned from the 'G' reply: the flat port byte and the
  * upstream name.  The lowest channel of an upstream is its base; the
- * "name:chan" syntax adds the channel number to that base.  */
+ * "name/chan" syntax adds the channel number to that base.  */
 struct tpc_port {
 	unsigned char	port;
 	char		name[AGWPE_UPSTREAM_NAME_MAX];
@@ -108,17 +128,16 @@ struct tpc_listen {
 	int		fd[TPC_MAX_ADDR];	/* bound listening sockets */
 	int		nfd;
 	int		unix_sock;
-	int		text;		/* tcp text port */
 	char		addr[64];	/* tcp bind address */
-	int		port;		/* binary port */
-	int		text_port;	/* text port, 0 = port + 1 */
+	int		port;
 	char		path[108];	/* unix socket path */
 	int		group_mode;
 	char		group_name[64];
 	mode_t		dir_mode;	/* mode of the socket's directory */
 };
 
-/* TELNET negotiation state of a text port client.  */
+/* TELNET negotiation state of a connection that was recognised as
+ * TELNET.  */
 enum {
 	TPC_TN_DATA,		/* normal data */
 	TPC_TN_IAC,		/* saw IAC, expecting a command */
@@ -130,10 +149,23 @@ enum {
 struct tpc_client {
 	int		fd;
 	int		state;
-	int		text;		/* line oriented endpoint */
-	int		telnet;		/* speaks TELNET (TCP text port) */
+	int		ascii;		/* line oriented endpoint, the default;
+					 * binary is the other one and is
+					 * what "binary" on a line of its
+					 * own selects */
+	int		telnet;		/* a 0xFF was seen: TELNET from
+					 * there on */
+	int		may_telnet;	/* a 0xFF can mean anything: only
+					 * a tcp stream looks, never a unix
+					 * socket, where no telnet client
+					 * is what the reader is */
 	int		tn_state;
 	unsigned char	tn_cmd;
+	int		ascii_cr;	/* the last byte put on the wire in ascii
+					 * mode was a CR, so that a CRLF split
+					 * across two chunks does not turn into
+					 * two CRs and a blank line on the far
+					 * side */
 	int		silent;
 	int		keep;
 	int		registered;	/* call_from registered on the netd */
@@ -157,6 +189,12 @@ static struct {
 	int			nlisten;
 	int			mtu;
 	char			default_call[AGWPE_MAX_CALL];
+
+	/* The port a command that names none gets.  Empty means there is
+	 * none, and a command without a port is refused rather than sent
+	 * to a port nobody chose: the netd needs a port to pick an
+	 * upstream, and "loop" would be a guess.  */
+	char			default_port[64];
 
 	int			target_tcp;	/* 0 = unix socket */
 	int			target_set;	/* explicit 'target' line */
@@ -205,19 +243,28 @@ static void tpc_upper(char *s)
 		*s = toupper((unsigned char)*s);
 }
 
-/* Resolve <port>[:<chan>] into a flat port byte.  Names come from the
+/* Resolve <port>[/<chan>] into a flat port byte.  Names come from the
  * 'G' reply; "loop" and 255 are the virtual loopback port.  */
 static int tpc_parse_port_spec(const char *spec, unsigned char *port)
 {
-	const char *chan = strchr(spec, ':');
+	const char *chan = strchr(spec, '/');
 	char num[32];
 	size_t len;
 	int n = 0, p;
 
 	if (chan != NULL) {
-		n = atoi(chan + 1);
-		if (n < 0 || n > 15)
+		char *end;
+		long v;
+
+		errno = 0;
+		v = strtol(chan + 1, &end, 10);
+		/* The whole of what follows the slash, and a number: a
+		 * channel is one digit's worth of a channel number and
+		 * "hf/DB0AAA" is a typo, not channel 0.  */
+		if (errno != 0 || *end != '\0' || end == chan + 1 ||
+		    v < 0 || v > 15)
 			return -1;
+		n = (int)v;
 		len = chan - spec;
 	} else {
 		len = strlen(spec);
@@ -402,20 +449,23 @@ static int tpc_read_config(const char *path)
 					fclose(fp);
 					return -1;
 				}
+				/* No fourth token any more, and saying so is
+				 * better than ignoring it: an old file with
+				 * a text port in it would otherwise come
+				 * up with one port fewer than the sysop
+				 * believes, and the second port would be
+				 * something else or nothing.  */
 				if (ntok >= 4) {
-					l->text_port = atoi(tok[3]);
-					if (l->text_port < 1 || l->text_port > 65535) {
-						tpc_log(LOG_ERR, "%s:%d: bad text port %s",
-							path, lineno, tok[3]);
-						fclose(fp);
-						return -1;
-					}
-				} else {
-					l->text_port = (l->port == 65535) ? 0 : l->port + 1;
+					tpc_log(LOG_ERR, "%s:%d: listen tcp takes "
+						"an address and a port only; "
+						"there is no text port any more, "
+						"a client asks for ascii or binary",
+						path, lineno);
+					fclose(fp);
+					return -1;
 				}
 			} else if (strcmp(tok[0], "unix") == 0) {
 				l->unix_sock = 1;
-				l->text = 1;
 				if (strlen(tok[1]) >= sizeof(l->path)) {
 					tpc_log(LOG_ERR, "%s:%d: listen unix path too long",
 						path, lineno);
@@ -457,6 +507,22 @@ static int tpc_read_config(const char *path)
 			strncpy(tpc.default_call, tok[0], sizeof(tpc.default_call) - 1);
 			tpc.default_call[sizeof(tpc.default_call) - 1] = '\0';
 			tpc_upper(tpc.default_call);
+		} else if (strcmp(key, "default-port") == 0) {
+			if (ntok < 1) {
+				tpc_log(LOG_ERR, "%s:%d: default-port needs a port",
+					path, lineno);
+				fclose(fp);
+				return -1;
+			}
+			if (strlen(tok[0]) >= sizeof(tpc.default_port)) {
+				tpc_log(LOG_ERR, "%s:%d: default-port name too long",
+					path, lineno);
+				fclose(fp);
+				return -1;
+			}
+			strncpy(tpc.default_port, tok[0],
+				sizeof(tpc.default_port) - 1);
+			tpc.default_port[sizeof(tpc.default_port) - 1] = '\0';
 		} else {
 			tpc_log(LOG_ERR, "%s:%d: unknown directive %s",
 				path, lineno, key);
@@ -728,7 +794,7 @@ static void tpc_client_remove(struct tpc_client *cl)
 	cl->rlen = cl->dlen = 0;
 }
 
-static struct tpc_client *tpc_client_add(int fd, int text, int telnet)
+static struct tpc_client *tpc_client_add(int fd, int may_telnet)
 {
 	struct tpc_client *cl;
 
@@ -740,8 +806,9 @@ static struct tpc_client *tpc_client_add(int fd, int text, int telnet)
 	memset(cl, 0, sizeof(*cl));
 	cl->fd = fd;
 	cl->state = TPC_CMD;
-	cl->text = text;
-	cl->telnet = telnet;
+	cl->ascii = 1;		/* the default, before any "binary" line */
+	cl->telnet = 0;
+	cl->may_telnet = may_telnet;
 	cl->pid = AGWPE_PID_AX25;
 	cl->silent = 0;
 	cl->keep = 0;
@@ -777,22 +844,27 @@ static void tpc_client_printf(struct tpc_client *cl, const char *fmt, ...)
 	va_end(ap);
 	if (n <= 0 || cl->fd < 0)
 		return;
-	if (cl->text) {
-		/* Text port: telnet friendly, every line ends with LF.
-		 * Drop the carriage return of each CRLF.  */
-		char out[sizeof(buf)];
+	if (cl->ascii) {
+		/* Ascii: every line of ours ends with LF.  Drop the
+		 * carriage return of each CRLF, and double a 0xFF if this
+		 * connection turned out to speak TELNET - an unescaped one
+		 * would reach the client as the start of a command.  */
+		char out[sizeof(buf) * 2];
 		char *d = out;
 		int i;
 
 		for (i = 0; i < n; i++) {
 			if (buf[i] == '\r' && i + 1 < n && buf[i + 1] == '\n')
 				continue;
+			if (cl->telnet && (unsigned char)buf[i] == 0xff)
+				*d++ = (char)0xff;
 			*d++ = buf[i];
 		}
 		tpc_write_all(cl->fd, (unsigned char *)out, (size_t)(d - out));
 	} else {
-		/* Binary port: 8 bit clean, packet radio lines end with
-		 * CR.  Drop the line feed of each CRLF.  */
+		/* Binary: 8 bit clean, packet radio lines end with CR.
+		 * Drop the line feed of each CRLF and pass every byte,
+		 * 0xFF included, exactly as it is.  */
 		char out[sizeof(buf)];
 		char *d = out;
 		int i;
@@ -861,6 +933,11 @@ static void tpc_port_parse(const unsigned char *data, size_t len)
 /* ------------------------------------------------------------------ */
 /* netd callbacks                                                      */
 /* ------------------------------------------------------------------ */
+
+/* Defined with the TELNET decoder below and used from tpc_on_connection()
+ * as well as from the read loop, so it is announced here.  */
+static void tpc_session_send(struct tpc_client *cl, const unsigned char *data,
+			     size_t len);
 
 static struct tpc_client *tpc_client_find(const struct agwpe_s *hdr,
 					  int want_connecting)
@@ -933,11 +1010,12 @@ static void tpc_on_connection(agwpe_client_t *c, const struct agwpe_s *hdr,
 	cl->state = TPC_DATA;
 	cl->connect_deadline = 0;
 
-	/* Flush anything that arrived while connecting.  */
+	/* Flush anything that arrived while connecting.  It goes out through
+	 * the same path as everything after it, so the first packet of a
+	 * session is framed like the second one and not like the raw bytes a
+	 * script happened to write in the same packet as the command.  */
 	if (cl->dlen > 0) {
-		agwpe_client_send_data(tpc.netd, cl->port, cl->pid,
-				       cl->call_from, cl->call_to,
-				       cl->dbuf, cl->dlen);
+		tpc_session_send(cl, cl->dbuf, cl->dlen);
 		cl->dlen = 0;
 	}
 }
@@ -988,15 +1066,17 @@ static void tpc_on_data(agwpe_client_t *c, const struct agwpe_s *hdr,
 	(void)c;
 	if (cl == NULL || cl->state != TPC_DATA)
 		return;
-	if (!cl->text) {
-		/* Binary port: 8 bit clean, the remote's CR is passed
-		 * through unchanged.  */
+	if (!cl->ascii) {
+		/* Binary: 8 bit clean, the remote's CR is passed through
+		 * unchanged and so is everything else.  */
 		if (tpc_write_all(cl->fd, data, len) != 0)
 			tpc_client_remove(cl);
 		return;
 	}
-	/* Text port: telnet friendly, CR and CRLF become LF.  A telnet
-	 * client must not see a raw 0xFF, escape it as IAC IAC.  */
+	/* Ascii: telnet friendly, CR and CRLF become LF.  A telnet client
+	 * must not see a raw 0xFF, escape it as IAC IAC - and only on a
+	 * connection that was recognised as TELNET, which is the same
+	 * condition under which binary was refused.  */
 	for (off = 0; off < len; ) {
 		for (o = 0; o < sizeof(buf) && off < len; ) {
 			if (data[off] == '\r') {
@@ -1191,12 +1271,98 @@ static int tpc_parse_dest(struct tpc_client *cl, char *const *spec, int nspec)
 	return (cl->call_to[0] != '\0') ? 0 : -1;
 }
 
+/* One positional argument, "<port>[/<chan>]:<dest>" or "<dest>".
+ *
+ * A port and its destination are one argument because two arguments
+ * cannot say which is which.  The far side has an autorouter, so
+ * "connect DB0AAA" means "call DB0AAA, the netd finds the path", and
+ * "connect hf DB0AAA" then reads equally well as port hf to DB0AAA and
+ * as a call to hf digipeated by DB0AAA.  The colon settles it and the
+ * form without a port keeps the autoroute.
+ *
+ * A slash inside means a channel of that port and nowhere else - a
+ * callsign has no slash - so it is unambiguous even without the colon.
+ *
+ * npos is the number of positional arguments, and it is here for one
+ * reason only: to recognise the old two-argument spelling.  "connect hf
+ * DB0AAA" cannot be read as anything else once the port table is known -
+ * hf is a port name and there is a second argument - so it is refused by
+ * name rather than silently going somewhere the client did not mean.  */
+static int tpc_split_target(struct tpc_client *cl, char *arg, int npos,
+			    const char *next, char **destp)
+{
+	char *colon, *port_end = NULL;
+
+	/* The first colon, always.  A callsign has no colon in it and
+	 * neither has a channel number, so the first one is the boundary
+	 * and looking further would only misread a path.  A slash before
+	 * it belongs to the port ("hf/2:DB0AAA"), a slash after it would
+	 * be nonsense and is left to the callsign parser.  */
+	colon = strchr(arg, ':');
+	if (colon != NULL) {
+		*colon = '\0';
+		port_end = colon + 1;
+	} else {
+		/* No port part, so the whole argument is the
+		 * destination.  Not NULL: the check for an empty
+		 * destination below reads it, and only the branch
+		 * that sets it to the configured default is allowed
+		 * to decide what the port is.  */
+		port_end = arg;
+	}
+
+	if (colon != NULL) {
+		if (tpc_parse_port_spec(arg, &cl->port) != 0) {
+			tpc_client_printf(cl, "*** ERROR: no such port "
+					  "'%s'\r\n", arg);
+			return -1;
+		}
+		if (*port_end == '\0') {
+			tpc_client_printf(cl, "*** ERROR: no destination "
+					  "after ':'\r\n");
+			return -1;
+		}
+	} else {
+		unsigned char tmp;
+
+		if (npos >= 2 && tpc_parse_port_spec(arg, &tmp) == 0) {
+			/* The next argument is quoted as it was typed, so
+			 * that the message can be pasted after fixing the
+			 * one character it is about.  */
+			tpc_client_printf(cl, "*** ERROR: the port and the "
+					  "destination are one argument: "
+					  "use '%s:%s'\r\n",
+					  arg, next);
+			return -1;
+		}
+
+		/* No port given: the configured default, or a refusal.
+		 * A bare "loop" is a port and takes the colon like any
+		 * other, so what arrives here is a destination.  */
+		if (tpc.default_port[0] == '\0') {
+			tpc_client_printf(cl, "*** ERROR: no port given and no "
+					  "default-port configured (try "
+					  "'%s')\r\n", arg);
+			return -1;
+		}
+		if (tpc_parse_port_spec(tpc.default_port, &cl->port) != 0) {
+			tpc_client_printf(cl, "*** ERROR: default-port '%s' "
+					  "is not a known port\r\n",
+					  tpc.default_port);
+			return -1;
+		}
+	}
+
+	*destp = port_end;
+	return 0;
+}
+
 static int tpc_cmd_connect(struct tpc_client *cl, int argc, char **argv)
 {
-	char *port_spec = NULL, *dest = NULL, *src = NULL;
+	char *dest = NULL, *src = NULL;
 	char *pos[8];
 	int npos = 0, i, silent = 0, keep = 0, port_given = 0;
-	const char *usage = "usage: connect [--silent] [--keep] [--pid=XX] [--port <port>] [--mycall <call>] <port[:chan]> <dest>[,<digi>,...] [< SRC]";
+	const char *usage = "usage: connect [--silent] [--keep] [--pid=XX] [--port <port>] [--mycall <call>] [<port>[/<chan>]:]<dest>[,<digi>,...] [< SRC]";
 
 	for (i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "--silent") == 0) {
@@ -1210,7 +1376,15 @@ static int tpc_cmd_connect(struct tpc_client *cl, int argc, char **argv)
 				return 0;
 			}
 		} else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
-			port_spec = argv[++i];
+			/* An alternative spelling, kept because a script
+			 * that builds the port from a variable finds the
+			 * colon awkward.  It is the same resolution.  */
+			if (tpc_parse_port_spec(argv[i + 1], &cl->port) != 0) {
+				tpc_client_printf(cl, "*** ERROR: no such port "
+						  "'%s'\r\n", argv[i + 1]);
+				return 0;
+			}
+			i++;
 			port_given = 1;
 		} else if (strcmp(argv[i], "--mycall") == 0) {
 			if (src == NULL && i + 1 < argc)
@@ -1245,31 +1419,40 @@ static int tpc_cmd_connect(struct tpc_client *cl, int argc, char **argv)
 		}
 	}
 
-	if (port_given) {
-		if (npos < 1) {
-			tpc_client_printf(cl, "*** ERROR: %s\r\n", usage);
-			return 0;
-		}
-		dest = pos[0];
-	} else {
-		if (npos < 2) {
-			tpc_client_printf(cl, "*** ERROR: %s\r\n", usage);
-			return 0;
-		}
-		port_spec = pos[0];
-		dest = pos[1];
+	if (npos < 1) {
+		tpc_client_printf(cl, "*** ERROR: %s\r\n", usage);
+		return 0;
 	}
 
 	if (cl->state != TPC_CMD) {
 		tpc_client_printf(cl, "*** ERROR: already busy\r\n");
 		return 0;
 	}
-	if (tpc_parse_port_spec(port_spec, &cl->port) != 0) {
-		tpc_client_printf(cl, "*** ERROR: no such port '%s'\r\n", port_spec);
-		return 0;
+	if (port_given) {
+		/* --port already resolved the port.  A leading colon is
+		 * accepted and ignored, because a script with the port in
+		 * a variable will write one whether or not this is the
+		 * invocation that needs it.  */
+		if (*pos[0] == ':') {
+			pos[0]++;
+			if (*pos[0] == '\0') {
+				tpc_client_printf(cl, "*** ERROR: no "
+						  "destination\r\n");
+				return 0;
+			}
+		}
+	} else {
+		/* In place: the colon becomes a NUL so that the
+		 * destination is the same argument, and tpc_parse_dest()
+		 * splits it and any further path arguments exactly as it
+		 * always has.  */
+		if (tpc_split_target(cl, pos[0], npos, npos > 1 ? pos[1] : "",
+					  &dest) != 0)
+			return 0;
+		pos[0] = dest;
 	}
-	if (tpc_parse_dest(cl, pos + (port_given ? 0 : 1),
-			   npos - (port_given ? 0 : 1)) != 0) {
+	dest = pos[0];
+	if (tpc_parse_dest(cl, pos, npos) != 0) {
 		tpc_client_printf(cl, "*** ERROR: bad destination '%s'\r\n", dest);
 		return 0;
 	}
@@ -1322,10 +1505,10 @@ static int tpc_cmd_connect(struct tpc_client *cl, int argc, char **argv)
 
 static int tpc_cmd_datagram(struct tpc_client *cl, int argc, char **argv)
 {
-	char *port_spec = NULL, *dest = NULL, *src = NULL;
+	char *dest = NULL, *src = NULL;
 	char *pos[8];
 	int npos = 0, i, silent = 0, keep = 0, port_given = 0;
-	const char *usage = "usage: datagram [--silent] [--keep] [--pid=XX] [--port <port>] [--mycall <call>] <port[:chan]> [<dest>[,<digi>,...]] [< SRC]";
+	const char *usage = "usage: datagram [--silent] [--keep] [--pid=XX] [--port <port>] [--mycall <call>] [<port>[/<chan>]:][<dest>[,<digi>,...]] [< SRC]";
 
 	for (i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "--silent") == 0) {
@@ -1339,7 +1522,12 @@ static int tpc_cmd_datagram(struct tpc_client *cl, int argc, char **argv)
 				return 0;
 			}
 		} else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
-			port_spec = argv[++i];
+			if (tpc_parse_port_spec(argv[i + 1], &cl->port) != 0) {
+				tpc_client_printf(cl, "*** ERROR: no such port "
+						  "'%s'\r\n", argv[i + 1]);
+				return 0;
+			}
+			i++;
 			port_given = 1;
 		} else if (strcmp(argv[i], "--mycall") == 0) {
 			if (src == NULL && i + 1 < argc)
@@ -1379,51 +1567,78 @@ static int tpc_cmd_datagram(struct tpc_client *cl, int argc, char **argv)
 		return 0;
 	}
 
-	if (port_given) {
-		if (npos > 0)
-			dest = pos[0];
-	} else {
-		if (npos < 1) {
-			tpc_client_printf(cl, "*** ERROR: %s\r\n", usage);
-			return 0;
+	/*
+	 * A datagram may name no destination at all: every line is then a
+	 * whole TNC2 frame and carries its own header.  That is the one
+	 * case where the target argument may be missing, so the port has
+	 * to come from somewhere else - the default-port, or --port.  A
+	 * datagram command with neither is refused here rather than
+	 * sending frames from an unchosen port.
+	 */
+	if (npos == 0) {
+		if (!port_given) {
+			if (tpc.default_port[0] == '\0') {
+				tpc_client_printf(cl, "*** ERROR: no port "
+						  "given and no default-port "
+						  "configured\r\n");
+				return 0;
+			}
+			if (tpc_parse_port_spec(tpc.default_port,
+						&cl->port) != 0) {
+				tpc_client_printf(cl, "*** ERROR: "
+						  "default-port '%s' is not a "
+						  "known port\r\n",
+						  tpc.default_port);
+				return 0;
+			}
 		}
-		port_spec = pos[0];
-		if (npos >= 2)
-			dest = pos[1];
-	}
-
-	if (tpc_parse_port_spec(port_spec, &cl->port) != 0) {
-		tpc_client_printf(cl, "*** ERROR: no such port '%s'\r\n", port_spec);
+		cl->silent = silent;
+		cl->keep = keep;
+		cl->dgram_tnc2 = 1;
+		cl->state = TPC_DGRAM;
 		return 0;
 	}
 
-	cl->silent = silent;
-	cl->keep = keep;
-	cl->dgram_tnc2 = (dest == NULL);
-
-	if (dest != NULL) {
-		if (tpc_parse_dest(cl, pos + (port_given ? 0 : 1),
-				   npos - (port_given ? 0 : 1)) != 0) {
-			tpc_client_printf(cl, "*** ERROR: bad destination '%s'\r\n", dest);
-			return 0;
-		}
-		tpc_upper(cl->call_to);
-		for (i = 0; i < cl->ndigis; i++)
-			tpc_upper(cl->digis[i]);
-
-		if (src != NULL) {
-			if (strlen(src) >= sizeof(cl->call_from)) {
-				tpc_client_printf(cl, "*** ERROR: bad source call '%s'\r\n", src);
+	if (port_given) {
+		if (*pos[0] == ':') {
+			pos[0]++;
+			if (*pos[0] == '\0') {
+				tpc_client_printf(cl, "*** ERROR: no "
+						  "destination\r\n");
 				return 0;
 			}
-			strcpy(cl->call_from, src);
-			tpc_upper(cl->call_from);
-		} else if (tpc.default_call[0] != '\0') {
-			strcpy(cl->call_from, tpc.default_call);
-		} else {
-			tpc_client_printf(cl, "*** ERROR: source call required, use ' < call'\r\n");
+		}
+	} else {
+		if (tpc_split_target(cl, pos[0], npos, npos > 1 ? pos[1] : "",
+					  &dest) != 0)
+			return 0;
+		pos[0] = dest;
+	}
+	dest = pos[0];
+
+	cl->silent = silent;
+	cl->keep = keep;
+
+	if (tpc_parse_dest(cl, pos, npos) != 0) {
+		tpc_client_printf(cl, "*** ERROR: bad destination '%s'\r\n", dest);
+		return 0;
+	}
+	tpc_upper(cl->call_to);
+	for (i = 0; i < cl->ndigis; i++)
+		tpc_upper(cl->digis[i]);
+
+	if (src != NULL) {
+		if (strlen(src) >= sizeof(cl->call_from)) {
+			tpc_client_printf(cl, "*** ERROR: bad source call '%s'\r\n", src);
 			return 0;
 		}
+		strcpy(cl->call_from, src);
+		tpc_upper(cl->call_from);
+	} else if (tpc.default_call[0] != '\0') {
+		strcpy(cl->call_from, tpc.default_call);
+	} else {
+		tpc_client_printf(cl, "*** ERROR: source call required, use ' < call'\r\n");
+		return 0;
 	}
 
 	cl->state = TPC_DGRAM;
@@ -1444,11 +1659,59 @@ static int tpc_cmd_help(struct tpc_client *cl, int argc, char **argv)
 	(void)argc;
 	(void)argv;
 	tpc_client_printf(cl,
-		"commands: connect, datagram, quit, bye, help\r\n"
-		"connect <port[:chan]> <dest>[,<digi>,...] [< SRC]\r\n"
-		"datagram <port[:chan]> [<dest>[,<digi>,...]] [< SRC]\r\n"
+		"commands: ascii, binary, connect, datagram, quit, bye, help\r\n"
+		"ascii | binary         mode, on a line of its own (default ascii)\r\n"
+		"connect [<port>[/<chan>]:]<dest>[,<digi>,...] [< SRC]\r\n"
+		"datagram [<port>[/<chan>]:][<dest>[,<digi>,...]] [< SRC]\r\n"
 		"    no <dest>: each line is a TNC2 frame SRC>DEST,path:payload\r\n"
+		"    no <port>: the configured default-port, netd autoroutes\r\n"
 		"options: --silent --keep --pid=XX --port <port> --mycall <call>\r\n");
+	return 0;
+}
+
+/* The mode, on a line of its own before the command - the way wampes
+ * asks for it, so that a script sending a binary blob has said so
+ * before the first byte of it rather than after.
+ *
+ * "binary" also gives up TELNET detection, because that is what 8 bit
+ * clean means here: a 0xFF in the payload is a 0xFF.  Asking for binary
+ * again afterwards is refused rather than silently half-honoured, since
+ * a client that has done that has a binary stream we would now eat
+ * bytes from.  */
+static int tpc_cmd_ascii(struct tpc_client *cl, int argc, char **argv)
+{
+	(void)argc;
+	(void)argv;
+
+	if (cl->state != TPC_CMD) {
+		tpc_client_printf(cl, "*** ERROR: already busy\r\n");
+		return 0;
+	}
+	cl->ascii = 1;
+	tpc_client_printf(cl, "*** ascii\r\n");
+	return 0;
+}
+
+static int tpc_cmd_binary(struct tpc_client *cl, int argc, char **argv)
+{
+	(void)argc;
+	(void)argv;
+
+	if (cl->state != TPC_CMD) {
+		tpc_client_printf(cl, "*** ERROR: already busy\r\n");
+		return 0;
+	}
+	/* 8 bit clean means a 0xFF in the payload stays a 0xFF, and a
+	 * TELNET connection has already been told what a 0xFF is.  A
+	 * client that gets here has a stream we would eat bytes from,
+	 * so it is refused rather than half honoured.  */
+	if (cl->telnet) {
+		tpc_client_printf(cl, "*** ERROR: already speaking TELNET, "
+				  "binary is too late\r\n");
+		return 0;
+	}
+	cl->ascii = 0;
+	tpc_client_printf(cl, "*** binary\r\n");
 	return 0;
 }
 
@@ -1456,6 +1719,8 @@ static const struct tpc_cmd {
 	const char	*name;
 	int		(*fn)(struct tpc_client *, int, char **);
 } tpc_commands[] = {
+	{ "ascii",	tpc_cmd_ascii },
+	{ "binary",	tpc_cmd_binary },
 	{ "connect",	tpc_cmd_connect },
 	{ "datagram",	tpc_cmd_datagram },
 	{ "quit",	tpc_cmd_quit },
@@ -1548,11 +1813,15 @@ static void tpc_telnet_reply(struct tpc_client *cl, unsigned char cmd,
 	tpc_write_all(cl->fd, r, sizeof(r));
 }
 
-/* TELNET filter for the byte stream of a TCP text port.  A telnet
- * client does not send 0x03 for ^C but an IAC IP command; turn that back
- * into a real Ctrl-C so the interrupt reaches the remote shell.  IAC IAC
+/* TELNET filter for the byte stream of a connection that speaks TELNET.
+ * A telnet client does not send 0x03 for ^C but an IAC IP command; turn that
+ * back into a real Ctrl-C so the interrupt reaches the remote shell.  IAC IAC
  * is a literal 0xFF and the negotiation commands are refused.  Returns
- * the number of application bytes in out.  */
+ * the number of application bytes in out.
+ *
+ * The state is on the client, not local, because a TELNET connection can
+ * have one IAC in one read() and its command byte in the next, and two such
+ * halves must not be taken for two separate streams.  */
 static size_t tpc_telnet_decode(struct tpc_client *cl,
 				const unsigned char *in, size_t len,
 				unsigned char *out, size_t outsz)
@@ -1603,6 +1872,96 @@ static size_t tpc_telnet_decode(struct tpc_client *cl,
 	return o;
 }
 
+/* Everything a chunk of client bytes goes through on its way to the netd:
+ * TELNET detection, TELNET decoding, the line ending a radio frame wants,
+ * and the split into 'D' frames.  It is one function because there are two
+ * ways in, and the two have to do the same thing.
+ *
+ * The first is the ordinary one: bytes arrive while the session is up and go
+ * straight out.  The second is the bytes that arrived in the same read() as
+ * the connect command and had to wait in cl->dbuf for the confirm - a
+ * script does not wait for a reply before it writes its payload, so this is
+ * normal traffic and not an edge case.  When that flush was done by the
+ * confirm handler on its own it sent the buffer as it stood, and the first
+ * packet of a session went out with a bare LF where every packet after it
+ * had a CR, and with its IAC pairs still doubled.
+ *
+ * The detection is here rather than at the top of the read loop because it
+ * has to happen in stream order.  A scan of whatever read() happened to
+ * return decides out of order: a script that sends "binary" and its payload
+ * in one write() has both in the same buffer, and the scan finds the
+ * payload's 0xFF before the "binary" line has been parsed and refuses a
+ * command that was still legal when it was typed.
+ *
+ * A command line cannot turn a connection into TELNET, and that is
+ * deliberate.  No command carries a 0xFF, and the only byte a telnet client
+ * sends before there is a session is the interrupt key, which at the prompt
+ * means nothing.  The promise is about a session, and this is what a session
+ * sends through.
+ *
+ * Binary is 8 bit clean, which is the whole of what it claims and the whole
+ * of why it is worth a line of its own: the bytes go out exactly as they
+ * came in, a 0xFF in a payload stays a 0xFF, and nothing is looked for.
+ */
+static void tpc_session_send(struct tpc_client *cl, const unsigned char *data,
+			     size_t len)
+{
+	unsigned char dec[TPC_LINE_MAX];
+	unsigned char out[TPC_LINE_MAX];
+	size_t o, off;
+
+	if (cl->ascii && cl->may_telnet && !cl->telnet &&
+	    memchr(data, 0xff, len) != NULL)
+		cl->telnet = 1;
+
+	/* Decode before translating the line ending: a TELNET IAC IP has to
+	 * be a 0x03 before the CR pass sees it, or the CR pass would pass a
+	 * protocol byte through as if it were the user's interrupt.  */
+	if (cl->ascii && cl->telnet) {
+		len = tpc_telnet_decode(cl, data, len, dec, sizeof(dec));
+		data = dec;
+	}
+
+	if (!cl->ascii) {
+		memcpy(out, data, len);
+		o = len;
+	} else {
+		/* Packet radio lines end with CR, so a CRLF or a bare LF
+		 * becomes one CR.  The "was the last byte a CR" test is a
+		 * field on the client rather than a look at out[o - 1],
+		 * because a CRLF can be split across two chunks and each
+		 * chunk is a separate read() or a separate buffer - and a
+		 * second CR would be a blank line on the far side.
+		 *
+		 * It counts a CR the client typed itself and not only one
+		 * this loop produced, so "one\r\n" is one CR and not two:
+		 * the client is allowed to send either ending, and both
+		 * have to arrive as the one the radio wants.  */
+		for (o = 0, off = 0; off < len; off++) {
+			if (data[off] == '\n') {
+				if (cl->ascii_cr)
+					continue;
+				out[o++] = '\r';
+				cl->ascii_cr = 1;
+			} else {
+				out[o++] = data[off];
+				cl->ascii_cr = data[off] == '\r';
+			}
+		}
+	}
+
+	for (off = 0; off < o; ) {
+		size_t c = o - off;
+
+		if (c > TPC_DATA_CHUNK)
+			c = TPC_DATA_CHUNK;
+		agwpe_client_send_data(tpc.netd, cl->port, cl->pid,
+				       cl->call_from, cl->call_to,
+				       out + off, c);
+		off += c;
+	}
+}
+
 static int tpc_client_readable(struct tpc_client *cl)
 {
 	unsigned char tmp[4096];
@@ -1623,6 +1982,20 @@ static int tpc_client_readable(struct tpc_client *cl)
 		}
 		if (n == 0)
 			break;
+		/*
+		 * TELNET is decoded here when it is already known, and
+		 * detected further down where the bytes are about to be
+		 * sent to the netd.  The detection is not at the top of
+		 * this loop on purpose: it has to happen in stream order,
+		 * and a scan of whatever read() happened to return decides
+		 * things out of order.  A script that sends "binary" and
+		 * its payload in one write() has both in this buffer, and a
+		 * scan here would find the payload's 0xFF before the
+		 * "binary" line had been parsed, refusing a command that
+		 * was still legal when it was typed.
+		 *
+		 * See the comment at the detection for the rest.
+		 */
 		if (cl->telnet) {
 			dn = tpc_telnet_decode(cl, tmp, (size_t)n,
 					       app, sizeof(app));
@@ -1632,41 +2005,7 @@ static int tpc_client_readable(struct tpc_client *cl)
 			data = tmp;
 		}
 		if (cl->state == TPC_DATA) {
-			unsigned char out[sizeof(tmp)];
-			size_t off = 0, o = 0;
-
-			if (!cl->text) {
-				/* Binary port: 8 bit clean byte stream.  */
-				memcpy(out, data, dn);
-				o = dn;
-			} else {
-				/* Text port: interactive byte stream, but
-				 * packet radio lines end with CR: a CRLF
-				 * or a bare LF becomes one CR.  Control
-				 * characters such as ^C pass through at
-				 * once, so the session never stalls.  */
-				for (; off < dn; off++) {
-					if (data[off] == '\n') {
-						if (o > 0 && out[o - 1] == '\r')
-							continue;
-						out[o++] = '\r';
-					} else {
-						out[o++] = data[off];
-					}
-				}
-			}
-			/* Send each chunk as a 'D' frame as it arrives.  */
-			for (off = 0; off < o; ) {
-				size_t c = o - off;
-
-				if (c > TPC_DATA_CHUNK)
-					c = TPC_DATA_CHUNK;
-				agwpe_client_send_data(tpc.netd, cl->port,
-						       cl->pid, cl->call_from,
-						       cl->call_to,
-						       out + off, c);
-				off += c;
-			}
+			tpc_session_send(cl, data, dn);
 			continue;
 		}
 		if (cl->state == TPC_CONNECTING) {
@@ -1685,7 +2024,7 @@ static int tpc_client_readable(struct tpc_client *cl)
 			cl->dlen += dn;
 			continue;
 		}
-		if (cl->state == TPC_DGRAM && !cl->text && !cl->dgram_tnc2) {
+		if (cl->state == TPC_DGRAM && !cl->ascii && !cl->dgram_tnc2) {
 			/* Binary datagram: accumulate, flush on close.  */
 			if (cl->dlen + dn > cl->dcap) {
 				size_t ncap = cl->dcap ? cl->dcap * 2 : 4096;
@@ -1756,12 +2095,36 @@ static int tpc_client_readable(struct tpc_client *cl)
 					return 1;	/* client gone */
 				if (cl->fd < 0)
 					return 1;
-				/* The command may have switched to binary
-				 * datagram mode; any bytes already read
-				 * after the command line are the start of
-				 * the datagram payload.  */
-				if (cl->state == TPC_DGRAM && !cl->text &&
-				    !cl->dgram_tnc2 && cl->rlen > 0) {
+
+				/*
+				 * Whatever the client sent after the command
+				 * line is already in the buffer, because a
+				 * script does not wait for a reply before
+				 * writing its payload.  Where those bytes
+				 * belong depends on what the command just
+				 * did, and taking them as another line is
+				 * wrong in two of the three cases:
+				 *
+				 *   binary datagram  the bytes are payload,
+				 *     and a line would cut them at the next
+				 *     newline
+				 *   connect          the bytes are payload
+				 *     waiting for the confirm, and TPC_
+				 *     CONNECTING is not handled below, so
+				 *     they were dropped on the floor - a
+				 *     script that sent command and payload
+				 *     in one write() got a session that
+				 *     silently ate the first packet
+				 *   ascii datagram    the bytes are lines and
+				 *     the loop below is right
+				 *
+				 * So the two non-line cases are taken out
+				 * here and the loop is left to the one that
+				 * wants lines.
+				 */
+				if (cl->rlen > 0 &&
+				    (cl->state == TPC_CONNECTING ||
+				     (cl->state == TPC_DGRAM && !cl->ascii))) {
 					if (cl->dlen + cl->rlen > cl->dcap) {
 						size_t ncap = cl->dcap ?
 							cl->dcap * 2 : 4096;
@@ -1779,6 +2142,7 @@ static int tpc_client_readable(struct tpc_client *cl)
 					       cl->rlen);
 					cl->dlen += cl->rlen;
 					cl->rlen = 0;
+					break;
 				}
 			} else if (cl->state == TPC_DGRAM) {
 				if (cl->dgram_tnc2) {
@@ -1847,8 +2211,12 @@ static void tpc_accept(struct tpc_listen *l, int lfd)
 			if (fl >= 0)
 				fcntl(fd, F_SETFL, fl | O_NONBLOCK);
 		}
-		if (tpc_client_add(fd, l->text,
-				   l->text && !l->unix_sock) == NULL) {
+		/* A unix socket is never TELNET: the reader is a program on
+		 * this machine, not telnet(1), and a 0xFF in its stream is
+		 * data.  A tcp stream is watched for one, so telnet(1) is
+		 * recognised when it sends its first IAC instead of being
+		 * told about the rules in bytes it never asked for.  */
+		if (tpc_client_add(fd, !l->unix_sock) == NULL) {
 			static const unsigned char full[] = "*** ERROR: server full\r\n";
 
 			tpc_write_all(fd, full, sizeof(full) - 1);
@@ -2092,15 +2460,15 @@ int main(int argc, char **argv)
 	}
 	if (tpc.nlisten == 0) {
 		/* No listener configured: fall back to the default
-		 * front side, one binary tcp port on 127.0.0.1:8202
-		 * whose text port (8203) follows automatically.  */
+		 * front side, one tcp port on every loopback address.
+		 * Which mode a connection is in is the client's business,
+		 * not the listener's, so there is no second port.  */
 		struct tpc_listen *l = &tpc.listen[tpc.nlisten++];
 
 		memset(l, 0, sizeof(*l));
 		strncpy(l->addr, TPC_DEFAULT_LISTEN_ADDR,
 			sizeof(l->addr) - 1);
 		l->port = TPC_DEFAULT_LISTEN_PORT;
-		l->text_port = TPC_DEFAULT_LISTEN_PORT + 1;
 	}
 
 	tpc.netd = agwpe_client_new(&cb, NULL);
@@ -2174,37 +2542,6 @@ int main(int argc, char **argv)
 		} else if (tpc_listen_tcp(l) < 0) {
 			tpc_log(LOG_ERR, "cannot listen on tcp %s:%d",
 				l->addr, l->port);
-			tpc_unlink_sockets();
-			agwpe_client_free(tpc.netd);
-			return 1;
-		}
-	}
-
-	/* The text port (X+1) is one line above each binary tcp port.  */
-	for (i = 0; i < tpc.nlisten; i++) {
-		struct tpc_listen *l = &tpc.listen[i], *lt;
-		int j;
-
-		if (l->unix_sock || l->text_port <= 0)
-			continue;
-		for (j = 0; j < tpc.nlisten; j++)
-			if (tpc.listen[j].text && !tpc.listen[j].unix_sock &&
-			    strcmp(tpc.listen[j].addr, l->addr) == 0 &&
-			    tpc.listen[j].port == l->text_port)
-				break;		/* already there */
-		if (j < tpc.nlisten)
-			continue;
-		if (tpc.nlisten >= TPC_MAX_LISTEN)
-			break;
-		lt = &tpc.listen[tpc.nlisten++];
-		memset(lt, 0, sizeof(*lt));
-		lt->text = 1;
-		strncpy(lt->addr, l->addr, sizeof(lt->addr) - 1);
-		lt->addr[sizeof(lt->addr) - 1] = '\0';
-		lt->port = l->text_port;
-		if (tpc_listen_tcp(lt) < 0) {
-			tpc_log(LOG_ERR, "cannot listen on tcp %s:%d",
-				lt->addr, lt->port);
 			tpc_unlink_sockets();
 			agwpe_client_free(tpc.netd);
 			return 1;
