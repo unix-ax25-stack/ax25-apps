@@ -362,7 +362,13 @@ int main(int argc, char **argv)
 
 	setservent(1);
 
-	while (!sigint) {
+	/* The source count is part of the condition and not only something
+	 * checked inside: retiring the last source sets exit_code to the
+	 * reason it went, and polling again would answer ENOTCONN and
+	 * overwrite that with a question the program already knows the
+	 * answer to.  A program with nothing to listen to has finished,
+	 * and says so for the reason the last source gave.  */
+	while (!sigint && axmon_alive(&mon) > 0) {
 		unsigned ready = 0;
 		int n, f;
 
