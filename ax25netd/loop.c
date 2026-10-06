@@ -669,7 +669,17 @@ void loop_read_client(struct ax25netd_client *cl)
 		if (!cl->authed) {
 			/* Until the client has logged in, only the login
 			 * frame itself is accepted; every other frame is
-			 * silently dropped.  */
+			 * dropped.  The drop is the quietest refusal there
+			 * is - the client gets no reply of any kind, so a
+			 * station whose credentials do not match this
+			 * daemon looks exactly like a station whose frames
+			 * never arrive - and a line is what separates the
+			 * two.  The kind is named because it says which
+			 * half of the client's setup is wrong: anything at
+			 * all here means the client did not send the login
+			 * this daemon is waiting for, whether because it
+			 * never sends one or because it sends the wrong
+			 * credentials.  */
 			if (hdr.datakind == AGWPE_CMD_LOGIN) {
 				if (loop_check_login(cl, cl->rbuf + AGWPE_HEADER_LEN,
 						     dlen) == 0) {
@@ -683,6 +693,12 @@ void loop_read_client(struct ax25netd_client *cl)
 						 cl->fd);
 					cl->dead = 1;
 				}
+			} else {
+				ax25netd_verbose("client %d: kind='%c' "
+						 "dropped, no login received "
+						 "(authentication %s)",
+						 cl->fd, hdr.datakind,
+						 ax25netd_auth_mode());
 			}
 			cl->rlen -= total;
 			memmove(cl->rbuf, cl->rbuf + total, cl->rlen);
@@ -702,6 +718,25 @@ void loop_close_client(struct ax25netd_client *cl)
 		return;
 
 	ax25netd_log(LOG_INFO, "AGWPE client %d disconnected", cl->fd);
+
+	/* What it was doing when it went, so that a stream of these can be
+	 * read rather than merely counted: a client that was sitting on a
+	 * raw monitor stream is a different animal from one that never
+	 * turned anything on, and the difference decides whether the
+	 * absence of frames on the radio is explained by the client going
+	 * away or is the thing being looked for. */
+	ax25netd_verbose("client %d: was %s, monitor %s, raw monitor %s",
+			 cl->fd,
+			 cl->authed ? "authenticated" : "not authenticated",
+			 cl->monitor ? "on" : "off",
+			 cl->raw ? "on" : "off");
+	if (cl->raw)
+		ax25netd_verbose("client %d: raw payload mask was 0x%02x",
+				 cl->fd, cl->monmask);
+	if (cl->want_ports)
+		ax25netd_verbose("client %d: gave up waiting for the port list",
+				 cl->fd);
+
 	mux_client_disconnect(cl);
 	close(cl->fd);
 	cl->fd = -1;

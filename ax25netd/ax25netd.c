@@ -76,15 +76,72 @@ void ax25netd_log(int prio, const char *fmt, ...)
 		fprintf(stderr, "ax25netd: %s\n", buf);
 }
 
+/*
+ * The one level above the per-frame trace, and the answer to the question
+ * this daemon is otherwise unable to answer: why did my frame not go out.
+ *
+ * What lands here is the decisions and the refusals - which endpoint was
+ * chosen, what a registration did, that an upstream went away, and above all
+ * that a port is not ready.  A client that sends on a port that is not there
+ * is answered with silence, because AGWPE has no way to say "no such port" to
+ * a 'C' frame, and silence on the radio is indistinguishable from a station
+ * that does not answer.  So the refusal is at least in the log, with the
+ * reason and the client it belongs to.
+ *
+ * LOG_INFO, not LOG_DEBUG: these are events, not a transcript of frames, and
+ * they are the ones worth having in the log after the fact - the upstream
+ * that went away at 03:12 and the 'G' reply that never came are questions
+ * asked the next morning.  They reach syslog and stderr together, and nothing
+ * at all unless --verbose was given: a line per client state change is a lot
+ * of lines for a machine that runs this all day.
+ */
+void ax25netd_verbose(const char *fmt, ...)
+{
+	va_list ap;
+	char buf[512];
+
+	if (!ax25netd.verbose)
+		return;
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+
+	syslog(LOG_INFO, "%s", buf);
+	fprintf(stderr, "ax25netd: %s\n", buf);
+}
+
+/* The loop port client authentication mode as a phrase, for the two places
+ * that have to say it: the configuration summary, and the line that tells a
+ * client whose frames are being dropped that it never logged in.  One
+ * wording for one setting, because the two messages are read together - the
+ * second one says "this mode" and the first one is what the mode was. */
+const char *ax25netd_auth_mode(void)
+{
+	switch (ax25netd.auth) {
+	case AGWPE_AUTH_OFF:
+		return "off, no login asked for";
+	case AGWPE_AUTH_ALWAYS:
+		return "required from every client, including loopback";
+	default:
+		return "required from clients outside loopback";
+	}
+}
+
 static void usage(const char *prog)
 {
 	fprintf(stderr,
 		"Usage: %s [-f] [-d] [-c config] [-C ax25common.conf]\n"
 		"            [-b bindaddr] [-p port] [-U socket] [-g group]\n"
-		"            [--no-tcp] [-u user]\n"
+		"            [--no-tcp] [-u user] [--verbose] [--no-mheard]\n"
 		"\n"
 		"  -f         stay in the foreground\n"
-		"  -d         log to stderr as well\n"
+		"  -d         log to stderr as well, and trace every client and\n"
+		"             upstream frame\n"
+		"      --verbose  say the decisions this daemon makes and why it\n"
+		"             refuses something: the endpoint it chose, client\n"
+		"             registrations, upstream losses, and why a port is\n"
+		"             not ready.  Twice for -d as well\n"
 		"  -c <file>  configuration file (default %s)\n"
 		"  -C <file>  shared loop port configuration, read by\n"
 		"             ax25netd and ax25tcpd (default %s)\n"
@@ -301,6 +358,7 @@ int main(int argc, char **argv)
 	int loop_mode_set = 0;
 	struct agwpe_config cfg;
 	struct ax25common com;
+	int saw_loop = 0;	/* a "loop" line in the configuration */
 	int i;
 	time_t now;
 
@@ -317,6 +375,7 @@ int main(int argc, char **argv)
 			{ "no-tcp",  no_argument,       NULL, 1000 },
 			{ "no-mheard", no_argument,     NULL, 'M' },
 			{ "loop-mode", required_argument, NULL, 1001 },
+			{ "verbose",  no_argument,       NULL, 1002 },
 			{ NULL, 0, NULL, 0 }
 		};
 
@@ -350,6 +409,17 @@ int main(int argc, char **argv)
 				break;
 			case 1000:
 				no_tcp = 1;
+				break;
+			case 1002:
+				/* Repeatable, and the second one is the
+				 * per-frame trace.  A ladder rather than
+				 * two independent flags: "-d" alone has
+				 * always been "everything", and someone
+				 * reading a command line should not have
+				 * to know that -d implies the lower
+				 * level rather than replacing it. */
+				if (++ax25netd.verbose >= 2)
+					ax25netd.debug = 1;
 				break;
 			case 'u':
 				runuser = optarg;
@@ -466,7 +536,6 @@ int main(int argc, char **argv)
 	{
 		int nradio = 0;
 		int j = 0;
-		int saw_loop = 0;
 
 		for (i = 0; i < cfg.count; i++) {
 			if (cfg.upstreams[i].virtual)
@@ -560,6 +629,75 @@ int main(int argc, char **argv)
 		fprintf(stderr,
 			"ax25netd: no listener enabled: --no-tcp requires a unix socket ('-U <path>' or 'loop socket' in ax25common.conf)\n");
 		return 1;
+	}
+
+	/*
+	 * The configuration as it ended up, once the file and the command
+	 * line have both had their say.  Here rather than at the point each
+	 * value is read, because that is where the answers to the questions
+	 * actually are: the endpoint the daemon ended up listening on is a
+	 * decision of ax25common.conf *and* -U and --no-tcp together, and
+	 * printing each of them where it was read gives three lines and no
+	 * conclusion.
+	 */
+	if (ax25netd.verbose) {
+		int j;
+
+		ax25netd_verbose("config: upstreams from %s, loop port from %s",
+				 conf, comconf);
+		if (cfg.tcp_enabled)
+			ax25netd_verbose("config: listening on tcp %s:%d%s", bindaddr,
+					 port,
+					 host_is_loopback(bindaddr) ? "" :
+					 " (reachable from other hosts)");
+		else
+			/* Which of the two it was, because the two are a
+			 * decision and a default and only one of them was
+			 * made.  -b and -p do not switch the listener on;
+			 * only "loop tcp" or -U do. */
+			ax25netd_verbose("config: no tcp listener (%s), the "
+					 "unix socket is the only way in",
+					 no_tcp ? "--no-tcp" :
+					 "'loop tcp' is off in ax25common.conf");
+		if (cfg.socket_path[0] != '\0')
+			ax25netd_verbose("config: listening on unix socket %s, group %s, "
+					 "directory mode %04o", cfg.socket_path,
+					 cfg.group_mode == AGWPE_GROUP_ALL ? "all" :
+					 (cfg.group_name[0] != '\0' ? cfg.group_name :
+					  "all (default)"),
+					 (unsigned int)cfg.loop_mode);
+		ax25netd_verbose("config: loop port %s (AGWPE port %d)%s",
+				 ax25netd.loop.name, AGWPE_PORT_LOOP,
+				 saw_loop ? "" :
+				 " (enabled by default; no 'loop' line in the configuration)");
+		for (j = 0; j < ax25netd.nup; j++) {
+			struct ax25netd_upstream *u = &ax25netd.ups[j];
+			char where[AGWPE_UPSTREAM_HOST_MAX + 16];
+
+			/* u->index is not set yet - upstream_init_all()
+			 * does that, later - so the block is the position in
+			 * this list, which is what the numbering is made of.
+			 * The block is printed because a port number on its
+			 * own does not say which radio it belongs to, which
+			 * is the thing that makes a port table hard to read. */
+			if (u->host[0] == '/')
+				snprintf(where, sizeof(where), "%s", u->host);
+			else
+				snprintf(where, sizeof(where), "%s:%d", u->host,
+					 u->tcp_port);
+
+			ax25netd_verbose("config: upstream %d '%s' at %s owns ports "
+					 "%d..%d%s", j, u->name, where,
+					 j * AX25NETD_PORT_STRIDE,
+					 j * AX25NETD_PORT_STRIDE +
+					 AX25NETD_PORT_STRIDE - 1,
+					 u->user[0] != '\0' ? ", with login" : "");
+		}
+		ax25netd_verbose("config: autoroute %s, mheard %s, client "
+				 "authentication %s",
+				 ax25netd.autoroute ? "yes" : "no",
+				 ax25netd.mheard ? "yes" : "no (--no-mheard)",
+				 ax25netd_auth_mode());
 	}
 
 	signal(SIGPIPE, SIG_IGN);

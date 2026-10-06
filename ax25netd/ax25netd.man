@@ -1,12 +1,13 @@
 .\" Man page for ax25netd
 .\"
-.TH AX25NETD 8 "29 Sep 2026" "ax25-apps" "Linux System Administration"
+.TH AX25NETD 8 "06 Oct 2026" "ax25-apps" "Linux System Administration"
 .SH NAME
 ax25netd \- AGWPE multiplexing daemon
 .SH SYNOPSIS
 .B ax25netd
 [\-f] [\-d] [\-c \fIfile\fR] [\-C \fIfile\fR] [\-b \fIaddr\fR] [\-p \fIport\fR]
-[\-U \fIsocket\fR] [\-g \fIgroup\fR] [\-\-no-tcp] [\-u \fIuser\fR] [\-\-no-mheard]
+[\-U \fIsocket\fR] [\-g \fIgroup\fR] [\-\-no-tcp] [\-u \fIuser\fR]
+[\-\-verbose] [\-\-no-mheard]
 .SH DESCRIPTION
 .B ax25netd
 multiplexes one or more AGWPE servers ("upstreams") behind a single local
@@ -50,7 +51,18 @@ and no TCP listener) and no radio upstreams.
 Stay in the foreground (do not daemonize).
 .TP
 .B \-d
-Also log to standard error.
+Also log to standard error, and trace every client and upstream frame
+(see
+.BR "VERBOSE LOGGING" ).
+.TP
+.B \-\-verbose
+Log the decisions this daemon makes and the reasons it refuses something:
+the loop port endpoint it chose, client registrations and monitor toggles,
+upstream connection attempts, and why a port is not ready.  Given twice,
+this is
+.B \-d
+as well.  See
+.BR "VERBOSE LOGGING" .
 .TP
 .BI \-c " file"
 Configuration file, default \fI@@@AX25_SYSCONFDIR@@@/ax25netd_agwpe.conf\fR.
@@ -153,6 +165,104 @@ A system that runs the native kernel stack and
 .B mheardd
 at the same time updates the same file; both daemons serialize their writes
 with a file lock.
+.SH "VERBOSE LOGGING"
+.B \-\-verbose
+adds one level between the warnings and the per-frame trace of
+.BR \-d .
+It says the decisions the daemon makes and the reasons it refuses something.
+There is no new log level for it and no separate file: the lines go to syslog
+at
+.B LOG_INFO
+and to standard error, and without the flag there are none of them.
+.PP
+The level exists because AGWPE cannot say no.  A frame for a port that does
+not exist, or for a port whose upstream is down, is dropped without a reply,
+because the protocol has no "no such port" to send back on a 'C' or a 'D'
+frame.  That is right on the wire and useless in practice: the client waits,
+and it waits exactly as long as it would for a station that does not answer.
+An operator therefore cannot tell from the client side whether a port number is
+wrong, an upstream is gone, or the radio is silent \(em three faults with three
+different fixes.  This level is where the answer is.
+.PP
+What it logs:
+.TP
+.B the configuration, once
+The loop port endpoint after the file and the command line have both had their
+say, which is the only point at which the answer exists \(em the unix socket, its
+group and its directory mode, the TCP listener or the absence of one, the
+virtual loop port, each upstream with the port block it owns, and
+.BR autoroute ,
+.BR mheard ,
+the authentication mode:
+.PP
+.RS
+.nf
+config: listening on unix socket /var/run/ax25/sockets/ax25netd.sock,
+  group hams, directory mode 1775
+config: no tcp listener ('loop tcp' is off in ax25common.conf), the
+  unix socket is the only way in
+config: upstream 0 'hf' at 127.0.0.1:8000 owns ports 0..15
+config: autoroute yes, mheard yes, client authentication required from
+  clients outside loopback
+.fi
+.RE
+.TP
+.B client state
+Registrations and their refusals, listen requests, the monitor and raw monitor
+toggles, and what a client was doing when it disconnected:
+.PP
+.RS
+.nf
+client 5: registered 'DL9SAU' on port 0 (connected, upstream hf)
+client 5: register of 'DL9SAU' on port 2 refused, client 7 already
+  has that callsign
+client 5: listen on port 0 refused, only the loop port 255 accepts one
+client 5: raw monitor on
+client 5: was authenticated, monitor off, raw monitor on
+.fi
+.RE
+.TP
+.B upstream failures
+Each connection attempt, before it is made, so that a log shows whether an
+upstream was tried once or forty times, and how long it has been down:
+.PP
+.RS
+.nf
+upstream hf: connecting to 127.0.0.1:8000
+.fi
+.RE
+.TP
+.B why a port is not ready
+The reason with the client's number, so that a run lines up against the
+program's own log.  A port that is not among the ones served is named that,
+with the list; an upstream that cannot carry the frame is named too, and which
+of its three states it is in, because "is down" and "is up but has not
+reported its channels" are fixed in different places, and a port number no
+upstream owns is neither:
+.PP
+.RS
+.nf
+client 5: connect on port 99 dropped, there is no such port; the ports
+  are the 2 radio upstreams (hf 0..15, vhf 16..31), loop 255
+client 5: connect on port 0 dropped: upstream 'hf' cannot be used, it
+  is connected but has not answered the port request yet, so no channel
+  of it is known
+client 5: port list held back for up to 10 s, waiting for 'hf'
+client 5: port list answered after 10 s without 'hf'
+.fi
+.RE
+.PP
+The upstream that cannot carry a frame is in one of two states, and the
+messages keep them apart because they are fixed in different places: it is
+not connected (down, or reconnecting), or it is connected but has not answered
+the port request, so no channel of it is known (see
+.BR "PORT NUMBERS" ).
+A frame for a port number no upstream owns at all is a third fault again, and
+a mistake in
+.BR axports (5)
+or in the client's port table;
+.BR ax25netctl (8)
+says which of the two it is.
 .SH SECURITY
 By default the loop port listens on loopback only and is therefore reachable
 only from the host itself.  Binding to any other address hands control of
@@ -298,6 +408,7 @@ Heard-station list (see
 .BR ax25netd_agwpe_shadow.conf (5),
 .BR axports (5),
 .BR ax25tcpd (8),
+.BR ax25netctl (8),
 .BR ax25rtd (8),
 .BR call (1),
 .BR mheard (1),
