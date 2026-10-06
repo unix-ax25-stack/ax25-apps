@@ -83,6 +83,11 @@
 #include <netax25/agwpe_client.h>
 #include <netax25/agwpe_config.h>
 #include <netax25/axcommon.h>
+/* ax25_address, which axconfig.h names in a prototype of its own and does
+ * not include the header for.  Before axconfig.h, or the build stops there
+ * with a type it has not heard of.  */
+#include <netax25/ax25.h>
+#include <netax25/axconfig.h>
 
 /* ------------------------------------------------------------------ */
 
@@ -233,6 +238,10 @@ static void tpc_log(int prio, const char *fmt, ...)
 	va_end(ap);
 }
 
+/* Defined with the netd callbacks, below: this one is the other half of
+ * tpc_parse_port_spec() and sits next to it.  */
+static void tpc_client_printf(struct tpc_client *cl, const char *fmt, ...);
+
 /* ------------------------------------------------------------------ */
 /* Configuration                                                       */
 /* ------------------------------------------------------------------ */
@@ -243,14 +252,45 @@ static void tpc_upper(char *s)
 		*s = toupper((unsigned char)*s);
 }
 
-/* Resolve <port>[/<chan>] into a flat port byte.  Names come from the
- * 'G' reply; "loop" and 255 are the virtual loopback port.  */
+/* Why the last tpc_parse_port_spec() said no, when it knows more than "no
+ * such port".  Empty means it has nothing to add.
+ *
+ * A file-static rather than an argument because there are five call sites
+ * that all do the same thing with the answer - refuse, and say why - and
+ * threading a buffer through each of them to hold a sentence that is empty
+ * in most cases would make the reason harder to see, not easier.
+ */
+static char tpc_port_why[160];
+
+/* Resolve <port>[/<chan>] into a flat port byte.
+ *
+ * Three things know about port names and they are asked in this order:
+ *
+ *   the netd's own 'G' table, which is the server this daemon is actually
+ *   connected to and the only authority on its numbering;
+ *
+ *   the library, through ax25_port_info(), which knows the axports names
+ *   that the 'G' table does not carry - it lists upstream names, so
+ *   "radio0" is not in it even when radio0 works for "call radio0".  That
+ *   gap is the one this function exists to close: the answer was "no such
+ *   port" for a port that existed.
+ *
+ *   and a plain number, which has always been accepted and is what a script
+ *   that knows the answer wants.
+ *
+ * A name the library claims for the kernel or for a WAMPES node is refused
+ * by name rather than quietly refused: this daemon is a pure AGWPE client
+ * and has no way to send on either, and "no such port" is not the reason.
+ */
 static int tpc_parse_port_spec(const char *spec, unsigned char *port)
 {
 	const char *chan = strchr(spec, '/');
-	char num[32];
+	char num[64], name[80];
 	size_t len;
 	int n = 0, p;
+	struct ax25_port_info info;
+
+	tpc_port_why[0] = '\0';
 
 	if (chan != NULL) {
 		char *end;
@@ -262,15 +302,23 @@ static int tpc_parse_port_spec(const char *spec, unsigned char *port)
 		 * channel is one digit's worth of a channel number and
 		 * "hf/DB0AAA" is a typo, not channel 0.  */
 		if (errno != 0 || *end != '\0' || end == chan + 1 ||
-		    v < 0 || v > 15)
+		    v < 0 || v > 15) {
+			snprintf(tpc_port_why, sizeof(tpc_port_why),
+				 "a channel is a number, 0 to 15, not '%s'",
+				 chan + 1);
 			return -1;
+		}
 		n = (int)v;
 		len = chan - spec;
 	} else {
 		len = strlen(spec);
 	}
-	if (len == 0 || len >= sizeof(num))
+	if (len == 0 || len >= sizeof(num)) {
+		snprintf(tpc_port_why, sizeof(tpc_port_why),
+			 len == 0 ? "no port name before the slash" :
+				"the port name is too long");
 		return -1;
+	}
 	memcpy(num, spec, len);
 	num[len] = '\0';
 
@@ -278,11 +326,47 @@ static int tpc_parse_port_spec(const char *spec, unsigned char *port)
 		*port = AGWPE_PORT_LOOP;
 		return 0;
 	}
+
+	/* The connected server first: its table is the numbering that will
+	 * actually be used, and a machine with a netd on another host has a
+	 * library that would answer about a different one.
+	 */
 	for (p = 0; p < tpc.nports; p++)
 		if (strcmp(tpc.ports[p].name, num) == 0) {
 			*port = tpc.ports[p].port + n;
 			return 0;
 		}
+
+	/* What axports and the backends make of the name.  Asked with the
+	 * channel attached in the spelling axports uses, so that the
+	 * library is the one place that decides what a channel is.
+	 */
+	if (chan != NULL)
+		snprintf(name, sizeof(name), "%s:%d", num, n);
+	else
+		snprintf(name, sizeof(name), "%s", num);
+
+	if (ax25_port_info(name, &info) == 0) {
+		switch (info.backend) {
+		case AX25_PORT_AGWPE:
+			*port = (unsigned char)info.port;
+			return 0;
+		case AX25_PORT_KERNEL:
+			snprintf(tpc_port_why, sizeof(tpc_port_why),
+				 "it is a kernel AX.25 port, and this daemon "
+				 "sends through ax25netd only");
+			return -1;
+		case AX25_PORT_WAMPES:
+			snprintf(tpc_port_why, sizeof(tpc_port_why),
+				 "it is a WAMPES port of node \"%s\", and "
+				 "this daemon sends through ax25netd only",
+				 info.node);
+			return -1;
+		default:
+			break;	/* nobody claims it: fall through */
+		}
+	}
+
 	for (p = 0; num[p]; p++)
 		if (!isdigit((unsigned char)num[p]))
 			return -1;
@@ -291,6 +375,35 @@ static int tpc_parse_port_spec(const char *spec, unsigned char *port)
 		return -1;
 	*port = n;
 	return 0;
+}
+
+/* Say that a port was refused, with the reason when there is one that is
+ * not "no such port".  Every refusal of a name goes through here, so that
+ * the reasons are not left to whichever call site remembered to add one.
+ */
+static void tpc_port_refused(struct tpc_client *cl, const char *spec)
+{
+	if (tpc_port_why[0] != '\0')
+		tpc_client_printf(cl, "*** ERROR: port '%s': %s\r\n", spec,
+				  tpc_port_why);
+	else
+		tpc_client_printf(cl, "*** ERROR: no such port '%s'\r\n", spec);
+}
+
+/* The same, for the configured default-port.  Its own wording because the
+ * name in it is not one the client typed: quoting it as the client's would
+ * put a word in the client's mouth that it never used, and the client is
+ * the one who will be reading the next thing they type.
+ */
+static void tpc_default_port_refused(struct tpc_client *cl)
+{
+	if (tpc_port_why[0] != '\0')
+		tpc_client_printf(cl, "*** ERROR: default-port '%s': %s\r\n",
+				  tpc.default_port, tpc_port_why);
+	else
+		tpc_client_printf(cl,
+				  "*** ERROR: default-port '%s' is not a "
+				  "known port\r\n", tpc.default_port);
 }
 
 static int tpc_parse_pid(const char *spec, unsigned char *pid)
@@ -1313,8 +1426,7 @@ static int tpc_split_target(struct tpc_client *cl, char *arg, int npos,
 
 	if (colon != NULL) {
 		if (tpc_parse_port_spec(arg, &cl->port) != 0) {
-			tpc_client_printf(cl, "*** ERROR: no such port "
-					  "'%s'\r\n", arg);
+			tpc_port_refused(cl, arg);
 			return -1;
 		}
 		if (*port_end == '\0') {
@@ -1346,9 +1458,7 @@ static int tpc_split_target(struct tpc_client *cl, char *arg, int npos,
 			return -1;
 		}
 		if (tpc_parse_port_spec(tpc.default_port, &cl->port) != 0) {
-			tpc_client_printf(cl, "*** ERROR: default-port '%s' "
-					  "is not a known port\r\n",
-					  tpc.default_port);
+			tpc_default_port_refused(cl);
 			return -1;
 		}
 	}
@@ -1380,8 +1490,7 @@ static int tpc_cmd_connect(struct tpc_client *cl, int argc, char **argv)
 			 * that builds the port from a variable finds the
 			 * colon awkward.  It is the same resolution.  */
 			if (tpc_parse_port_spec(argv[i + 1], &cl->port) != 0) {
-				tpc_client_printf(cl, "*** ERROR: no such port "
-						  "'%s'\r\n", argv[i + 1]);
+				tpc_port_refused(cl, argv[i + 1]);
 				return 0;
 			}
 			i++;
@@ -1523,8 +1632,7 @@ static int tpc_cmd_datagram(struct tpc_client *cl, int argc, char **argv)
 			}
 		} else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
 			if (tpc_parse_port_spec(argv[i + 1], &cl->port) != 0) {
-				tpc_client_printf(cl, "*** ERROR: no such port "
-						  "'%s'\r\n", argv[i + 1]);
+				tpc_port_refused(cl, argv[i + 1]);
 				return 0;
 			}
 			i++;
@@ -1585,10 +1693,7 @@ static int tpc_cmd_datagram(struct tpc_client *cl, int argc, char **argv)
 			}
 			if (tpc_parse_port_spec(tpc.default_port,
 						&cl->port) != 0) {
-				tpc_client_printf(cl, "*** ERROR: "
-						  "default-port '%s' is not a "
-						  "known port\r\n",
-						  tpc.default_port);
+				tpc_default_port_refused(cl);
 				return 0;
 			}
 		}
@@ -2469,6 +2574,56 @@ int main(int argc, char **argv)
 		strncpy(l->addr, TPC_DEFAULT_LISTEN_ADDR,
 			sizeof(l->addr) - 1);
 		l->port = TPC_DEFAULT_LISTEN_PORT;
+	}
+
+	/* Tell the library where this daemon's server is, before it is
+	 * asked anything.  tpc_parse_port_spec() falls back to
+	 * ax25_port_info() for the axports names the netd's table does not
+	 * carry, and the library resolves those through the AGWPE shim -
+	 * which picks its own endpoint from AXSOCK_HOST or
+	 * ax25common.conf.  Left alone that is a different answer whenever
+	 * a "target tcp" or "target socket" line points somewhere other
+	 * than the local default, and the difference would show up as a
+	 * port number that belongs to another machine's numbering.
+	 *
+	 * Set here, before the first connect and before the first lookup,
+	 * because the shim resolves its endpoint once and keeps it.
+	 */
+	if (tpc.target_tcp) {
+		char portbuf[16];
+
+		snprintf(portbuf, sizeof(portbuf), "%d", tpc.target_port);
+		setenv("AXSOCK_HOST", tpc.target_host, 1);
+		setenv("AXSOCK_PORT", portbuf, 1);
+	} else {
+		const char *path = tpc.target_sock;
+		char *abs = NULL;
+
+		/* A socket path is a path and not a host, and the shim
+		 * tells the two apart by a leading '/'.  A relative
+		 * "target socket ./ax25netd.sock" has no leading slash,
+		 * so passing it through unchanged would have the library
+		 * try to resolve it as a TCP host name - and quietly
+		 * answer nothing, which is a different answer and not a
+		 * visible one.  Ax25netd's own socket path is absolute
+		 * everywhere else, but this daemon accepts a relative
+		 * one, so the translation belongs here where that choice
+		 * is made.
+		 *
+		 * realpath() with a NULL buffer allocates, because a
+		 * buffer of its own would have to be PATH_MAX and this
+		 * is not a buffer anybody wants on the stack of a
+		 * daemon.  Not resolvable: keep what was configured, so
+		 * the library fails the same way this daemon already
+		 * has rather than for a second reason. */
+		if (path[0] != '/')
+			abs = realpath(path, NULL);
+		setenv("AXSOCK_HOST", abs != NULL ? abs : path, 1);
+		free(abs);
+		/* A path carries no port; leaving a stale one in the
+		 * environment would be read and ignored, and an ignored
+		 * value that looks set is worse than one that is not. */
+		unsetenv("AXSOCK_PORT");
 	}
 
 	tpc.netd = agwpe_client_new(&cb, NULL);
