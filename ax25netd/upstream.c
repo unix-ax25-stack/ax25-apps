@@ -80,9 +80,21 @@ static void on_ports(agwpe_client_t *c, struct agwpe_port_list *list)
 static void upstream_connect(struct ax25netd_upstream *u)
 {
 	int unixup = (u->host[0] == '/');
+	char portbuf[AGWPE_UPSTREAM_HOST_MAX + 16];
 
 	if (u->virtual)
 		return;
+
+	/* Said before the attempt, not after: a failure already logs at
+	 * LOG_WARNING, and the failure line alone does not say whether this
+	 * was the first try or the fortieth.  Upstream gone away means every
+	 * frame for its ports is dropped from here on, and "how long has it
+	 * been trying" is the first question about that - and the one the
+	 * log cannot answer without this line. */
+	snprintf(portbuf, sizeof(portbuf), "%s%s%d", unixup ? "" : u->host,
+		 unixup ? "" : ":", unixup ? 0 : u->tcp_port);
+	ax25netd_verbose("upstream %s: connecting to %s", u->name,
+			 unixup ? u->host : portbuf);
 
 	if (unixup) {
 		if (agwpe_client_connect_unix(u->cli, u->host) < 0) {

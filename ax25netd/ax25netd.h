@@ -146,7 +146,8 @@ struct ax25netd_upstream {
 };
 
 struct ax25netd_ctx {
-	int			debug;
+	int			verbose;	/* --verbose: say the decisions */
+	int			debug;		/* -d, or --verbose twice */
 	int			mheard;		/* keep the mheard.dat heard list */
 
 	/* Loop port client authentication mode: one of the AGWPE_AUTH_*
@@ -184,6 +185,16 @@ struct ax25netd_ctx {
 extern struct ax25netd_ctx ax25netd;
 
 extern void ax25netd_log(int prio, const char *fmt, ...);
+
+/*
+ * The level between the warnings and the per-frame trace: the decisions the
+ * daemon makes and the reasons it does not do something.  Only when
+ * --verbose was given.
+ */
+extern void ax25netd_verbose(const char *fmt, ...);
+
+/* The loop port authentication mode as a phrase for a message. */
+extern const char *ax25netd_auth_mode(void);
 
 /* loop.c */
 extern int loop_init(const char *bindaddr, int port);

@@ -57,6 +57,95 @@ static struct ax25netd_upstream *up_by_port(unsigned char port)
 	return &ax25netd.ups[port / AX25NETD_PORT_STRIDE];
 }
 
+/* The port numbers this daemon serves, in one line, for a message about a
+ * port that is not among them.  Written out rather than counted, because
+ * "no port %u" with nothing after it sends the reader off to look for the
+ * list, and the list is short enough to print.  A static buffer because the
+ * message is built for ax25netd_verbose() and the alternative is a caller
+ * that has to free something. */
+static const char *mux_ports_summary(void)
+{
+	static char buf[256];
+	size_t n = 0;
+	int i;
+
+	n += (size_t)snprintf(buf, sizeof(buf), "the %d radio upstream%s",
+			      ax25netd.nup, ax25netd.nup == 1 ? "" : "s");
+	for (i = 0; i < ax25netd.nup && n + 8 < sizeof(buf); i++)
+		n += (size_t)snprintf(buf + n, sizeof(buf) - n, "%s%s %d..%d",
+				      i == 0 ? " (" : ", ",
+				      ax25netd.ups[i].name,
+				      i * AX25NETD_PORT_STRIDE,
+				      i * AX25NETD_PORT_STRIDE +
+				      AX25NETD_PORT_STRIDE - 1);
+	if (ax25netd.loop_enabled && n + 8 < sizeof(buf))
+		snprintf(buf + n, sizeof(buf) - n, "%s%s %d",
+			 n == 0 ? "" : (ax25netd.nup == 0 ? "" : "), "),
+			 ax25netd.loop.name, AGWPE_PORT_LOOP);
+	return buf;
+}
+
+/*
+ * The port a client's frame names, and what to say when there is none.
+ *
+ * A frame for a port that does not exist is dropped, because AGWPE has no
+ * "no such port" to send back on a 'C' or a 'D'.  That is right on the wire
+ * and useless in practice: a client that picked a wrong port number waits,
+ * and waits exactly as long as it would for a station that does not answer,
+ * so the two are indistinguishable from the far end.  The refusal is
+ * therefore logged - with the client, so a run can be lined up against the
+ * program's own log - and the reason is the whole point of the message: an
+ * unknown port number and an upstream that is not connected are different
+ * faults with different fixes, and the operator's first question is which.
+ */
+static struct ax25netd_upstream *up_by_port_or_log(unsigned char port,
+						    struct ax25netd_client *cl,
+						    const char *what)
+{
+	struct ax25netd_upstream *u = up_by_port(port);
+
+	if (u != NULL)
+		return u;
+	if (ax25netd.verbose && cl != NULL)
+		ax25netd_verbose("client %d: %s on port %u dropped, there is "
+				 "no such port; the ports are %s",
+				 cl->fd, what, port, mux_ports_summary());
+	return NULL;
+}
+
+/*
+ * The upstream for a frame that has to go out, or NULL with the reason
+ * logged.  "Not connected" is the common reason and the one worth naming:
+ * the upstream is down, or has just reconnected and is still logging in, or
+ * its port list has not come back - three states that look identical from the
+ * client side and are fixed in three different places.
+ *
+ * The virtual loop port is passed straight through: it has no upstream behind
+ * it and so nothing to be connected to, and saying "not connected" about it
+ * would name a fault that does not exist.  The caller still has to recognise
+ * it afterwards, because only the caller knows what to do with a loop frame.
+ */
+static struct ax25netd_upstream *up_by_port_radio(unsigned char port,
+						  struct ax25netd_client *cl,
+						  const char *what)
+{
+	struct ax25netd_upstream *u = up_by_port_or_log(port, cl, what);
+
+	if (u == NULL)
+		return NULL;
+	if (u->virtual || u->connected)
+		return u;
+
+	if (ax25netd.verbose && cl != NULL)
+		ax25netd_verbose("client %d: %s on port %u dropped: upstream "
+				 "'%s' cannot be used, %s", cl->fd, what, port,
+				 u->name,
+				 u->ports_ready ? "it is not connected" :
+				 "it is connected but has not answered the "
+				 "port request yet, so no channel of it is known");
+	return NULL;
+}
+
 /* The radio channel of upstream u that a flat loop port selects.  */
 static unsigned char port_chan(const struct ax25netd_upstream *u,
 			       unsigned char port)
@@ -375,6 +464,37 @@ static int mux_call_register(struct ax25netd_upstream *u, const char *call, int 
 	u->ncalls++;
 
 	return 0;
+}
+
+/*
+ * Why mux_call_register() said no, in words.
+ *
+ * It answers -1 for two unrelated things: the callsign is already
+ * registered by another client, which the caller can do something about,
+ * and the table could not be grown, which it cannot.  The client only ever
+ * sees a one-byte refusal for both, so without this a station that had its
+ * callsign taken looks the same as a daemon that is out of memory.
+ *
+ * The lookup re-scans the table rather than the caller passing a reason
+ * out, because registration happens once per callsign per client and the
+ * alternative threads a second answer through a function whose -1 is
+ * already load-bearing in four places.
+ */
+static const char *mux_call_owner(struct ax25netd_upstream *u, const char *call)
+{
+	static char buf[64];
+	int i;
+
+	for (i = 0; i < u->ncalls; i++) {
+		if (strcmp(u->calls[i].call, call) != 0)
+			continue;
+		snprintf(buf, sizeof(buf),
+			 "client %d already has that callsign",
+			 u->calls[i].fd);
+		return buf;
+	}
+	/* Not in the table at all, so it was the realloc() that failed. */
+	return "the callsign table could not be grown";
 }
 
 static void mux_call_unregister(struct ax25netd_upstream *u, const char *call, int fd)
@@ -813,7 +933,7 @@ static void ctl_disconnect_owner(struct ax25netd_client *cl,
 
 static void mux_ctl_kill(struct ax25netd_client *cl, const struct agwpe_s *hdr)
 {
-	struct ax25netd_upstream *u = up_by_port(hdr->port);
+	struct ax25netd_upstream *u = up_by_port_or_log(hdr->port, cl, "kill");
 	char from[AGWPE_MAX_CALL], to[AGWPE_MAX_CALL];
 
 	if (u == NULL)
@@ -903,7 +1023,7 @@ static void mux_ctl_monmask(struct ax25netd_client *cl, unsigned char mask)
 static void mux_ctl_param(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			  const unsigned char *data, size_t len)
 {
-	struct ax25netd_upstream *u = up_by_port(hdr->port);
+	struct ax25netd_upstream *u = up_by_port_or_log(hdr->port, cl, "control");
 	struct ax25netd_session *s;
 	unsigned char scope, param;
 	uint32_t value;
@@ -961,6 +1081,28 @@ static int mux_ports_ready(void)
 		if (ax25netd.ups[i].connected && !ax25netd.ups[i].ports_ready)
 			return 0;
 	return 1;
+}
+
+/* Which connected upstreams have not reported their channel layout yet.
+ * The reason a client waits for its port list, so it belongs next to the
+ * wait rather than in a file the reader has to know to look in. */
+static const char *mux_ports_pending(void)
+{
+	static char buf[256];
+	size_t n = 0;
+	int i;
+
+	for (i = 0; i < ax25netd.nup && n + 8 < sizeof(buf); i++) {
+		struct ax25netd_upstream *u = &ax25netd.ups[i];
+
+		if (!u->connected || u->ports_ready)
+			continue;
+		n += (size_t)snprintf(buf + n, sizeof(buf) - n, "%s'%s'",
+				      n == 0 ? "" : ", ", u->name);
+	}
+	if (n == 0)
+		snprintf(buf, sizeof(buf), "nothing - the table is complete");
+	return buf;
 }
 
 /*
@@ -1024,6 +1166,18 @@ void mux_ports_tick(time_t now)
 		if (mux_ports_ready() ||
 		    now - cl->ports_since >= AX25NETD_PORTS_TIMEOUT) {
 			cl->want_ports = 0;
+			/* A table that arrived incomplete is a normal
+			 * outcome - an upstream that is down has no
+			 * channels to report - but it is the reason a
+			 * port the client then tried is missing, so it
+			 * is said out loud rather than left to be worked
+			 * out from the missing entry. */
+			if (!mux_ports_ready())
+				ax25netd_verbose("client %d: port list "
+						 "answered after %d s without %s",
+						 cl->fd,
+						 AX25NETD_PORTS_TIMEOUT,
+						 mux_ports_pending());
 			mux_ports_reply(cl);
 		}
 	}
@@ -1065,16 +1219,41 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		break;
 
 	case 'X':				/* register callsign */
-		u = up_by_port(port);
-		if (u == NULL || hdr->call_from[0] == '\0') {
+		u = up_by_port_or_log(port, cl, "register");
+		if (u == NULL) {
+			reply_register(cl, hdr, 0);
+			break;
+		}
+		/* Every refusal here is a one-byte 'Z' reply that says
+		 * nothing about which of the three things went wrong, and
+		 * the client then either retries the callsign forever or
+		 * gives up on it.  The three are: an empty callsign, which
+		 * is the client's own bug; the callsign already being
+		 * registered by another client, which is a name clash and
+		 * is the common one; and no memory for the entry, which is
+		 * not the caller's fault at all. */
+		if (hdr->call_from[0] == '\0') {
+			ax25netd_verbose("client %d: register on port "
+					 "%u refused, no callsign given",
+					 cl->fd, port);
 			reply_register(cl, hdr, 0);
 			break;
 		}
 		if (mux_call_register(u, hdr->call_from, cl->fd, 0,
 				      port_chan(u, port)) < 0) {
+			ax25netd_verbose("client %d: register of '%s' on "
+					 "port %u refused, %s", cl->fd,
+					 hdr->call_from, port,
+					 mux_call_owner(u, hdr->call_from));
 			reply_register(cl, hdr, 0);
 			break;
 		}
+		ax25netd_verbose("client %d: registered '%s' on port %u "
+				 "(%s, upstream %s)",
+				 cl->fd, hdr->call_from, port,
+				 u->connected ? "connected" :
+				 "upstream not connected, so not sent on",
+				 u->name);
 		if (u->connected)
 			agwpe_client_register(u->cli, port_chan(u, port),
 					      hdr->call_from);
@@ -1082,20 +1261,42 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		break;
 
 	case 'L':				/* listen (loop port only) */
-		u = up_by_port(port);
-		if (u != &ax25netd.loop || hdr->call_from[0] == '\0') {
+		u = up_by_port_or_log(port, cl, "listen");
+		if (u != &ax25netd.loop) {
+			/* A listen on a radio port is refused the same
+			 * way every time and is the sort of thing that is
+			 * only ever tried once, so it is worth a line:
+			 * the client's registration table does not show
+			 * it and the refusal frame does not say why. */
+			ax25netd_verbose("client %d: listen on port %u "
+					 "refused, only the loop port %d "
+					 "accepts one", cl->fd, port,
+					 AGWPE_PORT_LOOP);
+			reply_register(cl, hdr, 0);
+			break;
+		}
+		if (hdr->call_from[0] == '\0') {
+			ax25netd_verbose("client %d: listen on the loop "
+					 "port refused, no callsign given",
+					 cl->fd);
 			reply_register(cl, hdr, 0);
 			break;
 		}
 		if (mux_call_register(u, hdr->call_from, cl->fd, 1, 0) < 0) {
+			ax25netd_verbose("client %d: listen of '%s' on "
+					 "the loop port refused, %s", cl->fd,
+					 hdr->call_from,
+					 mux_call_owner(u, hdr->call_from));
 			reply_register(cl, hdr, 0);
 			break;
 		}
+		ax25netd_verbose("client %d: listening for '%s' on the "
+				 "loop port", cl->fd, hdr->call_from);
 		reply_register(cl, hdr, 1);
 		break;
 
 	case 'x':				/* unregister callsign */
-		u = up_by_port(port);
+		u = up_by_port_or_log(port, cl, "unregister");
 		if (u != NULL && u->connected)
 			agwpe_client_unregister(u->cli, port_chan(u, port),
 						hdr->call_from);
@@ -1131,6 +1332,11 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			else {
 				cl->want_ports = 1;
 				cl->ports_since = time(NULL);
+				ax25netd_verbose("client %d: port list held back "
+						 "for up to %d s, waiting for %s",
+						 cl->fd,
+						 AX25NETD_PORTS_TIMEOUT,
+						 mux_ports_pending());
 			}
 		}
 		break;
@@ -1156,7 +1362,7 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		break;
 
 	case 'H':				/* heard list, forwarded upstream */
-		u = up_by_port(port);
+		u = up_by_port_or_log(port, cl, "heard list");
 		if (u == NULL)
 			break;
 		u->heard_to = cl->fd;
@@ -1166,7 +1372,7 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 
 	case 'y':				/* outstanding frames on a port */
 	case 'Y':				/* outstanding frames for a connection */
-		u = up_by_port(port);
+		u = up_by_port_or_log(port, cl, "outstanding frames");
 		if (u == NULL)
 			break;
 		u->out_to = cl->fd;
@@ -1184,11 +1390,15 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 
 	case 'm':				/* monitor toggle */
 		cl->monitor = !cl->monitor;
+		ax25netd_verbose("client %d: monitor %s", cl->fd,
+				 cl->monitor ? "on" : "off");
 		mux_recalc_toggles();
 		break;
 
 	case 'k':				/* raw monitor toggle */
 		cl->raw = !cl->raw;
+		ax25netd_verbose("client %d: raw monitor %s", cl->fd,
+				 cl->raw ? "on" : "off");
 		mux_recalc_toggles();
 		break;
 
@@ -1198,15 +1408,13 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		{
 			unsigned char pid = session_pid(hdr->pid);
 
-			u = up_by_port(port);
+			u = up_by_port_radio(port, cl, "connect");
 			if (u == NULL)
 				break;
 			if (u == &ax25netd.loop) {
 				loop_connect(cl, hdr, data, len);
 				break;
 			}
-			if (!u->connected)
-				break;
 
 			/*
 			 * An AX.25 connection is identified by its call
@@ -1257,15 +1465,13 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		break;
 
 	case 'D':				/* connected data */
-		u = up_by_port(port);
+		u = up_by_port_radio(port, cl, "data");
 		if (u == NULL)
 			break;
 		if (u == &ax25netd.loop) {
 			loop_data(cl, hdr, data, len);
 			break;
 		}
-		if (!u->connected)
-			break;
 
 		if (session_find(u, hdr->call_from, hdr->call_to,
 				 session_pid(hdr->pid), cl->fd) == NULL) {
@@ -1295,15 +1501,13 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			struct ax25netd_session *s;
 			int i;
 
-			u = up_by_port(port);
+			u = up_by_port_radio(port, cl, "disconnect");
 			if (u == NULL)
 				break;
 			if (u == &ax25netd.loop) {
 				loop_disconnect(cl, hdr, data, len);
 				break;
 			}
-			if (!u->connected)
-				break;
 
 			s = session_find(u, hdr->call_from, hdr->call_to,
 					 session_pid(hdr->pid), cl->fd);
@@ -1344,15 +1548,13 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 	case 'M':				/* unproto */
 	case 'V':				/* unproto via */
 	case 'K':				/* raw frame */
-		u = up_by_port(port);
+		u = up_by_port_radio(port, cl, "frame");
 		if (u == NULL)
 			break;
 		if (u == &ax25netd.loop) {
 			loop_unproto(cl, hdr, data, len);
 			break;
 		}
-		if (!u->connected)
-			break;
 		client_send_upstream(u, hdr, data);
 		break;
 
