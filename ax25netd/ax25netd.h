@@ -69,6 +69,10 @@ struct ax25netd_client {
 	int			raw;		/* wants raw frames */
 	unsigned char		monmask;	/* raw payloads it wants,
 						  * AGWPE_MONMASK_* */
+	int			uisub;		/* wants UI addressed to its
+						  * own call signs, as 'M'
+						  * frames, without the
+						  * raw stream */
 	int			want_ports;	/* 'G' request deferred */
 	time_t			ports_since;	/* when the request arrived */
 };

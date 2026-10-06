@@ -345,6 +345,47 @@ keeps AX.25 level 2 to itself, so the libax25 side can only hand over the UI
 frames that cross it.  A connection carried by such a node is traced on the
 node's own console.
 .PP
+.SS "UI frames addressed to a client"
+The raw stream is a toggle on the connection, and it is on for every client of
+a connection as long as one of them is a monitor.  A datagram socket is not
+one of them: it reads one kind of frame, for one port, for one call sign and
+for one protocol id, and turning the whole stream on for that made every heard
+frame of every port of the server cross the connection with its payload so the
+socket could pick one out of it.
+.PP
+A client can therefore ask, with the private
+.B Q
+frame carrying
+.BR U ,
+for the unproto frames addressed to the call signs it has registered, and get
+them as
+.B M
+frames: the same route the virtual loop port has always used, and the same one
+a WAMPES node's frames take.  The subscription is per connection and is not
+forwarded to an upstream, because it says what this client wants from this
+daemon and an upstream has no such command.  It asks for nothing while it is
+already true, and there is no way to withdraw it: the frames are addressed to
+that client's own call signs, and a client that goes away has none.
+.PP
+What a client does not get without asking:
+.PP
+.RS
+.IP \(bu 2
+Frames addressed to a call sign it registered but did not subscribe for.
+Registering a call sign says it wants connections to it, and that is all it
+says; a program that only wants that must not find unrelated packets in a
+.BR read (2).
+.IP \(bu 2
+Its own transmissions.  A station is not told its own frames, so an unproto
+frame this daemon has digipeated comes back addressed to this client and is
+not handed to it.  Only a client that digipeates its own UI frames can see the
+difference, and it sees a frame it already had.
+.IP \(bu 2
+Anything taken away from the monitors.  A monitor wants every frame, including
+the ones a subscribed client already has; that is what a monitor is for, and
+the two feeds are independent.
+.RE
+.PP
 A machine that runs AX.25 in the kernel needs no daemon for its own traffic,
 and its monitor reads the kernel's packet socket directly.  The two monitors
 do not see each other's frames: the kernel's frames were never handed to this
