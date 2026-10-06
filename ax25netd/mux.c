@@ -48,6 +48,12 @@
 /* Mirror of local outbound frames, sent to raw monitor clients.  */
 #define	MUX_RAW_MAX	2048
 
+/* Whether mux_uisub_any() has anything to say.  A count rather than a scan,
+ * because the question is asked about every heard frame and the answer only
+ * changes when a client comes or goes.  Declared here with the other
+ * file-wide state because mux_ctl_uisub() is well above the frame path.  */
+static int mux_uisub_clients;
+
 static struct ax25netd_upstream *up_by_port(unsigned char port)
 {
 	if (port == AGWPE_PORT_LOOP && ax25netd.loop_enabled)
@@ -1020,6 +1026,28 @@ static void mux_ctl_monmask(struct ax25netd_client *cl, unsigned char mask)
 		     cl->fd, cl->monmask);
 }
 
+/*
+ * "Give me the UI frames addressed to the call signs I have registered", as
+ * 'M' frames.  See mux_upstream_ui() for what it is for.
+ *
+ * Per connection and per client, and like the mask above not forwarded to an
+ * upstream: it says what this client wants from this server, and an upstream
+ * has no such command.  A frame the client could have picked out of the raw
+ * stream instead arrives this way even when the raw stream is off, which is
+ * the whole point - and a client that wanted the stream as well still gets
+ * it, because the raw stream is a separate toggle and says nothing about this.
+ */
+static void mux_ctl_uisub(struct ax25netd_client *cl)
+{
+	if (cl->uisub)
+		return;
+
+	cl->uisub = 1;
+	mux_uisub_clients++;
+	ax25netd_log(LOG_INFO, "client %d: UI addressed to its own call "
+		     "signs will be delivered", cl->fd);
+}
+
 static void mux_ctl_param(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 			  const unsigned char *data, size_t len)
 {
@@ -1567,6 +1595,9 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		else if (data != NULL && len > 1 &&
 			 data[0] == AGWPE_CTL_MONMASK)
 			mux_ctl_monmask(cl, data[1]);
+		else if (data != NULL && len > 0 &&
+			 data[0] == AGWPE_CTL_UISUB)
+			mux_ctl_uisub(cl);
 		break;
 
 	default:
@@ -1617,7 +1648,111 @@ void mux_client_disconnect(struct ax25netd_client *cl)
 		loop_client_gone(cl);
 	}
 
+	/* Its subscription ends with it.  Nothing else has to be undone: the
+	 * frames it asked for are addressed to its call signs, and it is no
+	 * longer on the loop port to be given them.  The count is kept
+	 * because mux_upstream_ui() asks it about every heard frame, and a
+	 * client that has gone must not keep the answer at "yes".  */
+	if (cl->uisub) {
+		cl->uisub = 0;
+		mux_uisub_clients--;
+	}
+
 	mux_recalc_toggles();
+}
+
+/* Whether any client subscribed to the UI delivery at all.  The answer decides
+ * whether a heard frame has to be taken apart at all. */
+static int mux_uisub_any(void)
+{
+	return mux_uisub_clients > 0;
+}
+
+/*
+ * A UI frame off the radio, addressed to a call sign one of our clients holds,
+ * handed to that client as an 'M' frame.
+ *
+ * This is the loop port's own mechanism - loop_unproto() above does the same
+ * for a frame from another local client - and putting it on the radio ports is
+ * what lets a datagram socket read its UI frames without the raw monitor
+ * stream.  That was the alternative: the socket turned the stream on, which is
+ * a toggle on the whole connection, so from then on every heard frame with its
+ * full payload was duplicated into that connection for it to pick one kind out
+ * of - and it stayed on, for every userland program on the machine, for as long
+ * as that one socket was open.
+ *
+ * Three things are deliberately not done here:
+ *
+ *   - The frame is not taken away from the monitors.  A monitor wants
+ *     everything, including the frames a client already has; that is what a
+ *     monitor is.  So the raw fan-out in mux_upstream_frame() still sees it.
+ *
+ *   - Our own transmissions are not filtered.  A station is not told its own
+ *     frames, but a UI frame this process digipeated comes back addressed to us
+ *     and would be delivered as if it were somebody else's.  The library keeps
+ *     a record of what it sent and drops those; the server has no such record
+ *     and cannot keep one per client without becoming the thing it exists to
+ *     avoid.  A program that digipeates its own UI frames is the one place
+ *     where this is visible.
+ *
+ *   - Frames for a client that did not ask are not delivered.  Registering a
+ *     call sign says "watch for connections to it"; subscribing says "and hand
+ *     me the UI frames too".  A program that only does the first must not get
+ *     the second, or it would find unrelated packets in a read().
+ */
+static void mux_upstream_ui(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
+			    const unsigned char *data, size_t len)
+{
+	char dst[AGWPE_MAX_CALL], src[AGWPE_MAX_CALL];
+	const unsigned char *info;
+	struct ax25netd_client *owner;
+	struct agwpe_s out;
+	size_t ilen;
+	unsigned char pid;
+	int repeated;
+
+	/*
+	 * The loop port routes its own frames, in loop_unproto(); coming
+	 * back through here would deliver them twice.
+	 */
+	if (u->virtual)
+		return;
+
+	/*
+	 * Nobody to give it to.  Asked before the frame is taken apart,
+	 * because taking one apart is more work than the answer, and this
+	 * stands on the path of every heard frame of a server whose clients
+	 * only monitor - which is the common case, and the one where this
+	 * must cost nothing.
+	 */
+	if (!mux_uisub_any())
+		return;
+
+	/*
+	 * The library's own decoder, not a second one.  It is the library
+	 * that turns these addresses into the strings its sockets are
+	 * matched by, so anything else here is a second answer to the same
+	 * question - and the wrong one silently, which is a frame delivered
+	 * to the wrong socket.
+	 */
+	if (!agwpe_kiss_ui_parse(data, len, dst, sizeof(dst), src,
+				 sizeof(src), &pid, &info, &ilen,
+				 &repeated))
+		return;			/* not a UI frame, or not whole */
+
+	owner = client_by_call(u, dst);
+	if (owner == NULL || !owner->uisub)
+		return;
+
+	agwpe_header_init(&out, hdr->port, AGWPE_CMD_UNPROTO, pid, src, dst,
+			  (uint32_t)ilen);
+	loop_send_client(owner, &out, info, ilen);
+
+	if (ax25netd.debug)
+		ax25netd_log(LOG_DEBUG,
+			     "client %d: UI %s>%s on port %u, pid %u, "
+			     "%zu bytes", owner->fd, src, dst, hdr->port,
+			     pid, ilen);
 }
 
 void mux_upstream_frame(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
@@ -1690,6 +1825,7 @@ void mux_upstream_frame(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
 
 	case 'K':				/* raw monitored frame */
 		ax25netd_mheard_frame(u, data, len);
+		mux_upstream_ui(u, hdr, data, len);
 		for (i = 0; i < ax25netd.nclients; i++) {
 			struct ax25netd_client *cl = &ax25netd.clients[i];
 			size_t n;
