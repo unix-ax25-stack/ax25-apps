@@ -1,0 +1,252 @@
+.\" Man page for ax25netctl
+.\"
+.TH AX25NETCTL 8 "06 Oct 2026" "ax25-apps" "Linux System Administration"
+.SH NAME
+@@@ax25netctl@@@ \- say what a port name is
+.SH SYNOPSIS
+.B @@@ax25netctl@@@
+[\-L] [\-H \fIendpoint\fR] [\-C \fIfile\fR] [\-v] [\fIname\fR ...]
+.SH DESCRIPTION
+.B @@@ax25netctl@@@
+answers one question about the ports of this machine: what
+.I name
+is, and can it be used.
+.PP
+A name in
+.BR axports (5)
+says that a port exists.  It does not say which stack serves it, and it does
+not say whether the thing behind it is there.  A name can be a kernel AX.25
+interface, a port of a WAMPES node, or a channel of an
+.BR ax25netd (8)
+upstream, and a program that gets it wrong sends on a radio the operator never
+named.  The numbering of the third case is the server's: an upstream at
+position
+.I i
+of
+.BR ax25netd_agwpe.conf (5)
+owns ports
+.I i
+*16 to
+.I i
+*16+15, and which
+.I i
+a given upstream has is written down nowhere but in the server's own port
+table.
+.PP
+So
+.B @@@ax25netctl@@@
+asks the library what a name is, and then asks
+.BR ax25netd (8)
+whether it agrees.
+.PP
+With no
+.IR name ,
+one line is printed for every entry of the
+.BR axports (5)
+file.  With
+.IR name s,
+each is printed in detail, and a name that cannot be used is followed by the
+reason.  The exit status is 0 when every name given resolved to a port that
+the server has, and 1 otherwise; with no names it is 1 only when the tables
+could not be read or the server could not be reached.
+.SH OPTIONS
+.TP
+.B \-L
+Read the local configuration only and do not contact
+.BR ax25netd (8).
+Faster, and the answer is then what the files say and not whether an upstream
+is connected.  The
+.B IN NETD
+column becomes
+.BR ? ,
+which means the question was not asked and is not an answer of no.
+.TP
+.BI \-H " endpoint"
+The
+.BR ax25netd (8)
+to ask: a path for its unix domain socket, or
+.IB host : port
+for its TCP loop port.  This overrides
+.BR @@@AX25_SYSCONFDIR@@@/ax25common.conf (5)
+and the
+.B AXSOCK_HOST
+environment variable, and is also what the ports are resolved against, so that
+the library and the server are always the same two.  See
+.BR ENVIRONMENT .
+.TP
+.BI \-C " file"
+Shared loop port configuration, read by
+.BR ax25netd (8),
+.BR @@@ax25netctl@@@
+and the AGWPE shim alike.  Default
+.IR @@@AX25_SYSCONFDIR@@@/ax25common.conf .
+.TP
+.B \-v
+Also print what
+.BR axports (5)
+says about each name.  For a name that has no entry of its own this is often
+the whole answer.
+.TP
+.B \-h
+Print a usage message and exit.
+.SH NAMED PORTS
+.I name
+is what
+.BR axports (5)
+calls a port.  A channel may be given as
+.IB port / channel \fR,
+which is the notation
+.BR ax25tcpd (8),
+.BR axkill (8)
+and
+.BR axctl (8)
+take on a command line:
+.B hf/2
+is channel 2 of the upstream
+.BR hf .
+.PP
+.BR axports (5)
+itself writes the channel behind a colon, as
+.BR hf:2 ,
+and that is what the lookup uses.  A port name contains no slash, so there is
+nothing the split could be ambiguous with.
+.PP
+A suffix behind the slash must be a number from 0 to 15, and anything else is
+refused rather than taken as channel 0: an upstream has sixteen channels, and
+a name that cannot mean one of them is a mistake worth reporting.
+.SH OUTPUT
+The table without names has one row per
+.BR axports (5)
+entry:
+.TP
+.B NAME
+The port name as written in the file.
+.TP
+.B CALL
+The call sign of the entry, or
+.B \-
+for a name that has no entry of its own.
+.TP
+.B BACKEND
+.TP
+.B PORT
+What serves the name:
+.BR kernel ", " wampes " or " agwpe .
+For
+.B agwpe
+the flat port byte, which is the server's own numbering and the byte that goes
+into a frame header.  The channels of one upstream are contiguous, so the port
+number alone does not say which radio it is \-
+.TP
+.B CHAN
+for
+.B agwpe
+the channel of that port, 0 to 15.
+.TP
+.B UPSTREAM
+for
+.B agwpe
+the name the server knows the upstream by, as in
+.BR ax25netd_agwpe.conf (5);
+for
+.B wampes
+the name of the node.
+.TP
+.B IN NETD
+.TP
+.B DESCRIPTION
+.B yes
+when
+.BR ax25netd (8)
+lists that port,
+.B NO
+when it does not,
+.BR ? ,
+when it was not asked, and
+.B \-
+for a name that is not a port of the server.  A
+.B NO
+means that nothing sent on the port can leave: the upstream is down, has not
+answered the port list request yet, or is not in
+.BR ax25netd_agwpe.conf (5).
+The description from the
+.BR axports (5)
+line comes last, and is not cut to a fixed width.
+.PP
+After the table comes what the server said about itself: its endpoint, its
+version, and its own port table as the server wrote it.
+.PP
+With
+.I name s
+each name gets a block instead, which says the same thing in full and adds the
+reason when there is nothing to be had.  A name that resolves to an AGWPE port
+the server does not list is answered with what to look at; a name that is not
+an AGWPE port is answered with the stack it belongs to, or, if none, with the
+line the colon would have to be behind.
+.SH ENVIRONMENT
+.TP
+.B AXSOCK_HOST
+The endpoint the AGWPE shim uses, which
+.B @@@ax25netctl@@@
+reads as well and which
+.B \-H
+overrides.  A leading
+.B /
+means a unix domain socket; anything else is
+.IB host : port \fR.
+Set before anything asks the library a question, so that the ports are resolved
+against the same server this tool reports on.  See
+.BR axsock (7).
+.SH FILES
+.TP
+.I @@@AX25_SYSCONFDIR@@@/axports
+The port list, one line per port.
+.TP
+.I @@@AX25_SYSCONFDIR@@@/ax25common.conf
+Where the loop port is, and which accounts may connect to it.
+.TP
+.I @@@AX25_SYSCONFDIR@@@/ax25netd_agwpe.conf
+The upstream list of an
+.BR ax25netd (8)
+on this machine, which decides a port number when the server cannot be asked.
+.TP
+.I @@@AX25_SYSCONFDIR@@@/wampes.conf
+The WAMPES nodes this machine can reach.
+.SH EXIT STATUS
+0 when every name given resolved to a port the server has, or \-
+with no names \-
+when the tables could be read.  1 when a name did not resolve, when it
+resolved to a port the server does not have, or when the server could not be
+reached.
+.SH EXAMPLES
+.TP
+.B ax25netctl
+Every configured port, and what
+.BR ax25netd (8)
+says about each.  This is the first thing to read when a connect fails.
+.TP
+.B ax25netctl hf/2 -v
+Everything about channel 2 of the upstream
+.BR hf ,
+including the
+.BR axports (5)
+line, if there is one.
+.TP
+.B ax25netctl -L
+Only what the configuration files say, with no server contacted.  Useful where
+the socket is not readable by this account, and as the other half of a
+comparison with a run without
+.BR \-L :
+what a name resolves to locally and what the server says about it are the two
+things that can differ.
+.SH SEE ALSO
+.BR ax25netd (8),
+.BR ax25netd_agwpe.conf (5),
+.BR ax25common.conf (5),
+.BR axports (5),
+.BR ax25tcpd (8),
+.BR axkill (8),
+.BR axctl (8),
+.BR axsock (7),
+.BR call (1),
+.BR wampes.conf (5)
