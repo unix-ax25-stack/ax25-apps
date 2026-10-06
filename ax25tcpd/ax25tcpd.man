@@ -134,7 +134,7 @@ is refused once the connection speaks TELNET (see
 .BR TELNET ).
 .TP
 .I connect " [" options "]" " [" port "[" / chan "]" ":" "]" dest "[" , digi , ... "]" " [" < SRC" ]"
-Start an AX.25 connection.  The port is a name from the netd port list,
+Start an AX.25 connection.  The port is a name,
 optionally with a channel number after a
 .BR / ,
 or a flat port number;
@@ -199,6 +199,62 @@ Close the session.
 .TP
 .B help
 List the commands.
+.SH PORT NAMES
+A port name is looked up in three places, in this order, and the first that
+claims it wins:
+.TP
+.B the netd's own port list
+The names of the upstreams of the
+.BR ax25netd (8)
+this daemon is connected to, as it reported them.  This comes first because it
+is the server that will carry the frame, and its numbering is the one that
+counts; a
+.B "target tcp"
+or
+.B "target socket"
+line pointing at another machine would make any other answer wrong.
+.TP
+.B axports
+The names in
+.BR axports (5),
+which the netd's list does not carry \(em that list holds upstream names, and
+a port is called by whatever name the local file gives it.  So
+.B agwpe-direwolf
+is a port here even though the netd only knows
+.BR direwolf ,
+and it is the same port:
+.B "call agwpe-direwolf"
+and
+.B "connect agwpe-direwolf:DB0AAA"
+now mean the same thing.
+.B loop
+and
+.B agwpe-loop
+are the virtual loopback either way.
+.TP
+.B a flat port number
+0 to 255, for a script that knows the answer.  Always worked, still does.
+.PP
+A name that is a kernel AX.25 interface or a port of a WAMPES node is refused
+by name, with the reason, because this daemon sends through
+.BR ax25netd (8)
+and has no other way out:
+.B "connect --port bpq0 DB0AAA"
+is answered with
+.B "it is a kernel AX.25 port, and this daemon sends through ax25netd only".
+A refusal that says "no such port" would be a false statement about a port
+that does exist and that other programs use \(em the name is taken here for
+one thing and nowhere else.
+.PP
+A WAMPES name contains a colon, and the first colon of a
+.I port:dest
+argument is the boundary, so such a name can only be given whole, through
+.BR \-\-port :
+.B "connect --port wampes:hfb DB0AAA".
+.PP
+.BR ax25netctl (8)
+answers what a name is and whether the netd agrees, which is the question to
+ask first when a connect of this daemon does not go out.
 .SH OPTIONS
 .TP
 .B \-\-silent
@@ -275,6 +331,8 @@ Log to standard error.
 .SH SEE ALSO
 .BR ax25tcpd.conf (5),
 .BR ax25netd (8),
+.BR ax25netctl (8),
+.BR axports (5),
 .BR ax25common.conf (5),
 .BR ax25netd_agwpe.conf (5),
 .BR wampes (1)
