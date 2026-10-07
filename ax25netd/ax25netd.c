@@ -452,6 +452,17 @@ int main(int argc, char **argv)
 		}
 	}
 
+	/*
+	 * -d is the daemon's "everything", and what libax25 prints under
+	 * AXSOCK_DEBUG belongs to diagnosing exactly those paths: which
+	 * backend answered a call, why a monitor open was refused or handed
+	 * out quiet.  The library reads the variable once, lazily, on its
+	 * first intercepted call, so it has to be set here - before the
+	 * first socket(), which nothing above has opened yet.
+	 */
+	if (ax25netd.debug)
+		setenv("AXSOCK_DEBUG", "1", 1);
+
 	if (port <= 0 || port > 65535) {
 		fprintf(stderr, "ax25netd: invalid port %d\n", port);
 		return 1;
