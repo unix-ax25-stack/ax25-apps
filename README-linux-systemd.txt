@@ -54,7 +54,7 @@ silence is not the absence of events.
 ax25d
 -----
 
-    /etc/systemd/system/ax25d.service
+    /etc/systemd/system/ax25d.service:
 
     [Unit]
     Description=AX.25 daemon
@@ -95,7 +95,7 @@ unit too; elsewhere they start a service that has nothing to serve.
 ax25netd
 --------
 
-    /etc/systemd/system/ax25netd.service
+    /etc/systemd/system/ax25netd.service:
 
     [Unit]
     Description=AGWPE multiplexer for AX.25 clients
@@ -288,7 +288,7 @@ ax25tcpd needs no root, and on a host whose AX.25 is the userspace one
 neither does mheardd - so both run as the account ax25netd runs as, and both
 carry the ordering above:
 
-    /etc/systemd/system/ax25tcpd.service
+    /etc/systemd/system/ax25tcpd.service:
 
     [Unit]
     Description=AX.25 to TCP bridge
@@ -306,7 +306,7 @@ carry the ordering above:
     [Install]
     WantedBy=multi-user.target
 
-    /etc/systemd/system/mheardd.service
+    /etc/systemd/system/mheardd.service:
 
     [Unit]
     Description=AX.25 heard list
@@ -396,7 +396,7 @@ socket calls.  Nothing is recompiled.  conversd from
 
 is the example, because it is a real one - the unit that runs it here:
 
-    /etc/systemd/system/conversd.service
+    /etc/systemd/system/conversd.service:
 
     [Unit]
     Description=DL/Euro-Convers Daemon
