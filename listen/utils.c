@@ -77,41 +77,130 @@ void lprintf(int dtype, char *fmt, ...)
 			addch(ch);
 		}
 	} else {
+		int last, err, busy = 0;
+
 		for (p = str; *p != '\0'; p++)
 			if ((*p < 32 && *p != '\n')
 			    || (*p > 126 && (unsigned char) *p < 160 && sevenbit))
 				*p = '.';
-		if (fputs(str, stdout) == EOF || fflush(stdout) == EOF) {
+		last = (p > str && p[-1] == '\n');
+
+		/*
+		 * Flush at the end of a line and nowhere else.
+		 *
+		 * Every line this program shows is built from fragments -
+		 * "fm ", the call, " to ", the other call, the control
+		 * field, the newline - and flushing each of them turned one
+		 * line into a dozen writes.  When the terminal was full, the
+		 * write that failed was one in the middle of a line, so the
+		 * operator got half a frame header, the reason for it after
+		 * it, and the rest of the header somewhere else: output that
+		 * cannot be told apart from output that arrived.
+		 *
+		 * Left alone, the fragments stay in the buffer until the
+		 * newline arrives, and the line goes out in one write or not
+		 * at all.  What is missing when the output is blocked is
+		 * then a whole line, which is what the message below is
+		 * about, and it is announced at a line boundary instead of
+		 * in the middle of one.
+		 *
+		 * The flush itself stays where it is.  A buffered fputs()
+		 * can take the bytes happily and only the flush finds out
+		 * that the descriptor will not have them, and nothing else
+		 * in this function would ever see that failure - the next
+		 * fragment does not end a line either.
+		 */
+		err = 0;
+		if (fputs(str, stdout) == EOF)
+			err = errno;
+		else if (last && fflush(stdout) == EOF)
+			err = errno;
+
+		if (err == EINTR || err == EAGAIN)
+			busy = 1;
+		else if (err == EWOULDBLOCK)	/* the same value as EAGAIN
+						 * where the two are one */
+			busy = 1;
+
+		if (busy) {
 			/*
-			 * Output that cannot be written is not the monitor
-			 * failing.  A terminal whose buffer is full, a
-			 * pipe whose reader has gone, a pty nobody is
-			 * draining - none of that says anything about
-			 * the frames, and a listener that exits for it
-			 * has stopped watching the band over a reason
-			 * that has nothing to do with the band.  The
-			 * line that ends a busy terminal is one byte
-			 * long and it is enough: this program writes
-			 * one line per frame to a terminal that the
-			 * other end is filling up at the same time.
+			 * Output that is full is not the monitor failing.  A
+			 * terminal whose buffer is full, a pty nobody is
+			 * draining - none of that says anything about the
+			 * frames, and a listener that exits for it has
+			 * stopped watching the band over a reason that has
+			 * nothing to do with the band.  This program writes
+			 * one line per frame to a terminal that whatever
+			 * else is running on it is filling up at the same
+			 * time, so a terminal with no room left is an
+			 * ordinary Tuesday, not a fault in the monitor.
 			 *
-			 * So: say once that the frames are going
-			 * nowhere, keep listening, and keep trying -
-			 * the terminal may drain, and when it does the
-			 * output carries on where it left off.  Say
-			 * that too, because a monitor that goes quiet
-			 * and then starts again is otherwise
-			 * indistinguishable from one that lost the
-			 * band and found it.
+			 * So: say once that the frames are going nowhere,
+			 * keep listening, and keep trying - the terminal may
+			 * drain, and when it does the output carries on
+			 * where it left off.  Say that too, because a
+			 * monitor that goes quiet and then starts up again
+			 * is otherwise indistinguishable from one that lost
+			 * the band and found it.
+			 *
+			 * The outage is only remembered if the words got
+			 * out.  stderr goes to the same terminal that has
+			 * no room, so that write can be the one that is
+			 * dropped - and a monitor that then announced the
+			 * recovery of an outage nobody read ends up with a
+			 * "works again" for which there was nothing before
+			 * it.  Left unremembered, the next frame says it
+			 * again.
+			 *
+			 * And clear the stream's error indicator, because
+			 * stdio does not do that for us: on a stream that
+			 * has failed, fputs() and fflush() keep answering
+			 * EOF without putting anything on the descriptor
+			 * any more - measured on macOS, where a raw write()
+			 * to the very same descriptor succeeded right next
+			 * to a flush() that still returned EAGAIN.  Left
+			 * set, the busy output never becomes unbusy: the
+			 * monitor would drop every line after the first
+			 * one it could not write, for as long as it runs.
+			 * For an output that is full, the indicator is
+			 * only a note about a line that is still owed, and
+			 * the next line has to be allowed to try.
 			 */
-			if (!output_failed) {
+			clearerr(stdout);
+			if (!output_failed &&
+			    fprintf(stderr, "listen: cannot write to "
+				    "standard output (%s); frames are "
+				    "dropped until it works again\n",
+				    strerror(err)) >= 0)
 				output_failed = 1;
-				fprintf(stderr, "listen: cannot write to "
-					"standard output (%s); frames are "
-					"dropped until it works again\n",
-					strerror(errno));
-			}
-		} else if (output_failed) {
+			return;
+		}
+
+		if (err != 0) {
+			/*
+			 * Everything else says the descriptor itself is not
+			 * there any more: EBADF for one closed for good, and
+			 * on Linux EIO for a pty whose master side went away
+			 * - which is what a login shell leaving its terminal
+			 * does.  Nothing is going to make those writable
+			 * again, and a listener that cannot write to the
+			 * terminal it was started on and goes on listening
+			 * anyway is a program with no reader, no purpose and
+			 * no end: it survives the logout and waits for
+			 * frames it will show to nobody.
+			 *
+			 * So this one ends the program, with the reason.
+			 * That is where the exit(1) went that this used to
+			 * have for every error, and it belongs here rather
+			 * than on a terminal that is merely busy.
+			 */
+			fprintf(stderr, "listen: cannot write to standard "
+				"output (%s): the output is gone, stopping\n",
+				strerror(err));
+			exit(1);
+		}
+
+		if (output_failed) {
 			output_failed = 0;
 			fprintf(stderr, "listen: standard output works "
 				"again\n");
