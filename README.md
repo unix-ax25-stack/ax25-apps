@@ -17,9 +17,6 @@ ax25-apps/-tools is very large.
 
 See the Non-kernelmod-packet-config-scenarios.odp in the Documentation repo for more details.
 
-There are known limitaios and bugs the new ax25tcpd being worked on.
-Not critical, if you never missed his feature, you don't need it anyway.
-
 More as a proof of concept: in production on **DB0FHN** since August 2026.
 
 Testing and bug reports are welcome; so are ideas — use GitHub Discussions.
