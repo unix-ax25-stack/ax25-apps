@@ -177,8 +177,15 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 		}
 	}
 
-	if (length == 0)
+	if (length == 0) {
+		/* The address field ate the whole frame, so there is no
+		 * control field to decode.  The line is already on the
+		 * screen - port, "fm", both calls, any digipeaters - and
+		 * returning without its newline would run the next frame's
+		 * header into it. */
+		lprintf(T_AXHDR, "\n");
 		return;
+	}
 
 	ctlen = ftype(data, &type, &ns, &nr, &pf, extseq);
 
