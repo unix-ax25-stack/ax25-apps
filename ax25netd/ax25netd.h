@@ -104,6 +104,12 @@ struct ax25netd_session {
 	unsigned char		chan;		/* radio channel on the upstream */
 	int			fd;		/* owning loop client */
 
+	/* The handle this session is listed and killed by, handed out once
+	 * when it is created and never reused while the daemon runs, so an id
+	 * read from a table a moment ago cannot name a different connection.
+	 * The array slot it lives in may move, the id does not.  */
+	uint32_t		id;
+
 	/* Connection parameters set through the 'Q' control extension
 	 * (axctl).  Zero means the default applies.  */
 	unsigned int		window;

@@ -577,6 +577,16 @@ static int session_pair_active(struct ax25netd_upstream *u,
 	return 0;
 }
 
+/*
+ * The handle a session is listed and killed by.  One counter for the whole
+ * daemon, so an id is unique across the radio upstreams and the loop, and
+ * monotonic, so a value is never reused while the daemon runs and an id read
+ * from a table a moment ago cannot name a different connection.  Wrapping at
+ * 2^32 is left to happen: it would take four billion sessions, and the same
+ * chance of a stale id colliding exists in any scheme that hands one out.
+ */
+static uint32_t mux_session_id_next = 1;
+
 static struct ax25netd_session *session_add(struct ax25netd_upstream *u,
 					const char *local, const char *remote,
 					unsigned char pid, int fd,
@@ -604,6 +614,7 @@ static struct ax25netd_session *session_add(struct ax25netd_upstream *u,
 	s->pid = pid;
 	s->chan = chan;
 	s->fd = fd;
+	s->id = mux_session_id_next++;
 	return s;
 }
 
@@ -1000,6 +1011,229 @@ static void mux_ctl_kill(struct ax25netd_client *cl, const struct agwpe_s *hdr)
 							lc, rc);
 		}
 	}
+}
+
+/*
+ * End one session: the work a kill by id does, and the same work a kill by
+ * name does on a radio.  A radio session has an owner to tell and a link to
+ * drop upstream once its last session is gone.  A loop session has two ends
+ * and no upstream, and the caller of a kill by id is neither end, so both are
+ * told - unlike a kill by name, where the caller is one end and only the
+ * other has to hear.
+ */
+static void mux_kill_session(struct ax25netd_client *cl,
+			     struct ax25netd_upstream *u,
+			     struct ax25netd_session *s)
+{
+	char lc[AGWPE_MAX_CALL], rc[AGWPE_MAX_CALL];
+	unsigned char chan = s->chan;
+
+	memcpy(lc, s->call_from, sizeof(lc));
+	memcpy(rc, s->call_to, sizeof(rc));
+
+	if (u == &ax25netd.loop) {
+		struct ax25netd_session *rev = session_find(u, rc, lc, 0, -1);
+		struct ax25netd_client *a = client_by_fd(s->fd);
+		struct ax25netd_client *b = rev != NULL ?
+			client_by_fd(rev->fd) : loop_call_by_call(rc);
+		struct agwpe_s h;
+		char msg[32];
+
+		snprintf(msg, sizeof(msg), "*** DISCONNECTED\r");
+		loop_link_remove(u, lc, rc);
+
+		if (a != NULL && a != cl) {
+			agwpe_header_init(&h, AGWPE_PORT_LOOP,
+					  AGWPE_DK_DISCONNECT, 0, rc, lc,
+					  strlen(msg) + 1);
+			loop_send_client(a, &h, (unsigned char *)msg,
+					 strlen(msg) + 1);
+		}
+		if (b != NULL && b != a && b != cl) {
+			agwpe_header_init(&h, AGWPE_PORT_LOOP,
+					  AGWPE_DK_DISCONNECT, 0, lc, rc,
+					  strlen(msg) + 1);
+			loop_send_client(b, &h, (unsigned char *)msg,
+					 strlen(msg) + 1);
+		}
+		return;
+	}
+
+	ctl_disconnect_owner(cl, u, s);
+	session_remove(u, s);
+	if (!session_pair_active(u, lc, rc) && u->connected)
+		agwpe_client_disconnect(u->cli, chan, lc, rc);
+}
+
+/*
+ * End the session with this id, wherever it is.  The id comes from a table
+ * this server handed out, so the port and call pair need not be known.  An id
+ * no session carries is dropped in silence: there is nothing useful to send
+ * back, and a caller cannot be told apart from one that named the wrong id.
+ */
+static void mux_ctl_killid(struct ax25netd_client *cl,
+			   const unsigned char *data, size_t len)
+{
+	struct ax25netd_upstream *u;
+	uint32_t id;
+	int i, j;
+
+	if (data == NULL || len < 5)
+		return;
+	memcpy(&id, data + 1, sizeof(id));
+	id = agwpe_netle2host(id);
+
+	for (i = 0; i < ax25netd.nup; i++) {
+		u = &ax25netd.ups[i];
+		for (j = 0; j < u->nsessions; j++) {
+			if (u->sessions[j].id != id)
+				continue;
+			mux_kill_session(cl, u, &u->sessions[j]);
+			return;
+		}
+	}
+	if (ax25netd.loop_enabled) {
+		u = &ax25netd.loop;
+		for (j = 0; j < u->nsessions; j++) {
+			if (u->sessions[j].id != id)
+				continue;
+			mux_kill_session(cl, u, &u->sessions[j]);
+			return;
+		}
+	}
+	ax25netd_verbose("client %d: kill of session %u: no such session",
+			 cl->fd, id);
+}
+
+/*
+ * The session table, as text: the subcommand byte, then ';'-separated rows
+ * with the row count first, the same shape as an upstream's 'G' port list (and
+ * read by the same kind of tokenizer) except for the leading byte, which says
+ * which 'Q' answer this is.  A row is
+ *
+ *	id port upstream chan from to pid
+ *
+ * with decimal numbers and the call pair as the server spells it.  ax25netctl(8)
+ * is what reads it.
+ *
+ * Sessions are tracked per direction on the loop, so a loop connection has
+ * two rows, one per end.  Only one is listed: the two name the same
+ * connection, and a table that showed it twice would invite a kill of an
+ * already-broken link.  A radio upstream keeps each of its connections once,
+ * even when two of them run between the same pair of stations, so none of its
+ * rows are folded together.
+ */
+static int session_listed_before(struct ax25netd_upstream *u, int idx)
+{
+	int i;
+
+	if (u != &ax25netd.loop)
+		return 0;
+
+	for (i = 0; i < idx; i++) {
+		if (strcmp(u->sessions[i].call_from,
+			   u->sessions[idx].call_from) == 0 &&
+		    strcmp(u->sessions[i].call_to,
+			   u->sessions[idx].call_to) == 0)
+			return 1;
+		if (strcmp(u->sessions[i].call_from,
+			   u->sessions[idx].call_to) == 0 &&
+		    strcmp(u->sessions[i].call_to,
+			   u->sessions[idx].call_from) == 0)
+			return 1;
+	}
+	return 0;
+}
+
+/* One row, without the ';' that follows it.  buf may be NULL with cap 0 to
+ * ask for the length only, as snprintf() allows. */
+static int session_row(char *buf, size_t cap,
+		       const struct ax25netd_upstream *u,
+		       const struct ax25netd_session *s, int loop)
+{
+	return snprintf(buf, cap, "%u %u %s %u %s %s %u", s->id,
+			loop ? AGWPE_PORT_LOOP : port_flat(u, s->chan),
+			u->name, s->chan, s->call_from, s->call_to, s->pid);
+}
+
+static void mux_ctl_sessions(struct ax25netd_client *cl)
+{
+	struct ax25netd_upstream *u;
+	struct agwpe_s hdr;
+	char *buf;
+	size_t cap, n = 0;
+	int i, j, count = 0;
+
+	for (i = 0; i < ax25netd.nup; i++)
+		for (j = 0; j < ax25netd.ups[i].nsessions; j++)
+			if (!session_listed_before(&ax25netd.ups[i], j))
+				count++;
+	if (ax25netd.loop_enabled) {
+		u = &ax25netd.loop;
+		for (j = 0; j < u->nsessions; j++)
+			if (!session_listed_before(u, j))
+				count++;
+	}
+
+	/* The reply goes out as one frame, so its length is worked out
+	 * before the first byte is written: the subcommand byte, the row
+	 * count, then the rows. */
+	cap = 1 + (size_t)snprintf(NULL, 0, "%d;", count);
+	for (i = 0; i < ax25netd.nup; i++) {
+		u = &ax25netd.ups[i];
+		for (j = 0; j < u->nsessions; j++)
+			if (!session_listed_before(u, j))
+				cap += (size_t)session_row(NULL, 0, u,
+						&u->sessions[j], 0) + 1;
+	}
+	if (ax25netd.loop_enabled) {
+		u = &ax25netd.loop;
+		for (j = 0; j < u->nsessions; j++)
+			if (!session_listed_before(u, j))
+				cap += (size_t)session_row(NULL, 0, u,
+						&u->sessions[j], 1) + 1;
+	}
+
+	buf = malloc(cap + 1);		/* + trailing NUL, as the port list */
+	if (buf == NULL) {
+		/* An empty table beats no answer at all. */
+		buf = malloc(4);
+		if (buf == NULL)
+			return;
+		n = (size_t)snprintf(buf, 4, "%c0;", AGWPE_CTL_SESSIONS);
+		agwpe_header_init(&hdr, 0, AGWPE_CMD_CTL, 0, NULL, NULL, n);
+		loop_send_client(cl, &hdr, (unsigned char *)buf, n);
+		free(buf);
+		return;
+	}
+
+	buf[n++] = AGWPE_CTL_SESSIONS;
+	n += (size_t)snprintf(buf + n, cap + 1 - n, "%d;", count);
+	for (i = 0; i < ax25netd.nup; i++) {
+		u = &ax25netd.ups[i];
+		for (j = 0; j < u->nsessions; j++) {
+			if (session_listed_before(u, j))
+				continue;
+			n += (size_t)session_row(buf + n, cap + 1 - n, u,
+						 &u->sessions[j], 0);
+			buf[n++] = ';';
+		}
+	}
+	if (ax25netd.loop_enabled) {
+		u = &ax25netd.loop;
+		for (j = 0; j < u->nsessions; j++) {
+			if (session_listed_before(u, j))
+				continue;
+			n += (size_t)session_row(buf + n, cap + 1 - n, u,
+						 &u->sessions[j], 1);
+			buf[n++] = ';';
+		}
+	}
+	buf[n++] = '\0';
+
+	agwpe_header_init(&hdr, 0, AGWPE_CMD_CTL, 0, NULL, NULL, n);
+	loop_send_client(cl, &hdr, (unsigned char *)buf, n);
+	free(buf);
 }
 
 static void mux_ctl_monmask(struct ax25netd_client *cl, unsigned char mask)
@@ -1598,6 +1832,12 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 		else if (data != NULL && len > 0 &&
 			 data[0] == AGWPE_CTL_UISUB)
 			mux_ctl_uisub(cl);
+		else if (data != NULL && len > 0 &&
+			 data[0] == AGWPE_CTL_SESSIONS)
+			mux_ctl_sessions(cl);
+		else if (data != NULL && len >= 5 &&
+			 data[0] == AGWPE_CTL_KILLID)
+			mux_ctl_killid(cl, data, len);
 		break;
 
 	default:

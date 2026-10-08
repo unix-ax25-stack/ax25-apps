@@ -2,10 +2,19 @@
 .\"
 .TH AX25NETCTL 8 "06 Oct 2026" "ax25-apps" "Linux System Administration"
 .SH NAME
-@@@ax25netctl@@@ \- say what a port name is
+@@@ax25netctl@@@ \- say what a port name is, and list or end ax25netd sessions
 .SH SYNOPSIS
 .B @@@ax25netctl@@@
 [\-L] [\-H \fIendpoint\fR] [\-C \fIfile\fR] [\-v] [\fIname\fR ...]
+.br
+.B @@@ax25netctl@@@
+[\-H \fIendpoint\fR] \-s
+.br
+.B @@@ax25netctl@@@
+[\-H \fIendpoint\fR] \-k \fIid\fR
+.br
+.B @@@ax25netctl@@@
+\-k \fIport\fR:\fIdest\fR \fIsrc\fR
 .SH DESCRIPTION
 .B @@@ax25netctl@@@
 answers one question about the ports of this machine: what
@@ -38,6 +47,15 @@ So
 asks the library what a name is, and then asks
 .BR ax25netd (8)
 whether it agrees.
+.PP
+It answers a second question as well: which sessions
+.BR ax25netd (8)
+is carrying, and how to end one.  A connection a program opened can be seen
+and closed without finding that program, which is what
+.B \-s
+and
+.B \-k
+are for.
 .PP
 With no
 .IR name ,
@@ -80,6 +98,32 @@ Shared loop port configuration, read by
 .BR @@@ax25netctl@@@
 and the AGWPE shim alike.  Default
 .IR @@@AX25_SYSCONFDIR@@@/ax25common.conf .
+.TP
+.B \-s
+List the sessions
+.BR ax25netd (8)
+is carrying and exit.  See
+.BR SESSIONS .
+.TP
+.BI \-k " id"
+End the session with that id and exit.  The id is the one
+.B \-s
+printed, and names the session wherever it is, so the port and the call pair
+need not be known.  Nothing is printed on success, as in
+.BR axkill (8).
+.TP
+.BI \-k " port:dest src"
+End the connection from
+.I src
+to
+.I dest
+and exit.  The port is written as in
+.BR axports (5),
+and the request is the same one
+.BR axkill (8)
+makes, so a kernel interface, a WAMPES node and an
+.BR ax25netd (8)
+upstream are all reached the same way.
 .TP
 .B \-v
 Also print what
@@ -183,6 +227,56 @@ reason when there is nothing to be had.  A name that resolves to an AGWPE port
 the server does not list is answered with what to look at; a name that is not
 an AGWPE port is answered with the stack it belongs to, or, if none, with the
 line the colon would have to be behind.
+.SH SESSIONS
+.B \-s
+asks
+.BR ax25netd (8)
+for the sessions it is carrying and prints one row each:
+.TP
+.B ID
+The handle the session has for as long as it lives, and what
+.B \-k
+names.  It stays the same while the session does, whatever the server does with
+its own tables in the meantime.
+.TP
+.B PORT
+The flat port the session runs on, the same number as in the port table, or
+.B 255
+for the virtual loop port.
+.TP
+.B FROM
+The local call, as the server knows it.
+.TP
+.B TO
+The remote station.
+.TP
+.B PID
+The protocol id carried on the connection.
+.TP
+.B UPSTREAM
+The upstream the session belongs to, or
+.B loop
+for the virtual port.
+.PP
+Only sessions
+.BR ax25netd (8)
+is carrying are shown.  A connection through a WAMPES node is that node's and
+is not listed here.
+.PP
+A loop connection is tracked as two rows, one per end, and printed as one.
+Ending it ends both ends, and both clients are told, as with
+.BR axkill (8).
+.PP
+.B \-k
+by id says nothing on success, the same as
+.BR axkill (8):
+the server does not answer a kill, so there is nothing to report but that the
+request left.  An id no session carries is not an error the tool can see
+either.  The other form of
+.B \-k
+takes the port and call pair
+.BR axkill (8)
+does.
 .SH ENVIRONMENT
 .TP
 .B AXSOCK_HOST
@@ -217,7 +311,15 @@ The WAMPES nodes this machine can reach.
 with no names \-
 when the tables could be read.  1 when a name did not resolve, when it
 resolved to a port the server does not have, or when the server could not be
-reached.
+reached.  For
+.B \-s
+and
+.B \-k
+by id, 0 when the request was answered or sent, 1 when the server could not be
+reached or did not answer, and for
+.B \-k
+by name the same as
+.BR axkill (8).
 .SH EXAMPLES
 .TP
 .B ax25netctl
@@ -239,6 +341,29 @@ comparison with a run without
 .BR \-L :
 what a name resolves to locally and what the server says about it are the two
 things that can differ.
+.TP
+.B ax25netctl -s
+What
+.BR ax25netd (8)
+is carrying.  A connection that has stopped answering shows here, with the id
+to end it by.
+.TP
+.B ax25netctl -k 17
+End session 17, the one
+.B \-s
+listed.  It does not matter which port or call pair it has, only that the id is
+still the one that was printed.
+.TP
+.B ax25netctl -k hf:2:DB0AAA DL9SAU
+The other form: end the connection from
+.B DL9SAU
+to
+.B DB0AAA
+on the port
+.BR hf:2 ,
+which is the request
+.BR axkill (8)
+makes.
 .SH SEE ALSO
 .BR ax25netd (8),
 .BR ax25netd_agwpe.conf (5),
