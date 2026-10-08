@@ -232,7 +232,7 @@ Wants= asks for the same start without making it a condition; a missing
 unit is not an error, and ordering against it costs nothing.
 
 Where ax25netd is there but not yet up, they meet a loop socket that is
-not there yet, and none of them meets it well:
+not there yet.  What each of them does until it appears:
 
   - ax25tcpd exits.  Its back side is the loop socket, and it connects
     there before it opens anything: "cannot connect to
@@ -240,15 +240,15 @@ not there yet, and none of them meets it well:
     exit code 1 - and Restart=on-failure then starts it again every
     RestartSec until the other unit happens to be up.
 
-  - ax25d waits, where it carries the ordering.  Opening a port that
-    belongs to ax25netd waits for the link before listen(2) returns, and
-    gives up only after ten seconds in
-    which the reader has not managed to connect: the reader retries in the
-    background, and every failed attempt starts those ten seconds over.
-    Measured with two userspace ports and no ax25netd answering - 25
-    seconds for the first listen, 16 for the second.  The ports are not
-    registered while the link is down either; the reader registers them
-    when it comes up.
+  - ax25d starts, and does not wait.  listen(2) answers immediately for
+    a port that belongs to ax25netd too: the registration is recorded
+    while the link is down, and the reader replays it the moment a
+    connection fits - the same quiet hand-out a monitor gets.  Nothing
+    stands waiting for a server whose absence the reader has already
+    reported, and a WAMPES-served listener never stands behind the
+    server it does not use.  The reader keeps retrying while it is away
+    (every few seconds, backoff capped at eight), so a server that comes
+    back is carried again within seconds, not half a minute.
 
   - mheardd starts, and does not wait.  It opens its monitor once, at
     start-up, and the open is refused only when nothing at all could feed
@@ -261,10 +261,13 @@ not there yet, and none of them meets it well:
     WAMPES node is configured - the ordering saves it only the retries it
     no longer has to make.
 
-All of them recover - the library reconnects with a backoff and registers
-again what this process had registered before - but recovery happens after
-everybody has already waited, and at boot it happens at every single
-start.  Two lines take that away.
+Everything recovers by itself once the server is there: the reader
+reconnects and replays every registration and monitor toggle this
+process has asked for - what it asked for while the link was down is
+already on the list.  ax25tcpd is the only one that has to restart, the
+exit it chose; the ordering above is what spares it its retries.  To
+the other two units the same lines are a head start, not a condition:
+they are up, and they wait for the link themselves.
 
 After= says the same in both cases and is never the strict one: it orders
 when the start happens and does not insist on it.  What it buys with
