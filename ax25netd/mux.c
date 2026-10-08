@@ -948,6 +948,12 @@ static void ctl_disconnect_owner(struct ax25netd_client *cl,
 	loop_send_client(owner, &hdr, (unsigned char *)msg, strlen(msg) + 1);
 }
 
+/* Declared before mux_ctl_kill(), which reaches for it; it is defined below,
+ * next to mux_ctl_killid(), the other caller. */
+static void mux_kill_session(struct ax25netd_client *cl,
+			     struct ax25netd_upstream *u,
+			     struct ax25netd_session *s);
+
 static void mux_ctl_kill(struct ax25netd_client *cl, const struct agwpe_s *hdr)
 {
 	struct ax25netd_upstream *u = up_by_port_or_log(hdr->port, cl, "kill");
@@ -960,6 +966,30 @@ static void mux_ctl_kill(struct ax25netd_client *cl, const struct agwpe_s *hdr)
 	memcpy(to, hdr->call_to, sizeof(to));
 
 	if (u == &ax25netd.loop) {
+		struct ax25netd_session *s;
+
+		/* The pair is asked of the session table first, and only of
+		 * the registered calls when no session is tracked for it.
+		 *
+		 * A session knows which client holds each of its ends, which
+		 * a registered call does not: a program is free to open a
+		 * connection without registering the call it connected with,
+		 * and the call lookup alone would then tell only the end that
+		 * did register.  That end is left holding a link whose
+		 * sessions are already gone, with nothing left that would
+		 * ever tell it - which is not what ending a connection means.
+		 *
+		 * A pair no session is tracked for is a link this daemon
+		 * never saw come up, and there the registrations are all
+		 * there is. */
+		s = session_find(u, from, to, session_pid(hdr->pid), -1);
+		if (s == NULL)
+			s = session_find(u, to, from, 0, -1);
+		if (s != NULL) {
+			mux_kill_session(cl, u, s);
+			return;
+		}
+
 		/* Tear the link down in both directions and tell both
 		 * ends, if they are still connected.  */
 		struct ax25netd_client *af, *at;
