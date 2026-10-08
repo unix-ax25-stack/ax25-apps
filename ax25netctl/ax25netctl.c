@@ -373,9 +373,14 @@ static int show_sessions(void)
 	       "ID", "PORT", "FROM", "TO", "PID", "UPSTREAM");
 	for (i = 0; i < netd.sessions.count; i++) {
 		struct agwpe_session *s = &netd.sessions.sessions[i];
+		char pid[8];
 
-		printf("%-8u %-5d %-10s %-10s %-4u %s\n",
-		       s->id, s->port, s->from, s->to, s->pid, s->up);
+		/* Hex, as AX.25 PIDs are written: a small decimal number
+		 * next to the id would read as a second one.  All values are
+		 * four characters, so the column never shifts. */
+		snprintf(pid, sizeof(pid), "0x%02X", s->pid);
+		printf("%-8u %-5d %-10s %-10s %-4s %s\n",
+		       s->id, s->port, s->from, s->to, pid, s->up);
 	}
 	if (netd.sessions.count == 0)
 		printf("(no sessions)\n");
