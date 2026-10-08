@@ -257,7 +257,20 @@ The local call, as the server knows it.
 The remote station.
 .TP
 .B PID
-The protocol id carried on the connection.
+The protocol id, written in hex as AX.25 usually writes it.
+.B 0xf0
+is the default - no layer 3, plain text - and the one a socket made
+without a protocol id carries;
+.B 0xcf
+is NET/ROM,
+.B 0xc3
+ROSE,
+.B 0xc4
+TEXNET and
+.B 0xcc
+a layer 3 protocol.  It is recorded from the connect, and only there:
+the session remains the call pair, and a different pid is not a
+different session.
 .TP
 .B UPSTREAM
 The upstream the session belongs to, or
