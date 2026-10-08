@@ -26,7 +26,7 @@
  * answer the question, so the way to see why a connect failed was to read three
  * files and work out the numbering by hand.
  *
- * So: one tool, two questions.
+ * So: one tool, three questions.
  *
  *   Which stack serves this name?  Kernel AX.25, a WAMPES node, or an ax25netd
  *   upstream - asked of the library through ax25_port_info(), which is where
@@ -38,9 +38,17 @@
  *   tool connects and asks it for its version and its port table, and prints
  *   both next to what the library worked out.
  *
- * The second half is what makes the difference between "no such port" and a
- * reason.  A name in axports that ax25netd does not list is a name whose
- * upstream is down, or has not come up yet, or is not in
+ *   Which connections are running, and how does one end?  ax25netd tracks
+ *   every session it carries and gives each an id for as long as it lives, so
+ *   "-s" prints the table and "-k id" ends one without having to find the
+ *   program that opened it or name its port and call pair.  The other half of
+ *   -k is axkill(8)'s request - port:dest src - for a caller that already
+ *   knows the pair, carried by the same SIOCAX25CTLCON axkill uses so that
+ *   kernel, WAMPES and ax25netd ports all answer it alike.
+ *
+ * The second half of the first question is what makes the difference between
+ * "no such port" and a reason.  A name in axports that ax25netd does not list
+ * is a name whose upstream is down, or has not come up yet, or is not in
  * ax25netd_agwpe.conf at all - three different problems that all look the
  * same from the client side.
  */
@@ -56,9 +64,11 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 
 #include <netax25/agwpe.h>
 #include <netax25/agwpe_client.h>
+#include <netax25/ax25.h>
 #include <netax25/axcommon.h>
 #include <netax25/axlib.h>
 #include <netax25/axconfig.h>
@@ -97,9 +107,11 @@ static struct {
 	int			reached;	/* and one was there */
 	int			got_ports;	/* the 'G' reply arrived, even
 						 * an empty one */
+	int			got_sessions;	/* the session reply arrived */
 	char			version[64];	/* "" until it answered */
 	struct netd_port	ports[AGWPE_PORT_MAX];
 	int			nports;
+	struct agwpe_session_list sessions;
 } netd;
 
 static char endpoint[PATH_MAX] = "";
@@ -109,6 +121,9 @@ static void usage(FILE *fp)
 {
 	fprintf(fp,
 "Usage: %s [-L] [-H endpoint] [-C file] [-v] [name ...]\n"
+"       %s -s\n"
+"       %s -k id\n"
+"       %s -k port:dest src\n"
 "\n"
 "With no name, print one line for every axports entry.  With names, print\n"
 "each one in detail, including why it cannot be used.  A name may carry a\n"
@@ -123,6 +138,14 @@ static void usage(FILE *fp)
 "                  ax25common.conf, and is what the ports are resolved\n"
 "                  against as well.\n"
 "  -C <file>       shared loop port configuration (default %s)\n"
+"  -s              list the sessions ax25netd is carrying and exit.  The\n"
+"                  id in the first column is what -k names.\n"
+"  -k id           end that session and exit.  The id is the one -s\n"
+"                  printed, and names the session wherever it is, without\n"
+"                  the port and call pair.\n"
+"  -k port:dest src\n"
+"                  end the connection from src to dest, the same request\n"
+"                  axkill(8) makes, and exit.\n"
 "  -v              print what axports says about each name too, which\n"
 "                  for a name that has no entry of its own is often\n"
 "                  the answer\n"
@@ -131,7 +154,7 @@ static void usage(FILE *fp)
 "Exit status is 0 when every name given resolved to a usable port, and 1\n"
 "when one did not or when ax25netd could not be reached.  With no names it\n"
 "is 0 whenever the tables could be read at all.\n",
-		prog, DEFAULT_COMMON);
+		prog, prog, prog, prog, DEFAULT_COMMON);
 }
 
 /* ------------------------------------------------------------------ */
@@ -167,6 +190,16 @@ static void on_ports(agwpe_client_t *c, struct agwpe_port_list *list)
 	}
 }
 
+/* The session reply, kept whole: the tool prints it as it arrived.  The
+ * table is bounded by the library, so a server with more rows than
+ * AGWPE_SESSION_MAX has the rest cut off here. */
+static void on_sessions(agwpe_client_t *c, struct agwpe_session_list *list)
+{
+	(void)c;
+	netd.sessions = *list;
+	netd.got_sessions = 1;
+}
+
 /* Pump the connection until want() is satisfied or the timeout is up.
  * Returns 1 when want() became true, 0 on a timeout, -1 on a broken
  * connection.
@@ -198,22 +231,23 @@ static int want_ports(void)
 	return netd.got_ports;
 }
 
-/* Connect to the netd and ask it what it has.  Returns 0 on success, -1 with
- * a reason already printed.
- */
-static int query_netd(void)
+static int want_sessions(void)
 {
-	static const struct agwpe_client_cb cb = {
-		.version = on_version,
-		.ports = on_ports
-	};
+	return netd.got_sessions;
+}
+
+/* Open the connection to ax25netd with the callbacks of the caller's choice.
+ * Returns the client, or NULL with the reason already printed.  The endpoint
+ * is the one endpoint_of() worked out into endpoint[]. */
+static agwpe_client_t *netd_open(const struct agwpe_client_cb *cb)
+{
 	agwpe_client_t *c;
 	int rc;
 
-	c = agwpe_client_new(&cb, NULL);
+	c = agwpe_client_new(cb, NULL);
 	if (c == NULL) {
 		fprintf(stderr, "%s: out of memory\n", prog);
-		return -1;
+		return NULL;
 	}
 
 	if (endpoint[0] == '/') {
@@ -227,13 +261,13 @@ static int query_netd(void)
 				"%s: '%s' is neither a path nor host:port\n",
 				prog, endpoint);
 			agwpe_client_free(c);
-			return -1;
+			return NULL;
 		}
 		if ((size_t)(colon - endpoint) >= sizeof(host)) {
 			fprintf(stderr, "%s: '%s': host part too long\n",
 				prog, endpoint);
 			agwpe_client_free(c);
-			return -1;
+			return NULL;
 		}
 		memcpy(host, endpoint, colon - endpoint);
 		host[colon - endpoint] = '\0';
@@ -243,23 +277,48 @@ static int query_netd(void)
 		fprintf(stderr, "%s: cannot connect to %s: %s\n", prog,
 			endpoint, strerror(agwpe_client_err(c)));
 		agwpe_client_free(c);
-		return -1;
+		return NULL;
 	}
 	netd.reached = 1;
+	return c;
+}
 
-	/* The version request first: something that is not an AGWPE server
-	 * will not answer it, and the port table of something else is worth
-	 * less than being told what it is. */
+/* Ask for the version and wait for it.  Every query does this first: a server
+ * that does not answer it is not an AGWPE server at all, and "which server"
+ * is worth having in the report either way.  Returns 0, or -1 with the
+ * reason printed and the client already freed. */
+static int ask_version(agwpe_client_t *c)
+{
+	int rc;
+
 	agwpe_client_get_version(c);
 	rc = pump(c, want_version);
-	if (rc <= 0) {
-		fprintf(stderr, "%s: %s %s the version request after %d "
-			"seconds\n", prog, endpoint,
-			rc < 0 ? "closed the connection during" : "did not answer",
-			NCTL_TICKS * NCTL_TICK_MS / 1000);
-		agwpe_client_free(c);
+	if (rc > 0)
+		return 0;
+
+	fprintf(stderr, "%s: %s %s the version request after %d seconds\n",
+		prog, endpoint,
+		rc < 0 ? "closed the connection during" : "did not answer",
+		NCTL_TICKS * NCTL_TICK_MS / 1000);
+	agwpe_client_free(c);
+	return -1;
+}
+
+/* Connect to the netd and ask it what it has.  Returns 0 on success, -1 with
+ * a reason already printed.
+ */
+static int query_netd(void)
+{
+	static const struct agwpe_client_cb cb = {
+		.version = on_version,
+		.ports = on_ports
+	};
+	agwpe_client_t *c = netd_open(&cb);
+
+	if (c == NULL)
 		return -1;
-	}
+	if (ask_version(c) < 0)
+		return -1;
 
 	/* The table is not always ready when it is asked for: ax25netd waits
 	 * for its upstreams to answer their own request first, and answers
@@ -270,6 +329,117 @@ static int query_netd(void)
 	pump(c, want_ports);
 
 	agwpe_client_free(c);
+	return 0;
+}
+
+/* Connect and get the session table.  Returns 0 on success, -1 on a failure
+ * with the reason already printed. */
+static int query_sessions(void)
+{
+	static const struct agwpe_client_cb cb = {
+		.version = on_version,
+		.sessions = on_sessions
+	};
+	agwpe_client_t *c = netd_open(&cb);
+
+	if (c == NULL)
+		return -1;
+	if (ask_version(c) < 0)
+		return -1;
+
+	agwpe_client_get_sessions(c);
+	pump(c, want_sessions);
+	agwpe_client_free(c);
+	return 0;
+}
+
+/* Print the sessions.  Returns the exit status: 0 if the table came, 1 if it
+ * did not. */
+static int show_sessions(void)
+{
+	int i;
+
+	if (query_sessions() < 0)
+		return 1;
+	if (!netd.got_sessions) {
+		fprintf(stderr, "%s: %s did not answer the session request\n",
+			prog, endpoint);
+		return 1;
+	}
+
+	printf("%-8s %-5s %-10s %-10s %-4s %s\n",
+	       "ID", "PORT", "FROM", "TO", "PID", "UPSTREAM");
+	for (i = 0; i < netd.sessions.count; i++) {
+		struct agwpe_session *s = &netd.sessions.sessions[i];
+
+		printf("%-8u %-5d %-10s %-10s %-4u %s\n",
+		       s->id, s->port, s->from, s->to, s->pid, s->up);
+	}
+	if (netd.sessions.count == 0)
+		printf("(no sessions)\n");
+	return 0;
+}
+
+/* End a session by the id the table gave.  Nothing is reported on success,
+ * as in axkill(8): a kill has no answer, so there is nothing to report from
+ * but the fact that the request left, and a line of output would be read as
+ * a warning by whatever runs this from a script.  Returns the exit status. */
+static int kill_session_id(unsigned long id)
+{
+	static const struct agwpe_client_cb cb = { .version = on_version };
+	agwpe_client_t *c = netd_open(&cb);
+	int rc;
+
+	if (c == NULL)
+		return 1;
+	rc = agwpe_client_kill_id(c, (uint32_t)id);
+	if (rc < 0)
+		fprintf(stderr, "%s: cannot send the kill to %s: %s\n", prog,
+			endpoint, strerror(agwpe_client_err(c)));
+	/* Let the frame leave before the socket closes. */
+	agwpe_client_pump(c, NCTL_TICK_MS);
+	agwpe_client_free(c);
+	return rc < 0 ? 1 : 0;
+}
+
+/* End a connection by name, axkill(8)'s notation: the port and destination,
+ * with the source.  The same SIOCAX25CTLCON request axkill makes, so a kernel
+ * connection, a WAMPES node and an ax25netd port are reached the same way and
+ * this tool does not grow a second opinion about which is which.  Returns the
+ * exit status. */
+static int kill_by_name(char *port, const char *dest, const char *src)
+{
+	struct ax25_ctl_struct ax25_ctl;
+	char *addr;
+	int s;
+
+	addr = ax25_config_get_addr(port);
+	if (addr == NULL) {
+		fprintf(stderr, "%s: invalid port name - %s\n", prog, port);
+		return 1;
+	}
+	if (ax25_aton_entry(addr, (char *)&ax25_ctl.port_addr) == -1 ||
+	    ax25_aton_entry(dest, (char *)&ax25_ctl.dest_addr) == -1 ||
+	    ax25_aton_entry(src, (char *)&ax25_ctl.source_addr) == -1) {
+		fprintf(stderr, "%s: bad callsign\n", prog);
+		return 1;
+	}
+
+	s = socket(AF_AX25, SOCK_SEQPACKET, 0);
+	if (s < 0) {
+		fprintf(stderr, "%s: socket: %s\n", prog, strerror(errno));
+		return 1;
+	}
+	ax25_ctl.cmd = AX25_KILL;
+	ax25_ctl.arg = 0;
+	ax25_ctl.digi_count = 0;
+	if (ioctl(s, SIOCAX25CTLCON, &ax25_ctl) != 0) {
+		fprintf(stderr, "%s: SIOCAX25CTLCON: %s\n", prog,
+			strerror(errno));
+		close(s);
+		return 1;
+	}
+	close(s);
 	return 0;
 }
 
@@ -615,6 +785,8 @@ int main(int argc, char *argv[])
 {
 	char *comconf = NULL;
 	const char *host = NULL;
+	char *kill_arg = NULL;
+	int show_sess = 0;
 	int no_netd = 0, verbose = 0, rc = 0, i, ch;
 	int nentries = 0;
 	char *name;
@@ -630,12 +802,14 @@ int main(int argc, char *argv[])
 			{ "no-netd",  no_argument,       NULL, 'L' },
 			{ "host",     required_argument, NULL, 'H' },
 			{ "common",   required_argument, NULL, 'C' },
+			{ "sessions", no_argument,       NULL, 's' },
+			{ "kill",     required_argument, NULL, 'k' },
 			{ "verbose",  no_argument,       NULL, 'v' },
 			{ "help",     no_argument,       NULL, 'h' },
 			{ NULL, 0, NULL, 0 }
 		};
 
-		while ((ch = getopt_long(argc, argv, "LH:C:vh", longopts,
+		while ((ch = getopt_long(argc, argv, "LH:C:sk:vh", longopts,
 					 NULL)) != -1) {
 			switch (ch) {
 			case 'L':
@@ -646,6 +820,12 @@ int main(int argc, char *argv[])
 				break;
 			case 'C':
 				comconf = optarg;
+				break;
+			case 's':
+				show_sess = 1;
+				break;
+			case 'k':
+				kill_arg = optarg;
 				break;
 			case 'v':
 				verbose = 1;
@@ -677,9 +857,74 @@ int main(int argc, char *argv[])
 	if (host != NULL)
 		setenv("AXSOCK_HOST", host, 1);
 
+	/* -s and -k by id are questions about the daemon alone; only -k by
+	 * name needs the axports file, below.  Answered before the file is
+	 * read so that a machine without one can still list and kill. */
+	if (kill_arg != NULL && show_sess) {
+		fprintf(stderr, "%s: -s and -k are two different requests\n",
+			prog);
+		return 1;
+	}
+	if (kill_arg != NULL) {
+		char *end;
+		unsigned long id;
+
+		errno = 0;
+		id = strtoul(kill_arg, &end, 10);
+		if (kill_arg[0] != '\0' && *end == '\0' && errno == 0) {
+			if (argc > 0) {
+				fprintf(stderr, "%s: -k %s takes no further "
+					"argument\n", prog, kill_arg);
+				return 1;
+			}
+			if (no_netd) {
+				fprintf(stderr, "%s: -k needs ax25netd\n",
+					prog);
+				return 1;
+			}
+			if (endpoint_of(host, comconf) != 0)
+				return 1;
+			netd.attempted = 1;
+			return kill_session_id(id);
+		}
+	}
+	if (show_sess) {
+		if (argc > 0) {
+			fprintf(stderr, "%s: -s takes no names\n", prog);
+			return 1;
+		}
+		if (no_netd) {
+			fprintf(stderr, "%s: -s needs ax25netd\n", prog);
+			return 1;
+		}
+		if (endpoint_of(host, comconf) != 0)
+			return 1;
+		netd.attempted = 1;
+		return show_sessions();
+	}
+
 	if (ax25_config_load_ports() < 0) {
 		fprintf(stderr, "%s: cannot load the axports file\n", prog);
 		return 1;
+	}
+
+	if (kill_arg != NULL) {
+		char spec[256], *colon;
+
+		if (argc != 1) {
+			fprintf(stderr, "%s: expected -k port:dest src\n",
+				prog);
+			return 1;
+		}
+		snprintf(spec, sizeof(spec), "%s", kill_arg);
+		colon = strrchr(spec, ':');
+		if (colon == NULL || colon == spec || colon[1] == '\0') {
+			fprintf(stderr, "%s: expected port:dest, got '%s'\n",
+				prog, kill_arg);
+			return 1;
+		}
+		*colon = '\0';
+		return kill_by_name(spec, colon + 1, argv[0]);
 	}
 
 	if (!no_netd && endpoint_of(host, comconf) == 0) {
