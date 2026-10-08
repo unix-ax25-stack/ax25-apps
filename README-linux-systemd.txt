@@ -85,8 +85,8 @@ that do - the other is mheardd on a host whose kernel has AX.25, see
 ax25tcpd and mheardd below.
 
 No Wants=ax25netd.service here, unlike the units below: ax25d needs it only
-where ax25netd is its backend - AGWPE ports, and the sessions ax25netctl(1)
-is to list or kill.  A host whose AX.25 is the kernel's needs nobody, and
+where ax25netd is its backend - AGWPE ports, and the sessions ax25netctl(8)
+lists and ends.  A host whose AX.25 is the kernel's needs nobody, and
 with a WAMPES node the library speaks to the node itself.  Where the backend
 is ax25netd, add the two lines from Starting ax25netd first below to this
 unit too; elsewhere they start a service that has nothing to serve.
