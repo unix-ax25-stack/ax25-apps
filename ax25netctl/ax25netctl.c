@@ -43,7 +43,8 @@
  *   "-s" prints the table and "-k id" ends one without having to find the
  *   program that opened it or name its port and call pair.  The other half of
  *   -k is axkill(8)'s request - port:dest src - for a caller that already
- *   knows the pair, carried by the same SIOCAX25CTLCON axkill uses so that
+ *   knows the pair, the port as its axports name or as the number the tables
+ *   print for it, carried by the same SIOCAX25CTLCON axkill uses so that
  *   kernel, WAMPES and ax25netd ports all answer it alike.
  *
  * The second half of the first question is what makes the difference between
@@ -145,7 +146,8 @@ static void usage(FILE *fp)
 "                  the port and call pair.\n"
 "  -k port:dest src\n"
 "                  end the connection from src to dest, the same request\n"
-"                  axkill(8) makes, and exit.\n"
+"                  axkill(8) makes, and exit.  The port is its axports\n"
+"                  name or the number in the PORT column.\n"
 "  -v              print what axports says about each name too, which\n"
 "                  for a name that has no entry of its own is often\n"
 "                  the answer\n"
@@ -402,12 +404,79 @@ static int kill_session_id(unsigned long id)
 	return rc < 0 ? 1 : 0;
 }
 
+/* A port written the way both tables this tool prints give it: nothing but
+ * digits.  A port name is a word, so there is nothing a number could be read
+ * as instead. */
+static int all_digits(const char *s)
+{
+	return s[0] != '\0' && strspn(s, "0123456789") == strlen(s);
+}
+
+/* The number that token carries, or -1 when it is not one a port could have.
+ * A flat port is a byte, 0 to the loop's 255, so a token wider than that is
+ * not a small port but a long one - parsed rather than handed to atoi(), whose
+ * behaviour on a value it cannot hold is not something to depend on.  It is
+ * still reported as a port with nothing behind it, which is the truth of it. */
+static int port_number(const char *s)
+{
+	unsigned long v;
+
+	if (!all_digits(s))
+		return -1;
+	v = strtoul(s, NULL, 10);	/* digits only, so there is no end to
+					 * check; one that does not fit comes
+					 * back as ULONG_MAX and fails below */
+	return v <= AGWPE_PORT_LOOP ? (int)v : -1;
+}
+
+/* The axports name of a flat AGWPE port: the reverse of what the port table
+ * prints beside every name, so a number read off a table can be typed back as
+ * it is.  Returns 1 with the name in buf, 0 when no entry names that port.
+ *
+ * Asked of axports and not of ax25netd, because that is where the number came
+ * from in the first place: the flat port is what the library computes for a
+ * name, so the entry that gives it back is already on this side of the wire,
+ * and a -k does not need a server that is up to be told a number.
+ *
+ * Only an AGWPE entry can match.  Every other backend has no such number and
+ * says so with -1, so a kernel or WAMPES port can never be picked out by a
+ * number that happens to equal it.
+ */
+static int name_by_port(int port, char *buf, size_t len)
+{
+	char *name;
+
+	for (name = ax25_config_get_next(NULL); name != NULL;
+	     name = ax25_config_get_next(name)) {
+		struct ax25_port_info info;
+
+		if (ax25_port_info(name, &info) != 0)
+			continue;
+		if (info.backend == AX25_PORT_AGWPE && info.port == port) {
+			snprintf(buf, len, "%s", name);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 /* End a connection by name, axkill(8)'s notation: the port and destination,
  * with the source.  The same SIOCAX25CTLCON request axkill makes, so a kernel
  * connection, a WAMPES node and an ax25netd port are reached the same way and
  * this tool does not grow a second opinion about which is which.  Returns the
- * exit status. */
-static int kill_by_name(char *port, const char *dest, const char *src)
+ * exit status.
+ *
+ * The port may be the number instead of the name - the PORT column that both
+ * tables print, which is what a reader has just copied it out of.  It is
+ * translated rather than accepted as a second spelling, because the request
+ * carries a callsign and a number has none: the entry that names the port is
+ * what has it.  A number no entry names is then said so, and not guessed at
+ * from the upstream beside it, whose callsign may be another port's.
+ *
+ * port is a buffer of portlen bytes, which is rewritten on a translation.
+ */
+static int kill_by_name(char *port, size_t portlen, const char *dest,
+			const char *src)
 {
 	struct ax25_ctl_struct ax25_ctl;
 	char *addr;
@@ -415,7 +484,22 @@ static int kill_by_name(char *port, const char *dest, const char *src)
 
 	addr = ax25_config_get_addr(port);
 	if (addr == NULL) {
-		fprintf(stderr, "%s: invalid port name - %s\n", prog, port);
+		int n = port_number(port);
+		char name[128];
+
+		if (n >= 0 && name_by_port(n, name, sizeof(name))) {
+			snprintf(port, portlen, "%s", name);
+			addr = ax25_config_get_addr(port);
+		}
+	}
+	if (addr == NULL) {
+		if (all_digits(port))
+			fprintf(stderr, "%s: no axports entry names port %s, "
+				"so there is no callsign to kill by\n", prog,
+				port);
+		else
+			fprintf(stderr, "%s: invalid port name - %s\n", prog,
+				port);
 		return 1;
 	}
 	if (ax25_aton_entry(addr, (char *)&ax25_ctl.port_addr) == -1 ||
@@ -909,7 +993,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (kill_arg != NULL) {
-		char spec[256], *colon;
+		char spec[256], port[256], *colon;
 
 		if (argc != 1) {
 			fprintf(stderr, "%s: expected -k port:dest src\n",
@@ -924,7 +1008,11 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		*colon = '\0';
-		return kill_by_name(spec, colon + 1, argv[0]);
+		/* Copied out before the lookup, which may rewrite it with
+		 * the name a number stands for: the destination sits right
+		 * behind the colon and would be overwritten with it. */
+		snprintf(port, sizeof(port), "%s", spec);
+		return kill_by_name(port, sizeof(port), colon + 1, argv[0]);
 	}
 
 	if (!no_netd && endpoint_of(host, comconf) == 0) {

@@ -119,7 +119,10 @@ to
 .I dest
 and exit.  The port is written as in
 .BR axports (5),
-and the request is the same one
+or as the number in the PORT column, which is how both tables this tool prints
+give it and is looked up in
+.BR axports (5)
+first.  The request is the same one
 .BR axkill (8)
 makes, so a kernel interface, a WAMPES node and an
 .BR ax25netd (8)
@@ -242,7 +245,10 @@ its own tables in the meantime.
 .B PORT
 The flat port the session runs on, the same number as in the port table, or
 .B 255
-for the virtual loop port.
+for the virtual loop port.  It is what
+.B \-k
+takes as well, so a row can be ended by the number it shows without knowing
+first which upstream that number is.
 .TP
 .B FROM
 The local call, as the server knows it.
@@ -364,6 +370,12 @@ on the port
 which is the request
 .BR axkill (8)
 makes.
+.TP
+.B ax25netctl -k 255:DL9SAU-1 DB0FHN-9
+The same, with the port written as the tables print it, here the loop port.
+The number is resolved in
+.BR axports (5)
+first, so the PORT column of either table can be typed back as it stands.
 .SH SEE ALSO
 .BR ax25netd (8),
 .BR ax25netd_agwpe.conf (5),
