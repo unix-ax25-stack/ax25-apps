@@ -25,6 +25,8 @@
  * mediates between AGWPE clients and AGWPE servers.
  */
 
+#include <config.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -131,35 +133,42 @@ const char *ax25netd_auth_mode(void)
 static void usage(const char *prog)
 {
 	fprintf(stderr,
-		"Usage: %s [-f] [-d] [-c config] [-C ax25common.conf]\n"
+		"Usage: %s [-f] [-d] [-v] [-c config] [-C ax25common.conf]\n"
 		"            [-b bindaddr] [-p port] [-U socket] [-g group]\n"
-		"            [--no-tcp] [-u user] [--verbose] [--no-mheard]\n"
+		"            [--loop-mode octal] [--no-tcp] [-u user]\n"
+		"            [--verbose] [--no-mheard]\n"
 		"\n"
-		"  -f         stay in the foreground\n"
-		"  -d         log to stderr as well, and trace every client and\n"
-		"             upstream frame\n"
-		"      --verbose  say the decisions this daemon makes and why it\n"
-		"             refuses something: the endpoint it chose, client\n"
-		"             registrations, upstream losses, and why a port is\n"
-		"             not ready.  Twice for -d as well\n"
-		"  -c <file>  configuration file (default %s)\n"
-		"  -C <file>  shared loop port configuration, read by\n"
-		"             ax25netd and ax25tcpd (default %s)\n"
-		"  -b <addr>  bind address of the loop port; IPv4 and IPv6 are\n"
-		"             supported (default %s)\n"
-		"  -p <port>  TCP port of the loop port (default %d)\n"
-		"  -U <path>  also listen on this unix domain socket (overrides\n"
-		"             the 'loop socket' directive in ax25common.conf)\n"
-		"  -g <name>  group allowed to connect to the unix socket: a\n"
-		"             group name, a numeric gid, or 'all' for every\n"
-		"             local user (default: every local user)\n"
-		"      --loop-mode <octal>  mode of the directory holding the\n"
-		"             unix socket (default: 1775); see 'loop mode'\n"
-		"             in ax25common.conf\n"
-		"      --no-tcp  do not listen on TCP at all; the unix socket\n"
-		"             becomes the only way in (requires -U or 'socket')\n"
-		"  -u <user>  drop root privileges to this user after startup\n"
-		"      --no-mheard  do not maintain the mheard.dat heard list\n",
+		"  -v                   print the version and exit\n"
+		"  -f                   stay in the foreground\n"
+		"  -d                   log to stderr as well, and trace every\n"
+		"                       client and upstream frame\n"
+		"  --verbose            say the decisions this daemon makes and\n"
+		"                       why it refuses something: the endpoint\n"
+		"                       it chose, client registrations, upstream\n"
+		"                       losses, and why a port is not ready.\n"
+		"                       Twice for -d as well\n"
+		"  -c <file>            configuration file (default %s)\n"
+		"  -C <file>            shared loop port configuration, read by\n"
+		"                       ax25netd and ax25tcpd (default %s)\n"
+		"  -b <addr>            bind address of the loop port; IPv4 and\n"
+		"                       IPv6 are supported (default %s)\n"
+		"  -p <port>            TCP port of the loop port (default %d)\n"
+		"  -U <path>            also listen on this unix domain socket\n"
+		"                       (overrides the 'loop socket' directive\n"
+		"                       in ax25common.conf)\n"
+		"  -g <name>            group allowed to connect to the unix\n"
+		"                       socket: a group name, a numeric gid, or\n"
+		"                       'all' for every local user (default:\n"
+		"                       every local user)\n"
+		"  --loop-mode <octal>  mode of the directory holding the unix\n"
+		"                       socket (default: 1775); see 'loop mode'\n"
+		"                       in ax25common.conf\n"
+		"  --no-tcp             do not listen on TCP at all; the unix\n"
+		"                       socket becomes the only way in (requires\n"
+		"                       -U or 'socket')\n"
+		"  -u <user>            drop root privileges to this user after\n"
+		"                       startup\n"
+		"  --no-mheard          do not maintain the mheard.dat heard list\n",
 		prog, DEFAULT_CONF, DEFAULT_COMMON, AX25NETD_BIND_DEFAULT,
 		AX25NETD_PORT_DEFAULT);
 }
@@ -376,10 +385,11 @@ int main(int argc, char **argv)
 			{ "no-mheard", no_argument,     NULL, 'M' },
 			{ "loop-mode", required_argument, NULL, 1001 },
 			{ "verbose",  no_argument,       NULL, 1002 },
+			{ "version",  no_argument,       NULL, 'v' },
 			{ NULL, 0, NULL, 0 }
 		};
 
-		while ((ch = getopt_long(argc, argv, "fdc:C:b:p:U:g:u:h",
+		while ((ch = getopt_long(argc, argv, "fdc:C:b:p:U:g:u:hv",
 					 longopts, NULL)) != -1) {
 			switch (ch) {
 			case 'f':
@@ -388,6 +398,9 @@ int main(int argc, char **argv)
 			case 'd':
 				ax25netd.debug = 1;
 				break;
+			case 'v':
+				printf("ax25netd: %s\n", VERSION);
+				return 0;
 			case 'c':
 				conf = optarg;
 				break;

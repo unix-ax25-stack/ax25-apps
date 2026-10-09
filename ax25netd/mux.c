@@ -615,6 +615,11 @@ static struct ax25netd_session *session_add(struct ax25netd_upstream *u,
 	s->chan = chan;
 	s->fd = fd;
 	s->id = mux_session_id_next++;
+	ax25netd_verbose("session %u: %s -> %s on port %u (%s)",
+			 s->id, s->call_from, s->call_to,
+			 (unsigned)(u->virtual ? AGWPE_PORT_LOOP :
+				     port_flat(u, s->chan)),
+			 u->name);
 	return s;
 }
 
