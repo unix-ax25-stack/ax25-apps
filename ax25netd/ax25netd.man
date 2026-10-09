@@ -1,12 +1,13 @@
 .\" Man page for ax25netd
 .\"
-.TH AX25NETD 8 "06 Oct 2026" "ax25-apps" "Linux System Administration"
+.TH AX25NETD 8 "09 Oct 2026" "ax25-apps" "Linux System Administration"
 .SH NAME
 ax25netd \- AGWPE multiplexing daemon
 .SH SYNOPSIS
 .B ax25netd
-[\-f] [\-d] [\-c \fIfile\fR] [\-C \fIfile\fR] [\-b \fIaddr\fR] [\-p \fIport\fR]
-[\-U \fIsocket\fR] [\-g \fIgroup\fR] [\-\-no-tcp] [\-u \fIuser\fR]
+[\-f] [\-d] [\-v] [\-c \fIfile\fR] [\-C \fIfile\fR] [\-b \fIaddr\fR]
+[\-p \fIport\fR] [\-U \fIsocket\fR] [\-g \fIgroup\fR]
+[\-\-loop\-mode \fIoctal\fR] [\-\-no-tcp] [\-u \fIuser\fR]
 [\-\-verbose] [\-\-no-mheard]
 .SH DESCRIPTION
 .B ax25netd
@@ -54,6 +55,9 @@ Stay in the foreground (do not daemonize).
 Also log to standard error, and trace every client and upstream frame
 (see
 .BR "VERBOSE LOGGING" ).
+.TP
+.B \-v
+Print the version and exit.
 .TP
 .B \-\-verbose
 Log the decisions this daemon makes and the reasons it refuses something:
@@ -218,7 +222,7 @@ client 5: register of 'DL9SAU' on port 2 refused, client 7 already
   has that callsign
 client 5: listen on port 0 refused, only the loop port 255 accepts one
 client 5: raw monitor on
-client 5: was authenticated, monitor off, raw monitor on
+client 5: was accepted, monitor off, raw monitor on
 .fi
 .RE
 .TP
@@ -345,6 +349,20 @@ keeps AX.25 level 2 to itself, so the libax25 side can only hand over the UI
 frames that cross it.  A connection carried by such a node is traced on the
 node's own console.
 .PP
+.PP
+Both feeds are per client toggles, turned on with the AGWPE protocol's
+monitor command
+.RB ( m ),
+which has the daemon relay the frames a client should hear decoded, and its
+raw monitor command
+.RB ( k ),
+which relays them unprocessed - the raw stream that is the userspace
+replacement for the kernel packet socket.  Neither toggle needs a port or
+call sign registration, either can be switched off again, and both hold
+until the connection goes away.  A program that asks libax25 for a monitor,
+as
+.BR listen (1)
+does, sends the two commands itself, so its user never sees them.
 .SS "UI frames addressed to a client"
 The raw stream is a toggle on the connection, and it is on for every client of
 a connection as long as one of them is a monitor.  A datagram socket is not

@@ -727,7 +727,7 @@ void loop_close_client(struct ax25netd_client *cl)
 	 * away or is the thing being looked for. */
 	ax25netd_verbose("client %d: was %s, monitor %s, raw monitor %s",
 			 cl->fd,
-			 cl->authed ? "authenticated" : "not authenticated",
+			 cl->authed ? "accepted" : "not accepted",
 			 cl->monitor ? "on" : "off",
 			 cl->raw ? "on" : "off");
 	if (cl->raw)

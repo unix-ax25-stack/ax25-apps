@@ -334,8 +334,11 @@ Restart=on-failure would call that success and leave the bridge down until
 somebody notices - so restart it whatever it exits with, which is what
 always means.
 
-mheardd's unit is the one that changes with the machine.  Its first source
-is a packet socket on a kernel AX.25 port, and opening one needs
+mheardd's unit is the one that changes with the machine.  Run it only where
+the machine uses the kernel AX.25 stack: where every AX.25 port is
+ax25netd's, the daemon keeps the heard list itself and mheardd has nothing
+to add.  Its first source is a packet socket on a kernel AX.25 port, and
+opening one needs
 CAP_NET_RAW; as User=daemon the open fails, and it fails silently - there
 is no message for it, only no source.  What remains is what the library
 can reach, and any one of them is enough to start it: a WAMPES node from
