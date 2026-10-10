@@ -273,6 +273,17 @@ a layer 3 protocol.  It is recorded from the connect, and only there:
 the session remains the call pair, and a different pid is not a
 different session.
 .TP
+.B STATE
+The link's state.
+.B ESTABLISHED
+is a link that is up; a session on the loop is always this, because the two
+ends are local.
+.B SABM
+is the window between a connect going out and its answer coming back, the
+same SABM a kernel socket is shown with before its UA arrives.  A server too
+old to send the word leaves the column at
+.BR - .
+.TP
 .B UPSTREAM
 The upstream the session belongs to, or
 .B loop

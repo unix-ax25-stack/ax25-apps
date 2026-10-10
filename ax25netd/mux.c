@@ -1207,14 +1207,21 @@ static int session_listed_before(struct ax25netd_upstream *u, int idx)
 }
 
 /* One row, without the ';' that follows it.  buf may be NULL with cap 0 to
- * ask for the length only, as snprintf() allows. */
+ * ask for the length only, as snprintf() allows.
+ *
+ * The trailing word is the link state.  A connect that has gone out but
+ * whose answer has not come back is a SABM on the air - the state a kernel
+ * socket is shown in between its SABM and the UA - and every other session
+ * is ESTABLISHED.  It comes last so that a reader that does not know it
+ * stops at the pid, as one written to the seven fields before might. */
 static int session_row(char *buf, size_t cap,
 		       const struct ax25netd_upstream *u,
 		       const struct ax25netd_session *s, int loop)
 {
-	return snprintf(buf, cap, "%u %u %s %u %s %s %u", s->id,
+	return snprintf(buf, cap, "%u %u %s %u %s %s %u %s", s->id,
 			loop ? AGWPE_PORT_LOOP : port_flat(u, s->chan),
-			u->name, s->chan, s->call_from, s->call_to, s->pid);
+			u->name, s->chan, s->call_from, s->call_to, s->pid,
+			s->connecting ? "SABM" : "ESTABLISHED");
 }
 
 static void mux_ctl_sessions(struct ax25netd_client *cl)
@@ -1772,8 +1779,15 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 				break;
 			}
 
-			session_add(u, hdr->call_from, hdr->call_to,
-				    pid, cl->fd, port_chan(u, port));
+			{
+				struct ax25netd_session *cs;
+
+				cs = session_add(u, hdr->call_from,
+						 hdr->call_to, pid, cl->fd,
+						 port_chan(u, port));
+				if (cs != NULL)
+					cs->connecting = 1;
+			}
 
 			/*
 			 * Autoroute: a connect that names no digipeaters
@@ -2093,6 +2107,17 @@ void mux_upstream_frame(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
 		if (!session_pair_active(u, hdr->call_to, hdr->call_from))
 			session_add(u, hdr->call_to, hdr->call_from,
 				    AGWPE_PID_AX25, owner->fd, hdr->port);
+		else {
+			/* Our own connect went out first and this 'C' is
+			 * its answer: the SABM was sent and the link is
+			 * up, so no state is left to show but this. */
+			struct ax25netd_session *cs;
+
+			cs = session_find(u, hdr->call_to, hdr->call_from,
+					  0, -1);
+			if (cs != NULL)
+				cs->connecting = 0;
+		}
 		loop_send_upstream(owner, u, hdr, data, len);
 		break;
 
