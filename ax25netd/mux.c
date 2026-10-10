@@ -299,14 +299,15 @@ static void mux_mirror_send(const struct agwpe_s *in,
  * and source addresses, optional digipeaters, a control byte derived
  * from the frame kind, the PID and the information field.
  */
-static void mux_mirror_raw(const struct agwpe_s *in,
-			   const unsigned char *data, size_t len)
+static void mux_mirror_raw_ctl(const struct agwpe_s *in,
+			       const unsigned char *data, size_t len,
+			       unsigned char ctl)
 {
 	struct full_sockaddr_ax25 fsa;
 	const unsigned char *info = data;
 	unsigned char buf[MUX_RAW_MAX + 1];
 	size_t ilen = len, ndigis = 0, i;
-	unsigned char *p, ctl;
+	unsigned char *p;
 
 	if (data == NULL)
 		ilen = 0;
@@ -379,33 +380,6 @@ static void mux_mirror_raw(const struct agwpe_s *in,
 	/* Mark the end of the address field on the last address byte.  */
 	*(p - 1) |= 0x01;
 
-	switch (in->datakind) {
-	/*
-	 * A connect is shown as a SABM, the level 2 mode this node actually
-	 * operates in.  The AGWPE connect command carries no mode field, so
-	 * nothing on this side of the link ever asks for the extended (mod
-	 * 128) mode and it cannot be coded here.  An upstream that speaks
-	 * eAX.25 may still put a SABME on the air while it tries v2.2 first
-	 * and falls back, but that is the upstream's link setup, not a mode
-	 * this connect requested, and that frame arrives as its own raw
-	 * monitor frame.  Showing SABME here would claim a capability the
-	 * connect never asked for and answer the wrong question.
-	 */
-	case AGWPE_CMD_CONNECT:			/* SABM, command */
-	case AGWPE_CMD_CONNECT_PID:
-	case AGWPE_CMD_CONNECT_VIA:
-		ctl = 0x2F;
-		break;
-	case AGWPE_CMD_DISCONNECT:		/* DISC, command */
-		ctl = 0x43;
-		break;
-	case AGWPE_CMD_DATA:			/* I frame */
-		ctl = 0x00;
-		break;
-	default:				/* unproto: UI */
-		ctl = 0x03;
-		break;
-	}
 	*p++ = ctl;
 	*p++ = in->pid;
 
@@ -423,6 +397,40 @@ static void mux_mirror_raw(const struct agwpe_s *in,
 	}
 
 	mux_mirror_send(in, buf, p - buf);
+}
+
+/*
+ * The AX.25 control byte that spells a client frame's kind on the
+ * monitor.  A connect is shown as a SABM, the level 2 mode this node
+ * actually operates in.  The AGWPE connect command carries no mode
+ * field, so nothing on this side of the link ever asks for the extended
+ * (mod 128) mode and it cannot be coded here.  An upstream that speaks
+ * eAX.25 may still put a SABME on the air while it tries v2.2 first and
+ * falls back, but that is the upstream's link setup, not a mode this
+ * connect requested, and that frame arrives as its own raw monitor
+ * frame.  Showing SABME here would claim a capability the connect never
+ * asked for and answer the wrong question.
+ */
+static unsigned char mux_frame_ctl(unsigned char datakind)
+{
+	switch (datakind) {
+	case AGWPE_CMD_CONNECT:
+	case AGWPE_CMD_CONNECT_PID:
+	case AGWPE_CMD_CONNECT_VIA:
+		return 0x2F;		/* SABM, command */
+	case AGWPE_CMD_DISCONNECT:
+		return 0x43;		/* DISC, command */
+	case AGWPE_CMD_DATA:
+		return 0x00;		/* I frame */
+	default:
+		return 0x03;		/* unproto: UI */
+	}
+}
+
+static void mux_mirror_raw(const struct agwpe_s *in,
+			   const unsigned char *data, size_t len)
+{
+	mux_mirror_raw_ctl(in, data, len, mux_frame_ctl(in->datakind));
 }
 
 static void reply_register(struct ax25netd_client *cl, const struct agwpe_s *in,
@@ -1062,6 +1070,7 @@ static void mux_kill_session(struct ax25netd_client *cl,
 {
 	char lc[AGWPE_MAX_CALL], rc[AGWPE_MAX_CALL];
 	unsigned char chan = s->chan;
+	unsigned char pid = s->pid;
 
 	memcpy(lc, s->call_from, sizeof(lc));
 	memcpy(rc, s->call_to, sizeof(rc));
@@ -1092,6 +1101,23 @@ static void mux_kill_session(struct ax25netd_client *cl,
 					 strlen(msg) + 1);
 		}
 		return;
+	}
+
+	/*
+	 * Show the teardown on the raw monitors, the way every other local
+	 * frame is shown: the upstream is told, but a disconnect is not a
+	 * frame it echoes, and a kill that leaves nothing in listen(1) has
+	 * no visible effect at all.  The frame is a DM and not a DISC - the
+	 * connection is dropped from this side and there is no longer a
+	 * command to answer, so the DISC would wait for a UA from a station
+	 * that is already gone.
+	 */
+	{
+		struct agwpe_s h;
+
+		agwpe_header_init(&h, port_flat(u, chan),
+				  AGWPE_CMD_DISCONNECT, pid, lc, rc, 0);
+		mux_mirror_raw_ctl(&h, NULL, 0, 0x0F);	/* DM */
 	}
 
 	ctl_disconnect_owner(cl, u, s);
@@ -1501,6 +1527,26 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 	case AGWPE_CMD_CONNECT:
 	case AGWPE_CMD_CONNECT_PID:
 	case AGWPE_CMD_CONNECT_VIA:
+		/*
+		 * A connect for a pair that is already up is answered with
+		 * a refusal and never reaches the upstream, but the SABM
+		 * is the frame that names the pair: mirrored, it says a
+		 * connection this station already has was called again,
+		 * and there is no such frame.  The pair is asked here the
+		 * same way the router asks it a few lines down, and a
+		 * pair that is up leaves no mirror behind.  The refusal
+		 * still reaches the client.
+		 */
+		{
+			struct ax25netd_upstream *cu = up_by_port(port);
+
+			if (cu != NULL &&
+			    session_find(cu, hdr->call_from, hdr->call_to,
+					 session_pid(hdr->pid), -1) != NULL)
+				break;
+		}
+		mux_mirror_raw(hdr, data, len);
+		break;
 	case AGWPE_CMD_DATA:
 	case AGWPE_CMD_DISCONNECT:
 	case AGWPE_CMD_UNPROTO:
