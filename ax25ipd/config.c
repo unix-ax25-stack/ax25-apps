@@ -404,6 +404,10 @@ int parse_line(char *buf)
 		if (my_udp)
 			uport = ntohs(my_udp);
 		while ((q = strtok(NULL, " \t\n\r")) != NULL) {
+			/* A comment ends the line */
+			if (*q == '#')
+				break;
+
 			if (strcmp(q, "udp") == 0) {
 				/* uport == 0 should never happen.
 				 * re-use setting. It costed me a long time
@@ -418,22 +422,39 @@ int parse_line(char *buf)
 				if (uport == 0)
 					uport = DEFAULT_UDP_PORT;
 				q = strtok(NULL, " \t\n\r");
-				if (q != NULL) {
+				if (q == NULL || *q == '#')
+					break;
+				if (strspn(q, "0123456789") == strlen(q)) {
 					i = atoi(q);
-					if (i > 0)
+					if (i > 0 && i <= 65535)
 						uport = i;
+					else
+						fprintf(stderr,
+							"ax25ipd: route %s: udp port %s out of range, ignored\n",
+							call_to_a(tcall), q);
+					continue;
 				}
-			} else {
-				/* Test for broadcast flag */
-				if (strchr(q, 'b')) {
-					flags |= AXRT_BCAST;
-				}
-
-				/* Test for Default flag */
-				if (strchr(q, 'd')) {
-					flags |= AXRT_DEFAULT;
-				}
+				/* Not a port number: fall through to the flags */
 			}
+
+			/*
+			 * The only words allowed here are made of the flag
+			 * letters, b (broadcast) and d (default).  A word
+			 * that consists of anything else is reported and
+			 * ignored: the old code searched a word for a lone
+			 * 'b' or 'd', so a comment or a stray word could
+			 * silently turn a flag on.
+			 */
+			if (strspn(q, "bd") != strlen(q)) {
+				fprintf(stderr,
+					"ax25ipd: route %s: unknown word '%s' ignored\n",
+					call_to_a(tcall), q);
+				continue;
+			}
+			if (strchr(q, 'b'))
+				flags |= AXRT_BCAST;
+			if (strchr(q, 'd'))
+				flags |= AXRT_DEFAULT;
 		}
 		set_target_port(&tss, uport);
 		route_add((struct sockaddr *) &tss, tsslen, tcall, flags);
@@ -442,6 +463,9 @@ int parse_line(char *buf)
 	} else if (strcmp(p, "broadcast") == 0) {
 
 		while ((q = strtok(NULL, " \t\n\r")) != NULL) {
+			/* A comment ends the line */
+			if (*q == '#')
+				break;
 			if (a_to_call(q, tcall) != 0)
 				return -2;
 			bcast_add(tcall);
@@ -483,7 +507,7 @@ int a_to_call(char *text, unsigned char *tcall)
 		c = text[i];
 		if (c == '-') {
 			ssid = atoi(&text[i + 1]);
-			if (ssid > 15)
+			if (ssid < 0 || ssid > 15)
 				return -1;
 			tcall[6] = (ssid << 1);
 			return 0;
