@@ -235,13 +235,14 @@ line the colon would have to be behind.
 .B \-s
 asks
 .BR ax25netd (8)
-for the sessions it is carrying and prints one row each:
+for the sessions and listening calls it is carrying and prints one row each:
 .TP
 .B ID
 The handle the session has for as long as it lives, and what
 .B \-k
 names.  It stays the same while the session does, whatever the server does with
-its own tables in the meantime.
+its own tables in the meantime.  A listening row has no handle and shows
+.BR - .
 .TP
 .B PORT
 The flat port the session runs on, the same number as in the port table, or
@@ -255,7 +256,9 @@ first which upstream that number is.
 The local call, as the server knows it.
 .TP
 .B TO
-The remote station.
+The remote station, or
+.B *
+on a listening row, where any caller may arrive.
 .TP
 .B PID
 The protocol id, written in hex as AX.25 usually writes it.
@@ -280,8 +283,11 @@ is a link that is up; a session on the loop is always this, because the two
 ends are local.
 .B SABM
 is the window between a connect going out and its answer coming back, the
-same SABM a kernel socket is shown with before its UA arrives.  A server too
-old to send the word leaves the column at
+same SABM a kernel socket is shown with before its UA arrives.
+.B LISTENING
+is a registered listening call no one has connected to yet, the state of a
+local program that is waiting for an incoming connection.  A server too old
+to send the word leaves the column at
 .BR - .
 .TP
 .B UPSTREAM
@@ -291,8 +297,10 @@ for the virtual port.
 .PP
 Only sessions
 .BR ax25netd (8)
-is carrying are shown.  A connection through a WAMPES node is that node's and
-is not listed here.
+is carrying are shown, and only the listening calls a local socket registered
+on the loop port: a radio port's listener is the upstream AGWPE server's, which
+keeps no table here.  A connection through a WAMPES node is that node's and is
+not listed here.
 .PP
 A loop connection is tracked as two rows, one per end, and printed as one.
 Ending it ends both ends, and both clients are told, as with
