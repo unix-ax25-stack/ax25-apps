@@ -11,6 +11,7 @@ ax25tcpd \- interactive AX.25 frontend to an AGWPE multiplexer
 .IR file ]
 .RB [ \-f ]
 .RB [ \-d ]
+.RB [ \-\-verbose ]
 .SH DESCRIPTION
 .B ax25tcpd
 is an interactive frontend to an
@@ -323,6 +324,14 @@ Stay in the foreground.
 .TP
 .B \-d
 Log to standard error.
+.TP
+.B \-\-verbose
+Say the decisions the daemon makes: a line when a client connects,
+when a command names a port and a destination, and when a session comes
+up or goes down.  Repeatable, like the other daemons'; the second one is
+the
+.B \-d
+trace.
 .SH FILES
 .I @@@AX25_SYSCONFDIR@@@/ax25tcpd.conf
 .br
