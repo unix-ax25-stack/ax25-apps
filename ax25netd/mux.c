@@ -1224,6 +1224,21 @@ static int session_row(char *buf, size_t cap,
 			s->connecting ? "SABM" : "ESTABLISHED");
 }
 
+/* A callsign a client registered to listen on, with no session behind it.
+ * It is a row the way netstat prints a listening socket beside the
+ * connections: no handle, so the id is 0, and the remote is '*' - any
+ * caller may arrive.  A local socket's listen() is what registers one, so
+ * this is the state a program waiting for an incoming connection is shown
+ * in, before anyone has connected to it. */
+static int listener_row(char *buf, size_t cap,
+			const struct ax25netd_upstream *u,
+			const struct ax25netd_call *c, int loop)
+{
+	return snprintf(buf, cap, "0 %u %s %u %s * 0 LISTENING",
+			loop ? AGWPE_PORT_LOOP : port_flat(u, c->chan),
+			u->name, c->chan, c->call);
+}
+
 static void mux_ctl_sessions(struct ax25netd_client *cl)
 {
 	struct ax25netd_upstream *u;
@@ -1242,6 +1257,16 @@ static void mux_ctl_sessions(struct ax25netd_client *cl)
 			if (!session_listed_before(u, j))
 				count++;
 	}
+	for (i = 0; i < ax25netd.nup; i++)
+		for (j = 0; j < ax25netd.ups[i].ncalls; j++)
+			if (ax25netd.ups[i].calls[j].listener)
+				count++;
+	if (ax25netd.loop_enabled) {
+		u = &ax25netd.loop;
+		for (j = 0; j < u->ncalls; j++)
+			if (u->calls[j].listener)
+				count++;
+	}
 
 	/* The reply goes out as one frame, so its length is worked out
 	 * before the first byte is written: the subcommand byte, the row
@@ -1253,6 +1278,10 @@ static void mux_ctl_sessions(struct ax25netd_client *cl)
 			if (!session_listed_before(u, j))
 				cap += (size_t)session_row(NULL, 0, u,
 						&u->sessions[j], 0) + 1;
+		for (j = 0; j < u->ncalls; j++)
+			if (u->calls[j].listener)
+				cap += (size_t)listener_row(NULL, 0, u,
+						&u->calls[j], 0) + 1;
 	}
 	if (ax25netd.loop_enabled) {
 		u = &ax25netd.loop;
@@ -1260,6 +1289,10 @@ static void mux_ctl_sessions(struct ax25netd_client *cl)
 			if (!session_listed_before(u, j))
 				cap += (size_t)session_row(NULL, 0, u,
 						&u->sessions[j], 1) + 1;
+		for (j = 0; j < u->ncalls; j++)
+			if (u->calls[j].listener)
+				cap += (size_t)listener_row(NULL, 0, u,
+						&u->calls[j], 1) + 1;
 	}
 
 	buf = malloc(cap + 1);		/* + trailing NUL, as the port list */
@@ -1286,6 +1319,13 @@ static void mux_ctl_sessions(struct ax25netd_client *cl)
 						 &u->sessions[j], 0);
 			buf[n++] = ';';
 		}
+		for (j = 0; j < u->ncalls; j++) {
+			if (!u->calls[j].listener)
+				continue;
+			n += (size_t)listener_row(buf + n, cap + 1 - n, u,
+						  &u->calls[j], 0);
+			buf[n++] = ';';
+		}
 	}
 	if (ax25netd.loop_enabled) {
 		u = &ax25netd.loop;
@@ -1294,6 +1334,13 @@ static void mux_ctl_sessions(struct ax25netd_client *cl)
 				continue;
 			n += (size_t)session_row(buf + n, cap + 1 - n, u,
 						 &u->sessions[j], 1);
+			buf[n++] = ';';
+		}
+		for (j = 0; j < u->ncalls; j++) {
+			if (!u->calls[j].listener)
+				continue;
+			n += (size_t)listener_row(buf + n, cap + 1 - n, u,
+						  &u->calls[j], 1);
 			buf[n++] = ';';
 		}
 	}
