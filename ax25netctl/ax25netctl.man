@@ -110,7 +110,8 @@ End the session with that id and exit.  The id is the one
 .B \-s
 printed, and names the session wherever it is, so the port and the call pair
 need not be known.  Nothing is printed on success, as in
-.BR axkill (8).
+.BR axkill (8);
+an id no session carries is reported and nothing is sent.
 .TP
 .BI \-k " port:dest src"
 End the connection from
@@ -290,8 +291,10 @@ Ending it ends both ends, and both clients are told, as with
 by id says nothing on success, the same as
 .BR axkill (8):
 the server does not answer a kill, so there is nothing to report but that the
-request left.  An id no session carries is not an error the tool can see
-either.  The other form of
+request left.  That silence is only for a kill that had something to end: the
+id is checked against the session table first, and an id nothing carries is
+reported rather than sent, because a kill frame that names no session is
+dropped without a word.  The other form of
 .B \-k
 takes the port and call pair
 .BR axkill (8)
@@ -334,8 +337,9 @@ reached.  For
 .B \-s
 and
 .B \-k
-by id, 0 when the request was answered or sent, 1 when the server could not be
-reached or did not answer, and for
+by id, 0 when the id named a session and the kill was sent, 1 when the server
+could not be reached or did not answer or when no session carried that id, and
+for
 .B \-k
 by name the same as
 .BR axkill (8).
