@@ -370,8 +370,8 @@ static int show_sessions(void)
 		return 1;
 	}
 
-	printf("%-8s %-5s %-10s %-10s %-4s %s\n",
-	       "ID", "PORT", "FROM", "TO", "PID", "UPSTREAM");
+	printf("%-8s %-5s %-10s %-10s %-4s %-11s %s\n",
+	       "ID", "PORT", "FROM", "TO", "PID", "STATE", "UPSTREAM");
 	for (i = 0; i < netd.sessions.count; i++) {
 		struct agwpe_session *s = &netd.sessions.sessions[i];
 		char pid[8];
@@ -380,8 +380,11 @@ static int show_sessions(void)
 		 * next to the id would read as a second one.  All values are
 		 * four characters, so the column never shifts. */
 		snprintf(pid, sizeof(pid), "0x%02X", s->pid);
-		printf("%-8u %-5d %-10s %-10s %-4s %s\n",
-		       s->id, s->port, s->from, s->to, pid, s->up);
+		/* A server that sends no state has none to show; the
+		 * column stays so that a table does not change shape. */
+		printf("%-8u %-5d %-10s %-10s %-4s %-11s %s\n",
+		       s->id, s->port, s->from, s->to, pid,
+		       s->state[0] ? s->state : "-", s->up);
 	}
 	if (netd.sessions.count == 0)
 		printf("(no sessions)\n");

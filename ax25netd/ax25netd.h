@@ -104,6 +104,13 @@ struct ax25netd_session {
 	unsigned char		chan;		/* radio channel on the upstream */
 	int			fd;		/* owning loop client */
 
+	/* The link is not up yet: a connect has gone towards the upstream
+	 * and its answer has not come back.  A kernel socket sits between
+	 * its SABM and the answering UA the same way, and the table names
+	 * the state after that frame.  A kill and every other operation
+	 * treat a connecting session like any other.  */
+	int			connecting;
+
 	/* The handle this session is listed and killed by, handed out once
 	 * when it is created and never reused while the daemon runs, so an id
 	 * read from a table a moment ago cannot name a different connection.
