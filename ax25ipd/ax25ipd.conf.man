@@ -35,6 +35,19 @@ A route can only be used if a matching
 line has opened the transport it asks for.  If the file has routes for an
 address family that no socket was opened for, a warning is printed at startup;
 those routes would otherwise look configured and quietly do nothing.
+.LP
+A
+.B #
+begins a comment that runs to the end of the line.  A whole line may be
+commented out; on a
+.B route
+or
+.B broadcast
+line a comment may also follow the addresses and flags:
+.RS
+.IP "\fBroute\fP db0sao-1 44.130.8.1 \fBb\fP \fB#\fP backup link" 4
+sets the broadcast flag and then ignores the rest of the line.
+.RE
 .SS "Address families"
 .LP
 .B socket ip
