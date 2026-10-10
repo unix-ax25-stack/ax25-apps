@@ -8,17 +8,16 @@
  * This is also the key dispatching module, so it knows about a lot more
  * than just I/O stuff.
  */
-/* _DEFAULT_SOURCE keeps glibc's BSD declarations visible; _XOPEN_SOURCE
- * alone hides struct ip, which we need to skip over an incoming IPv4
- * header.  The Unix98 pty calls below need _XOPEN_SOURCE. */
-#define _DEFAULT_SOURCE
-#define _XOPEN_SOURCE
-#define _XOPEN_SOURCE_EXTENDED
+/* _GNU_SOURCE gives us the Unix98 pty calls, pselect() and the BSD
+ * declarations (struct ip) that we need to skip over an incoming IPv4
+ * header, in one go. */
+#define _GNU_SOURCE
 
 #include <errno.h>
 #include <fcntl.h>
 #include <memory.h>
 #include <netdb.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +32,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 
 /* ENONET is a Linux specific errno.  */
 #ifndef ENONET
@@ -72,6 +72,14 @@ int ttyfd_bpq = 0;
 #define IP_MODE		0x10
 #define UDP_MODE	0x20
 #define TTY_MODE	0x30
+
+/*
+ * A non-blocking write to a tty, or a sendto, that keeps coming back
+ * "would block" is retried every 100 ms by io_error().  Keep that
+ * bounded: a tty that nobody drains any more must not hold the daemon,
+ * and with it the signal handling, forever.
+ */
+#define SEND_RETRIES	50
 
 #ifndef FNDELAY
 #define FNDELAY O_NDELAY
@@ -246,8 +254,8 @@ void io_init(void)
 {
 
 /*
- * Close the file descriptors if they are open.  The idea is that we
- * will be able to support a re-initialization if sent a SIGHUP.
+ * Close the file descriptors if they are open, so that io_open() starts
+ * from a clean state.
  */
 
 	if (ttyfd >= 0) {
@@ -523,8 +531,6 @@ void io_open(void)
 
 	if (ttyspeed == 50)
 		baudrate = B50;
-	else if (ttyspeed == 50)
-		baudrate = B50;
 	else if (ttyspeed == 75)
 		baudrate = B75;
 	else if (ttyspeed == 110)
@@ -648,10 +654,12 @@ void io_open(void)
 
 	nterm.c_iflag = 0;
 	nterm.c_oflag = 0;
-	nterm.c_cflag = baudrate | CS8 | CREAD | CLOCAL;
+	nterm.c_cflag = CS8 | CREAD | CLOCAL;
 	nterm.c_lflag = 0;
 	nterm.c_cc[VMIN] = 0;
 	nterm.c_cc[VTIME] = 0;
+	cfsetispeed(&nterm, baudrate);
+	cfsetospeed(&nterm, baudrate);
 
 	if (tcsetattr(ttyfd, TCSADRAIN, &nterm) < 0) {
 		perror("setting tty device parameters");
@@ -681,10 +689,35 @@ void io_start(void) {
 	int n, nb;
 	fd_set readfds;
 	unsigned char buf[MAX_FRAME];
-	struct timeval wait;
+	struct timespec wait;
+	struct timespec zero = { 0, 0 };
+	sigset_t block, orig;
 	time_t now;
 
+	/*
+	 * Block the signals we handle and let them through only in
+	 * pselect():  then they are delivered at a well defined point and
+	 * none of the read/write calls below is interrupted.  The handlers
+	 * only note the signal; check_signals() does the work in the main
+	 * code.
+	 */
+	sigemptyset(&block);
+	sigaddset(&block, SIGHUP);
+	sigaddset(&block, SIGUSR1);
+	sigaddset(&block, SIGINT);
+	sigaddset(&block, SIGTERM);
+	sigprocmask(SIG_BLOCK, &block, &orig);
+
 	for (;;) {
+
+		/*
+		 * Let a pending signal through even when one of the file
+		 * descriptors stays readable all the time:  pselect() with
+		 * the original mask delivers it, the empty descriptor set
+		 * and the zero timeout make it return at once.
+		 */
+		pselect(0, NULL, NULL, NULL, &zero, &orig);
+		check_signals();
 
 		if ((bc_interval > 0) && digi) {
 			now = time(NULL);
@@ -696,7 +729,7 @@ void io_start(void) {
 		}
 
 		wait.tv_sec = 10;	/* lets us keep the beacon going */
-		wait.tv_usec = 0;
+		wait.tv_nsec = 0;
 
 		FD_ZERO(&readfds);
 
@@ -711,12 +744,12 @@ void io_start(void) {
 		if (udpsock6 >= 0)
 			FD_SET(udpsock6, &readfds);
 
-		nb = select(FD_SETSIZE, &readfds, (fd_set *) 0, (fd_set *) 0, &wait);
+		nb = pselect(FD_SETSIZE, &readfds, NULL, NULL, &wait, &orig);
 
 		if (nb < 0) {
 			if (errno == EINTR)
 				continue;	/* Ignore */
-			perror("select");
+			perror("pselect");
 			exit(1);
 		}
 
@@ -777,6 +810,7 @@ void send_ip(unsigned char *buf, int l, const struct sockaddr *to,
 	int fd;
 	int mode;
 	int n;
+	int retries = 0;
 
 	if (l <= 0 || to == NULL || tolen == 0)
 		return;
@@ -808,7 +842,8 @@ void send_ip(unsigned char *buf, int l, const struct sockaddr *to,
 	do {
 		n = sendto(fd, buf, l, 0, to, tolen);
 	}
-	while (io_error(n, buf, l, SEND_MSG, mode, __LINE__));
+	while (io_error(n, buf, l, SEND_MSG, mode, __LINE__) &&
+	       ++retries <= SEND_RETRIES);
 }
 
 /* Send a kiss frame */
@@ -816,6 +851,7 @@ void send_ip(unsigned char *buf, int l, const struct sockaddr *to,
 void send_tty(unsigned char *buf, int l)
 {
 	int n;
+	int retries = 0;
 	unsigned char *p;
 	int nc;
 
@@ -842,6 +878,7 @@ void send_tty(unsigned char *buf, int l)
 		if ((n > 0) && (n < nc)) {	/* did we put only write a bit? */
 			p += n;	/* point to the new data */
 			nc -= n;	/* drop the length */
+			retries = 0;	/* progress: we are not stuck */
 		}
 		n = write(ttyfd, p, nc);
 		if (n > 0) {
@@ -850,6 +887,10 @@ void send_tty(unsigned char *buf, int l)
 			} else {
 				LOGL4("%d\n", n);	/* was efficient!!! */
 			}
+		} else if (++retries > SEND_RETRIES) {
+			/* the tty is not accepting anything any more */
+			LOGL1("send_tty: tty busy, frame dropped\n");
+			break;
 		}
 	}
 	while (((n > 0) && (n < nc)) || (io_error(n, p, nc, SEND_MSG, TTY_MODE, __LINE__)));

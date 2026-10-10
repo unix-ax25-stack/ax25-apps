@@ -152,6 +152,9 @@ unsigned char *next_addr(unsigned char *);
 void add_crc(unsigned char *, int);
 void dump_ax25frame(char *, unsigned char *, int);
 
+/* ax25ipd.c */
+void check_signals(void);
+
 /* io.c */
 void io_init(void);
 void io_open(void);
