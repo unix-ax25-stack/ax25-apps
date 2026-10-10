@@ -132,10 +132,14 @@ int routes_have_family(int family);
 int is_call_bcast(unsigned char *);
 void send_broadcast(unsigned char *, int);
 void dump_routes(void);
+void route_reload_begin(void);
+void route_reload_commit(void);
+void route_reload_abort(void);
 
 /* config.c */
 void config_init(void);
 void config_read(char *);
+int config_reload_routes(char *);
 int parse_line(char *);
 int a_to_call(char *, unsigned char *);
 char *call_to_a(unsigned char *);

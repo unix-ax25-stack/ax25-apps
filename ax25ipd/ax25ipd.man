@@ -57,6 +57,24 @@ not predictable.
 .TP 10
 .BI \-f,--nofork
 Do not become a daemon. Run in foreground.
+.SH SIGNALS
+.TP 10
+.B SIGHUP
+Re-read the
+.B route
+and
+.B broadcast
+lines of the configuration file and replace them.  The KISS line, the
+sockets and the callsigns are left alone, so an existing link is not
+interrupted;  if the file cannot be read, or a route or broadcast line is
+bad, the previous table is kept.  A change to any of the other settings
+needs a restart.
+.TP 10
+.B SIGUSR1
+Print the statistics.
+.TP 10
+.B SIGINT, SIGTERM
+Print the statistics and stop the daemon.
 .SH FILES
 @@@AX25_SYSCONFDIR@@@/ax25ipd.conf
 .SH "SEE ALSO"

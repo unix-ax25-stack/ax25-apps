@@ -48,6 +48,14 @@ line a comment may also follow the addresses and flags:
 .IP "\fBroute\fP db0sao-1 44.130.8.1 \fBb\fP \fB#\fP backup link" 4
 sets the broadcast flag and then ignores the rest of the line.
 .RE
+.LP
+The
+.B route
+and
+.B broadcast
+lines are re-read, and replaced, when the daemon receives a SIGHUP;  a
+change to any of the other settings needs a restart.  See
+.BR ax25ipd (8).
 .SS "Address families"
 .LP
 .B socket ip

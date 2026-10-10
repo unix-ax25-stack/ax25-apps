@@ -123,10 +123,13 @@ to be sent out the KISS interface every 9 minutes.  Specifying beacon
 after 540 will send the ID packet only if the channel has been idle for
 9 minutes.
 
-Sending SIGHUP to the ax25ipd process is logged and otherwise ignored:
-the daemon keeps running and existing links are not touched.  A changed
-configuration is picked up by restarting the process.  SIGUSR1 dumps the
-statistics, SIGTERM and SIGINT stop the daemon.
+Sending SIGHUP to the ax25ipd process makes it re-read the route and
+broadcast lines of the configuration file and replace them.  The KISS
+line, the sockets and the callsigns are left as they are, so an existing
+link is not interrupted.  If the file cannot be read, or a route or
+broadcast line is bad, the previous table is kept.  A change to any of
+the other settings needs a restart.  SIGUSR1 dumps the statistics,
+SIGTERM and SIGINT stop the daemon.
 
 
 Sample Configuration - NOS-to-NOS
