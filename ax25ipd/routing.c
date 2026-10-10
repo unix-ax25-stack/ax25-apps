@@ -68,6 +68,69 @@ void route_init(void)
 }
 
 /*
+ * A reload (SIGHUP) builds fresh tables and only then swaps them in.
+ * begin() sets the current ones aside and starts empty, so the parser
+ * fills new lists; commit() throws the old ones away, abort() puts them
+ * back.  Only the route and broadcast lists are involved here:  the KISS
+ * parameters, the tty and the sockets are not this module's business and
+ * are never re-read by a reload.
+ */
+static struct route_table_entry *stash_route_tbl;
+static struct route_table_entry *stash_default_route;
+static struct bcast_table_entry *stash_bcast_tbl;
+
+static void free_routes(struct route_table_entry *rp)
+{
+	while (rp) {
+		struct route_table_entry *next = rp->next;
+
+		free(rp);
+		rp = next;
+	}
+}
+
+static void free_bcasts(struct bcast_table_entry *bp)
+{
+	while (bp) {
+		struct bcast_table_entry *next = bp->next;
+
+		free(bp);
+		bp = next;
+	}
+}
+
+void route_reload_begin(void)
+{
+	stash_route_tbl = route_tbl;
+	stash_default_route = default_route;
+	stash_bcast_tbl = bcast_tbl;
+	route_tbl = NULL;
+	default_route = NULL;
+	bcast_tbl = NULL;
+}
+
+void route_reload_commit(void)
+{
+	free_routes(stash_route_tbl);
+	free_bcasts(stash_bcast_tbl);
+	stash_route_tbl = NULL;
+	stash_default_route = NULL;
+	stash_bcast_tbl = NULL;
+}
+
+void route_reload_abort(void)
+{
+	free_routes(route_tbl);
+	free_bcasts(bcast_tbl);
+	route_tbl = stash_route_tbl;
+	default_route = stash_default_route;
+	bcast_tbl = stash_bcast_tbl;
+	stash_route_tbl = NULL;
+	stash_default_route = NULL;
+	stash_bcast_tbl = NULL;
+}
+
+/*
  * Printable form of a route address, "addr" or "[addr]" for IPv6, without
  * the port.  Returns a pointer to a static buffer, like inet_ntoa() did.
  */

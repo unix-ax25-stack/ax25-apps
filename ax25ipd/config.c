@@ -228,14 +228,174 @@ static void set_target_port(struct sockaddr_storage *ss, int port)
 #endif
 }
 
-int parse_line(char *buf)
+/*
+ * Parse the rest of a "route" line; the keyword itself was already taken
+ * from the line.  Kept as its own function so that a SIGHUP reload uses
+ * exactly the same parser as the initial read.  Returns a parse_line()
+ * error code, 0 on success.
+ */
+static int do_route_line(void)
 {
-	char *p, *q;
+	char *q;
 	unsigned char tcall[7];
 	struct sockaddr_storage tss;
 	socklen_t tsslen = 0;
-	int i, j, uport;
-	unsigned int flags;
+	int i, uport = 0;
+	unsigned int flags = 0;
+
+	q = strtok(NULL, " \t\n\r");
+	if (q == NULL)
+		return -1;
+
+	if (a_to_call(q, tcall) != 0)
+		return -2;
+
+	q = strtok(NULL, " \t\n\r");
+	if (q == NULL)
+		return -1;
+	if (resolve_target(q, &tss, &tsslen) != 0)
+		return -5;
+
+	if (my_udp)
+		uport = ntohs(my_udp);
+	while ((q = strtok(NULL, " \t\n\r")) != NULL) {
+		/* A comment ends the line */
+		if (*q == '#')
+			break;
+
+		if (strcmp(q, "udp") == 0) {
+			/* uport == 0 should never happen.
+			 * re-use setting. It costed me a long time
+			 * to realize that "udp" in ax25ipd.conf
+			 * is not enough. It used the wrong port;
+			 * 93 is standard, I configured socket udp 93,
+			 * but ax25ipd talked to partners on that
+			 * strange 10093. Even more, ax25ipd.conf's
+			 * examples for axip did not help - and the
+			 * manual is far from complete.
+			 */
+			if (uport == 0)
+				uport = DEFAULT_UDP_PORT;
+			q = strtok(NULL, " \t\n\r");
+			if (q == NULL || *q == '#')
+				break;
+			if (strspn(q, "0123456789") == strlen(q)) {
+				i = atoi(q);
+				if (i > 0 && i <= 65535)
+					uport = i;
+				else
+					fprintf(stderr,
+						"ax25ipd: route %s: udp port %s out of range, ignored\n",
+						call_to_a(tcall), q);
+				continue;
+			}
+			/* Not a port number: fall through to the flags */
+		}
+
+		/*
+		 * The only words allowed here are made of the flag
+		 * letters, b (broadcast) and d (default).  A word
+		 * that consists of anything else is reported and
+		 * ignored: the old code searched a word for a lone
+		 * 'b' or 'd', so a comment or a stray word could
+		 * silently turn a flag on.
+		 */
+		if (strspn(q, "bd") != strlen(q)) {
+			fprintf(stderr,
+				"ax25ipd: route %s: unknown word '%s' ignored\n",
+				call_to_a(tcall), q);
+			continue;
+		}
+		if (strchr(q, 'b'))
+			flags |= AXRT_BCAST;
+		if (strchr(q, 'd'))
+			flags |= AXRT_DEFAULT;
+	}
+	set_target_port(&tss, uport);
+	route_add((struct sockaddr *) &tss, tsslen, tcall, flags);
+	return 0;
+}
+
+/*
+ * Parse the rest of a "broadcast" line, like do_route_line().
+ */
+static int do_broadcast_line(void)
+{
+	char *q;
+	unsigned char tcall[7];
+
+	while ((q = strtok(NULL, " \t\n\r")) != NULL) {
+		/* A comment ends the line */
+		if (*q == '#')
+			break;
+		if (a_to_call(q, tcall) != 0)
+			return -2;
+		bcast_add(tcall);
+	}
+	return 0;
+}
+
+/*
+ * Re-read the configuration file and replace the route and broadcast
+ * tables (SIGHUP).  Everything else - the KISS parameters, the tty, the
+ * sockets and the callsigns - is deliberately left as it is, so a running
+ * daemon picks up route changes without dropping a link.  If the file
+ * cannot be read, or a route or broadcast line is bad, nothing is changed
+ * and -1 is returned.
+ */
+int config_reload_routes(char *f)
+{
+	FILE *cf;
+	char buf[256], cbuf[256];
+	char *p, *fname;
+	int lineno, e;
+
+	if (f == NULL || strlen(f) == 0)
+		fname = CONF_AX25IPD_FILE;
+	else
+		fname = f;
+
+	cf = fopen(fname, "r");
+	if (cf == NULL)
+		return -1;
+
+	route_reload_begin();
+
+	lineno = 0;
+	while (fgets(buf, sizeof buf - 1, cf) != NULL) {
+		strcpy(cbuf, buf);
+		lineno++;
+		p = strtok(buf, " \t\n\r");
+		if (p == NULL || *p == '#')
+			continue;
+		if (strcmp(p, "route") == 0)
+			e = do_route_line();
+		else if (strcmp(p, "broadcast") == 0)
+			e = do_broadcast_line();
+		else
+			continue;	/* not a route thing: a restart handles it */
+		if (e < 0) {
+			syslog(LOG_DAEMON | LOG_ERR,
+			       "ax25ipd: reload: bad route/broadcast at line %d: %s",
+			       lineno, cbuf);
+			fprintf(stderr,
+				"ax25ipd: reload: bad route/broadcast at line %d: %s",
+				lineno, cbuf);
+			fclose(cf);
+			route_reload_abort();
+			return -1;
+		}
+	}
+	fclose(cf);
+
+	route_reload_commit();
+	return 0;
+}
+
+int parse_line(char *buf)
+{
+	char *p, *q;
+	int i, j;
 
 	p = strtok(buf, " \t\n\r");
 
@@ -385,92 +545,10 @@ int parse_line(char *buf)
 		return 0;
 
 	} else if (strcmp(p, "route") == 0) {
-		uport = 0;
-		flags = 0;
-
-		q = strtok(NULL, " \t\n\r");
-		if (q == NULL)
-			return -1;
-
-		if (a_to_call(q, tcall) != 0)
-			return -2;
-
-		q = strtok(NULL, " \t\n\r");
-		if (q == NULL)
-			return -1;
-		if (resolve_target(q, &tss, &tsslen) != 0)
-			return -5;
-
-		if (my_udp)
-			uport = ntohs(my_udp);
-		while ((q = strtok(NULL, " \t\n\r")) != NULL) {
-			/* A comment ends the line */
-			if (*q == '#')
-				break;
-
-			if (strcmp(q, "udp") == 0) {
-				/* uport == 0 should never happen.
-				 * re-use setting. It costed me a long time
-				 * to realize that "udp" in ax25ipd.conf
-				 * is not enough. It used the wrong port;
-				 * 93 is standard, I configured socket udp 93,
-				 * but ax25ipd talked to partners on that
-				 * strange 10093. Even more, ax25ipd.conf's
-				 * examples for axip did not help - and the
-				 * manual is far from complete.
-				 */
-				if (uport == 0)
-					uport = DEFAULT_UDP_PORT;
-				q = strtok(NULL, " \t\n\r");
-				if (q == NULL || *q == '#')
-					break;
-				if (strspn(q, "0123456789") == strlen(q)) {
-					i = atoi(q);
-					if (i > 0 && i <= 65535)
-						uport = i;
-					else
-						fprintf(stderr,
-							"ax25ipd: route %s: udp port %s out of range, ignored\n",
-							call_to_a(tcall), q);
-					continue;
-				}
-				/* Not a port number: fall through to the flags */
-			}
-
-			/*
-			 * The only words allowed here are made of the flag
-			 * letters, b (broadcast) and d (default).  A word
-			 * that consists of anything else is reported and
-			 * ignored: the old code searched a word for a lone
-			 * 'b' or 'd', so a comment or a stray word could
-			 * silently turn a flag on.
-			 */
-			if (strspn(q, "bd") != strlen(q)) {
-				fprintf(stderr,
-					"ax25ipd: route %s: unknown word '%s' ignored\n",
-					call_to_a(tcall), q);
-				continue;
-			}
-			if (strchr(q, 'b'))
-				flags |= AXRT_BCAST;
-			if (strchr(q, 'd'))
-				flags |= AXRT_DEFAULT;
-		}
-		set_target_port(&tss, uport);
-		route_add((struct sockaddr *) &tss, tsslen, tcall, flags);
-		return 0;
+		return do_route_line();
 
 	} else if (strcmp(p, "broadcast") == 0) {
-
-		while ((q = strtok(NULL, " \t\n\r")) != NULL) {
-			/* A comment ends the line */
-			if (*q == '#')
-				break;
-			if (a_to_call(q, tcall) != 0)
-				return -2;
-			bcast_add(tcall);
-		}
-		return 0;
+		return do_broadcast_line();
 
 	} else if (strcmp(p, "param") == 0) {
 		q = strtok(NULL, " \t\n\r");

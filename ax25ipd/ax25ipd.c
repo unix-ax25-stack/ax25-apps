@@ -135,18 +135,25 @@ static void sig_handler(int sig)
 }
 
 /*
- * Act on the signals that arrived since the last call.  SIGHUP is logged
- * and ignored:  the old code tried to re-read the configuration and
- * re-initialize in place, which reopened the tty and tore down the KISS
- * link, so restarting the daemon is the honest way to pick up a changed
- * configuration.
+ * Act on the signals that arrived since the last call.  SIGHUP re-reads
+ * the route and broadcast lines of the configuration file and swaps them
+ * in;  the old code re-initialized everything in place, which reopened the
+ * tty and tore down the KISS link.  Anything else in the file still needs
+ * a restart.
  */
 void check_signals(void)
 {
 	if (got_hup) {
 		got_hup = 0;
-		printf("\nSIGHUP - ignored; restart ax25ipd to re-read the configuration.\n");
-		syslog(LOG_DAEMON | LOG_NOTICE, "ax25ipd: SIGHUP ignored, restart to re-read the configuration");
+		if (config_reload_routes(opt_configfile) == 0) {
+			printf("\nSIGHUP - routes and broadcasts reloaded.\n");
+			syslog(LOG_DAEMON | LOG_NOTICE,
+			       "ax25ipd: SIGHUP - routes and broadcasts reloaded");
+		} else {
+			printf("\nSIGHUP - reload failed, the previous routes are kept.\n");
+			syslog(LOG_DAEMON | LOG_NOTICE,
+			       "ax25ipd: SIGHUP - reload failed, the previous routes are kept");
+		}
 	}
 	if (got_usr1) {
 		got_usr1 = 0;
