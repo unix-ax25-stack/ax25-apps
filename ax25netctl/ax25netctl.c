@@ -143,7 +143,8 @@ static void usage(FILE *fp)
 "                  id in the first column is what -k names.\n"
 "  -k id           end that session and exit.  The id is the one -s\n"
 "                  printed, and names the session wherever it is, without\n"
-"                  the port and call pair.\n"
+"                  the port and call pair.  An id no session carries is\n"
+"                  reported, not sent.\n"
 "  -k port:dest src\n"
 "                  end the connection from src to dest, the same request\n"
 "                  axkill(8) makes, and exit.  The port is its axports\n"
@@ -390,23 +391,62 @@ static int show_sessions(void)
 /* End a session by the id the table gave.  Nothing is reported on success,
  * as in axkill(8): a kill has no answer, so there is nothing to report from
  * but the fact that the request left, and a line of output would be read as
- * a warning by whatever runs this from a script.  Returns the exit status. */
+ * a warning by whatever runs this from a script.  Returns the exit status.
+ *
+ * The silence is only for a kill that had something to end.  The kill frame
+ * itself is never answered - ax25netd drops one that names no session, and a
+ * server that is not ax25netd has no such command at all - so an id that
+ * names nothing would be indistinguishable from a kill that worked, and "the
+ * table a moment ago said 11" followed by "nothing happened" is the report a
+ * sysop is left with.  So the table is asked first: it is the one place this
+ * side can learn whether the id still means anything.  That is a question the
+ * daemon does answer, and it is the reason the tool takes an id at all rather
+ * than a port and a call pair.
+ *
+ * A session that goes between the ask and the kill is not an error: the id
+ * is what the caller had, and the connection it named is gone either way.
+ */
 static int kill_session_id(unsigned long id)
 {
-	static const struct agwpe_client_cb cb = { .version = on_version };
+	static const struct agwpe_client_cb cb = {
+		.version = on_version,
+		.sessions = on_sessions
+	};
 	agwpe_client_t *c = netd_open(&cb);
-	int rc;
+	int i;
 
 	if (c == NULL)
 		return 1;
-	rc = agwpe_client_kill_id(c, (uint32_t)id);
-	if (rc < 0)
-		fprintf(stderr, "%s: cannot send the kill to %s: %s\n", prog,
-			endpoint, strerror(agwpe_client_err(c)));
-	/* Let the frame leave before the socket closes. */
-	agwpe_client_pump(c, NCTL_TICK_MS);
+
+	agwpe_client_get_sessions(c);
+	if (pump(c, want_sessions) <= 0 || !netd.got_sessions) {
+		fprintf(stderr, "%s: %s did not answer the session request\n",
+			prog, endpoint);
+		agwpe_client_free(c);
+		return 1;
+	}
+
+	for (i = 0; i < netd.sessions.count; i++) {
+		if (netd.sessions.sessions[i].id != (uint32_t)id)
+			continue;
+
+		{
+			int rc = agwpe_client_kill_id(c, (uint32_t)id);
+
+			if (rc < 0)
+				fprintf(stderr, "%s: cannot send the kill to "
+					"%s: %s\n", prog, endpoint,
+					strerror(agwpe_client_err(c)));
+			/* Let the frame leave before the socket closes. */
+			agwpe_client_pump(c, NCTL_TICK_MS);
+			agwpe_client_free(c);
+			return rc < 0 ? 1 : 0;
+		}
+	}
+
+	fprintf(stderr, "%s: no session with id %lu\n", prog, id);
 	agwpe_client_free(c);
-	return rc < 0 ? 1 : 0;
+	return 1;
 }
 
 /* A port written the way both tables this tool prints give it: nothing but
