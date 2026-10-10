@@ -123,8 +123,10 @@ to be sent out the KISS interface every 9 minutes.  Specifying beacon
 after 540 will send the ID packet only if the channel has been idle for
 9 minutes.
 
-Sending a hang-up signal to the ax25ipd process will cause it to reread
-the configuration file and re-initialize itself  (kill -HUP <ax25ipd-pid>).
+Sending SIGHUP to the ax25ipd process is logged and otherwise ignored:
+the daemon keeps running and existing links are not touched.  A changed
+configuration is picked up by restarting the process.  SIGUSR1 dumps the
+statistics, SIGTERM and SIGINT stop the daemon.
 
 
 Sample Configuration - NOS-to-NOS

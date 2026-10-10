@@ -12,7 +12,6 @@
  */
 
 #include <limits.h>
-#include <setjmp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +44,9 @@ struct ax25ipd_stats stats;	/* Usage statistics */
 
 int dual_port;			/* addition for dual port flag */
 
-static jmp_buf restart_env;
+static volatile sig_atomic_t got_hup;
+static volatile sig_atomic_t got_usr1;
+static volatile sig_atomic_t got_term;	/* SIGINT or SIGTERM */
 
 static int opt_version;
 static int opt_loglevel;
@@ -117,45 +118,71 @@ static void do_stats(void)
 	loglevel = save_loglevel;
 }
 
-static void hupper(int i)
+/*
+ * The signal handlers only note the signal.  The work is done by
+ * check_signals(), called from the main loop: printf(), exit() and the
+ * routines that dump the tables must not be called from a handler, which
+ * may interrupt the main code in the middle of the same routines.
+ */
+static void sig_handler(int sig)
 {
-	printf("\nSIGHUP!\n");
-	longjmp(restart_env, 1);
+	if (sig == SIGHUP)
+		got_hup = 1;
+	else if (sig == SIGUSR1)
+		got_usr1 = 1;
+	else
+		got_term = sig;	/* SIGINT or SIGTERM */
 }
 
-static void usr1_handler(int i)
+/*
+ * Act on the signals that arrived since the last call.  SIGHUP is logged
+ * and ignored:  the old code tried to re-read the configuration and
+ * re-initialize in place, which reopened the tty and tore down the KISS
+ * link, so restarting the daemon is the honest way to pick up a changed
+ * configuration.
+ */
+void check_signals(void)
 {
-	printf("\nSIGUSR1!\n");
-	do_stats();
-}
-
-static void int_handler(int i)
-{
-	printf("\nSIGINT!\n");
-	do_stats();
-	exit(1);
-}
-
-static void term_handler(int i)
-{
-	printf("\nSIGTERM!\n");
-	do_stats();
-	exit(1);
+	if (got_hup) {
+		got_hup = 0;
+		printf("\nSIGHUP - ignored; restart ax25ipd to re-read the configuration.\n");
+		syslog(LOG_DAEMON | LOG_NOTICE, "ax25ipd: SIGHUP ignored, restart to re-read the configuration");
+	}
+	if (got_usr1) {
+		got_usr1 = 0;
+		printf("\nSIGUSR1 - statistics follow\n");
+		do_stats();
+	}
+	if (got_term) {
+		printf("\n%s - terminating\n",
+		       got_term == SIGINT ? "SIGINT" : "SIGTERM");
+		syslog(LOG_DAEMON | LOG_NOTICE, "ax25ipd: %s, terminating",
+		       got_term == SIGINT ? "SIGINT" : "SIGTERM");
+		do_stats();
+		exit(1);
+	}
 }
 
 int main(int argc, char **argv)
 {
-	if (setjmp(restart_env) == 0) {
-		signal(SIGHUP, hupper);
-	}
+	struct sigaction sa;
 
 	*opt_configfile = 0;
 	*opt_ttydevice = 0;
 
-	/* set up the handler for statistics reporting */
-	signal(SIGUSR1, usr1_handler);
-	signal(SIGINT, int_handler);
-	signal(SIGTERM, term_handler);
+	/*
+	 * The handlers only note the signal; the work is done by
+	 * check_signals() from the main loop, so that printf(), exit() and
+	 * the statistics dump do not run from a handler that may have
+	 * interrupted the main code in the middle of the same routines.
+	 */
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+	sa.sa_handler = sig_handler;
+	sigaction(SIGHUP, &sa, NULL);
+	sigaction(SIGUSR1, &sa, NULL);
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
 
 	while (1) {
 		int c;
