@@ -65,6 +65,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -215,6 +216,7 @@ static struct {
 	struct tpc_port		ports[AGWPE_PORT_MAX];
 	int			nports;
 
+	int			verbose;	/* --verbose: say the decisions */
 	int			debug;
 	int			foreground;
 } tpc;
@@ -234,6 +236,31 @@ static void tpc_log(int prio, const char *fmt, ...)
 		fputc('\n', stderr);
 	} else {
 		vsyslog(prio, fmt, ap);
+	}
+	va_end(ap);
+}
+
+/*
+ * The decisions this daemon makes, on the same terms as ax25netd's
+ * --verbose: off by default, because a line per connection is a lot for a
+ * daemon that may carry many, and on it is what an operator turns to when
+ * wondering whether a client got as far as the netd.  Repeatable, like the
+ * other daemons'; the second one is the -d trace.
+ */
+static void tpc_verbose(const char *fmt, ...)
+{
+	va_list ap;
+
+	if (!tpc.verbose)
+		return;
+
+	va_start(ap, fmt);
+	if (tpc.foreground || tpc.debug) {
+		fprintf(stderr, "ax25tcpd: ");
+		vfprintf(stderr, fmt, ap);
+		fputc('\n', stderr);
+	} else {
+		vsyslog(LOG_INFO, fmt, ap);
 	}
 	va_end(ap);
 }
@@ -896,6 +923,12 @@ static void tpc_client_unregister(struct tpc_client *cl)
 
 static void tpc_client_remove(struct tpc_client *cl)
 {
+	/* The one place a front-side connection ends, so the one place to
+	 * say so.  A "quit" command has already unregistered the client by
+	 * the time the caller notices, so logging where the fd is still
+	 * valid is the only way the line can name the client that went.  */
+	if (cl->fd >= 0)
+		tpc_verbose("client %d: gone", cl->fd);
 	tpc_client_unregister(cl);
 	if (cl->fd >= 0)
 		close(cl->fd);
@@ -1109,6 +1142,8 @@ static void tpc_on_connection(agwpe_client_t *c, const struct agwpe_s *hdr,
 				hdr->port, hdr->call_from, hdr->call_to);
 		return;
 	}
+	tpc_verbose("client %d: connected to %s on port %u",
+		    cl->fd, cl->call_to, hdr->port);
 	if (!cl->silent) {
 		if (msg != NULL && msg[0] != '\0') {
 			strncpy(m, msg, sizeof(m) - 1);
@@ -1142,6 +1177,8 @@ static void tpc_on_disconnect(agwpe_client_t *c, const struct agwpe_s *hdr,
 	(void)c;
 	if (cl == NULL || cl->state == TPC_DGRAM)
 		return;
+	tpc_verbose("client %d: disconnected from %s on port %u",
+		    cl->fd, cl->call_to, hdr->port);
 	if (msg != NULL && msg[0] != '\0') {
 		strncpy(m, msg, sizeof(m) - 1);
 		m[sizeof(m) - 1] = '\0';
@@ -1593,6 +1630,8 @@ static int tpc_cmd_connect(struct tpc_client *cl, int argc, char **argv)
 	if (tpc.debug)
 		tpc_log(LOG_DEBUG, "connect: %s -> %s port %u pid 0x%02x",
 			cl->call_from, cl->call_to, cl->port, cl->pid);
+	tpc_verbose("client %d: connect %s -> %s on port %u (pid 0x%02x)",
+		    cl->fd, cl->call_from, cl->call_to, cl->port, cl->pid);
 	if (cl->ndigis > 0) {
 		const char *digv[AGWPE_MAX_DIGIS - 1];
 
@@ -1701,6 +1740,8 @@ static int tpc_cmd_datagram(struct tpc_client *cl, int argc, char **argv)
 		cl->keep = keep;
 		cl->dgram_tnc2 = 1;
 		cl->state = TPC_DGRAM;
+		tpc_verbose("client %d: datagram mode, each line is a TNC2 "
+			    "frame", cl->fd);
 		return 0;
 	}
 
@@ -1746,6 +1787,8 @@ static int tpc_cmd_datagram(struct tpc_client *cl, int argc, char **argv)
 		return 0;
 	}
 
+	tpc_verbose("client %d: datagram %s -> %s on port %u",
+		    cl->fd, cl->call_from, cl->call_to, cl->port);
 	cl->state = TPC_DGRAM;
 	return 0;
 }
@@ -2270,6 +2313,7 @@ static int tpc_client_readable(struct tpc_client *cl)
 static void tpc_connect_timeout(struct tpc_client *cl)
 {
 	cl->connect_deadline = 0;
+	tpc_verbose("client %d: connect to %s timed out", cl->fd, cl->call_to);
 	if (!cl->silent)
 		tpc_client_printf(cl, "*** CONNECT to %s timed out\r\n",
 				  cl->call_to);
@@ -2324,8 +2368,13 @@ static void tpc_accept(struct tpc_listen *l, int lfd)
 		if (tpc_client_add(fd, !l->unix_sock) == NULL) {
 			static const unsigned char full[] = "*** ERROR: server full\r\n";
 
+			tpc_verbose("client: refused, all %d slots are taken",
+				    TPC_MAX_CLIENT);
 			tpc_write_all(fd, full, sizeof(full) - 1);
 			close(fd);
+		} else {
+			tpc_verbose("client %d: connected on the %s side", fd,
+				    l->unix_sock ? "unix" : "tcp");
 		}
 	}
 }
@@ -2478,12 +2527,14 @@ static int tpc_daemonize(void)
 
 static void usage(const char *prog)
 {
-	fprintf(stderr, "Usage: %s [-c file] [-C ax25common.conf] [-f] [-d]\n"
+	fprintf(stderr, "Usage: %s [-c file] [-C ax25common.conf] [-f] [-d] [--verbose]\n"
 		"  -c file  configuration file (default %s)\n"
 		"  -C file  shared ax25netd loop port configuration (default %s);\n"
 		"           the back side of this frontend is taken from it\n"
 		"  -f       stay in the foreground\n"
-		"  -d       debug logging to stderr\n", prog,
+		"  -d       debug logging to stderr\n"
+		"  --verbose  say the decisions this daemon makes (repeatable,\n"
+		"             the second one is the -d trace)\n", prog,
 		AX25_SYSCONFDIR "/ax25tcpd.conf",
 		AX25_SYSCONFDIR "/ax25common.conf");
 }
@@ -2499,9 +2550,13 @@ int main(int argc, char **argv)
 	const char *conf = AX25_SYSCONFDIR "/ax25tcpd.conf";
 	const char *comconf = AX25_SYSCONFDIR "/ax25common.conf";
 	mode_t loop_mode = AX25COMMON_MODE_DEFAULT;
+	static const struct option longopt[] = {
+		{ "verbose",	no_argument,	NULL,	1002 },
+		{ NULL,		0,		NULL,	0 },
+	};
 	int c, i, r;
 
-	while ((c = getopt(argc, argv, "c:C:fdh")) != -1) {
+	while ((c = getopt_long(argc, argv, "c:C:fdh", longopt, NULL)) != -1) {
 		switch (c) {
 		case 'c':
 			conf = optarg;
@@ -2514,6 +2569,12 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			tpc.debug = 1;
+			break;
+		case 1002:
+			/* --verbose, repeatable: the second one is the -d
+			 * trace, the same ladder ax25netd uses.  */
+			if (++tpc.verbose >= 2)
+				tpc.debug = 1;
 			break;
 		default:
 			usage(argv[0]);
@@ -2652,6 +2713,11 @@ int main(int argc, char **argv)
 			tpc_log(LOG_DEBUG, "back side: unix socket %s",
 				tpc.target_sock);
 	}
+	if (tpc.target_tcp)
+		tpc_verbose("back side: tcp %s:%d",
+			    tpc.target_host, tpc.target_port);
+	else
+		tpc_verbose("back side: unix socket %s", tpc.target_sock);
 
 	/* A stray service holding the loop port accepts the connection but
 	 * never speaks AGWPE; every connect would then sit in CONNECTING
