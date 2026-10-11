@@ -1238,7 +1238,9 @@ static void client_owner(struct ax25netd_client *cl, uint32_t *pid,
 	*pid = (uint32_t)cl->peer_pid;
 #ifdef __linux__
 	{
-		char path[64], line[64];
+		/* comm is at most TASK_COMM_LEN-1 characters, so line
+		 * cannot grow past the 16-byte prog the callers pass.  */
+		char path[64], line[16];
 		FILE *f;
 
 		snprintf(path, sizeof(path), "/proc/%ld/comm",
@@ -2362,10 +2364,8 @@ static void mux_orphan_add(struct ax25netd_upstream *u,
 	}
 
 	o = &u->orphans[u->norphans++];
-	strncpy(o->call_from, s->call_from, sizeof(o->call_from) - 1);
-	o->call_from[sizeof(o->call_from) - 1] = '\0';
-	strncpy(o->call_to, s->call_to, sizeof(o->call_to) - 1);
-	o->call_to[sizeof(o->call_to) - 1] = '\0';
+	snprintf(o->call_from, sizeof(o->call_from), "%s", s->call_from);
+	snprintf(o->call_to, sizeof(o->call_to), "%s", s->call_to);
 	o->chan = s->chan;
 	o->since = time(NULL);
 }
@@ -2430,8 +2430,8 @@ static void mux_orphan_mirror_dm(struct ax25netd_upstream *u,
 	memset(&mh, 0, sizeof(mh));
 	mh.port = port_flat(u, s->chan);
 	mh.datakind = AGWPE_CMD_DISCONNECT;
-	strncpy(mh.call_from, s->call_to, AGWPE_MAX_CALL - 1);
-	strncpy(mh.call_to, s->call_from, AGWPE_MAX_CALL - 1);
+	snprintf(mh.call_from, sizeof(mh.call_from), "%s", s->call_to);
+	snprintf(mh.call_to, sizeof(mh.call_to), "%s", s->call_from);
 	mux_mirror_raw_ctl(&mh, NULL, 0, 0x0F);		/* DM */
 }
 
