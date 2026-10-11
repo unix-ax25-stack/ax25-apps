@@ -294,6 +294,21 @@ to send the word leaves the column at
 The upstream the session belongs to, or
 .B loop
 for the virtual port.
+.TP
+.B OWNER
+The process id of the local program this row belongs to, which is how a
+listening call with no id is found and stopped.  It is the pid the kernel
+recorded when the program connected, so it is shown for a client on the local
+unix socket and is
+.B -
+for one that came in over TCP, whose peer carries no such credential.
+.TP
+.B PROG
+The name of that program, read from
+.IR /proc/\fIpid\fR/comm ,
+which is readable without more rights than the daemon already has.  It is
+.B -
+when there is no owner to name.
 .PP
 Only sessions
 .BR ax25netd (8)

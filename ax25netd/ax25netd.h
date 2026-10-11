@@ -59,6 +59,9 @@ struct ax25netd_client {
 	int			fd;
 	int			dead;
 	int			authed;		/* passed the login (auth required) */
+	pid_t			peer_pid;	/* pid the kernel recorded at
+						  * connect, 0 when unknown
+						  * (a unix socket only) */
 	unsigned char		*rbuf;
 	size_t			rlen;
 	size_t			ra;

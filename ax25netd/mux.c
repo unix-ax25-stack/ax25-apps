@@ -1206,6 +1206,50 @@ static int session_listed_before(struct ax25netd_upstream *u, int idx)
 	return 0;
 }
 
+/*
+ * The local program behind a client: the pid the kernel handed over at
+ * connect, and its name.  A unix socket carries the pid, so the daemon
+ * can name the program without more rights than it used to accept it -
+ * and /proc's comm is world readable, so the name comes too.  A client
+ * that arrived over TCP has neither, and a pid whose process is gone
+ * leaves just the number.
+ */
+static void client_owner(struct ax25netd_client *cl, uint32_t *pid,
+			 char *prog, size_t cap)
+{
+	*pid = 0;
+	snprintf(prog, cap, "-");
+	if (cl == NULL || cl->peer_pid <= 0)
+		return;
+	*pid = (uint32_t)cl->peer_pid;
+#ifdef __linux__
+	{
+		char path[64], line[64];
+		FILE *f;
+
+		snprintf(path, sizeof(path), "/proc/%ld/comm",
+			 (long)cl->peer_pid);
+		f = fopen(path, "r");
+		if (f != NULL) {
+			if (fgets(line, sizeof(line), f) != NULL) {
+				size_t n = strcspn(line, "\r\n"), i;
+
+				line[n] = '\0';
+				/* A row is space separated.  A comm
+				 * with a space in it must not split
+				 * the row in two. */
+				for (i = 0; i < n; i++)
+					if (line[i] == ' ' || line[i] == '\t')
+						line[i] = '_';
+				if (line[0] != '\0')
+					snprintf(prog, cap, "%s", line);
+			}
+			fclose(f);
+		}
+	}
+#endif
+}
+
 /* One row, without the ';' that follows it.  buf may be NULL with cap 0 to
  * ask for the length only, as snprintf() allows.
  *
@@ -1213,15 +1257,23 @@ static int session_listed_before(struct ax25netd_upstream *u, int idx)
  * whose answer has not come back is a SABM on the air - the state a kernel
  * socket is shown in between its SABM and the UA - and every other session
  * is ESTABLISHED.  It comes last so that a reader that does not know it
- * stops at the pid, as one written to the seven fields before might. */
+ * stops at the pid, as one written to the seven fields before might.
+ *
+ * After the state come the owner's pid and its name, which a reader that
+ * stops at the state simply does not see. */
 static int session_row(char *buf, size_t cap,
 		       const struct ax25netd_upstream *u,
 		       const struct ax25netd_session *s, int loop)
 {
-	return snprintf(buf, cap, "%u %u %s %u %s %s %u %s", s->id,
+	uint32_t owner;
+	char prog[16];
+
+	client_owner(client_by_fd(s->fd), &owner, prog, sizeof(prog));
+	return snprintf(buf, cap, "%u %u %s %u %s %s %u %s %u %s", s->id,
 			loop ? AGWPE_PORT_LOOP : port_flat(u, s->chan),
 			u->name, s->chan, s->call_from, s->call_to, s->pid,
-			s->connecting ? "SABM" : "ESTABLISHED");
+			s->connecting ? "SABM" : "ESTABLISHED",
+			owner, prog);
 }
 
 /* A callsign a client registered to listen on, with no session behind it.
@@ -1229,14 +1281,19 @@ static int session_row(char *buf, size_t cap,
  * connections: no handle, so the id is 0, and the remote is '*' - any
  * caller may arrive.  A local socket's listen() is what registers one, so
  * this is the state a program waiting for an incoming connection is shown
- * in, before anyone has connected to it. */
+ * in, before anyone has connected to it - and the owner's pid names the
+ * program to stop. */
 static int listener_row(char *buf, size_t cap,
 			const struct ax25netd_upstream *u,
 			const struct ax25netd_call *c, int loop)
 {
-	return snprintf(buf, cap, "0 %u %s %u %s * 0 LISTENING",
+	uint32_t owner;
+	char prog[16];
+
+	client_owner(client_by_fd(c->fd), &owner, prog, sizeof(prog));
+	return snprintf(buf, cap, "0 %u %s %u %s * 0 LISTENING %u %s",
 			loop ? AGWPE_PORT_LOOP : port_flat(u, c->chan),
-			u->name, c->chan, c->call);
+			u->name, c->chan, c->call, owner, prog);
 }
 
 static void mux_ctl_sessions(struct ax25netd_client *cl)

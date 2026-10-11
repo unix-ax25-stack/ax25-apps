@@ -370,11 +370,12 @@ static int show_sessions(void)
 		return 1;
 	}
 
-	printf("%-8s %-5s %-10s %-10s %-4s %-11s %s\n",
-	       "ID", "PORT", "FROM", "TO", "PID", "STATE", "UPSTREAM");
+	printf("%-8s %-5s %-10s %-10s %-4s %-11s %-10s %-7s %s\n",
+	       "ID", "PORT", "FROM", "TO", "PID", "STATE", "UPSTREAM",
+	       "OWNER", "PROG");
 	for (i = 0; i < netd.sessions.count; i++) {
 		struct agwpe_session *s = &netd.sessions.sessions[i];
-		char pid[8], id[8];
+		char pid[8], id[16], owner[16];
 
 		/* Hex, as AX.25 PIDs are written: a small decimal number
 		 * next to the id would read as a second one.  All values are
@@ -386,11 +387,18 @@ static int show_sessions(void)
 			snprintf(id, sizeof(id), "%u", (unsigned)s->id);
 		else
 			snprintf(id, sizeof(id), "-");
+		/* The pid of the local program, so a listener with no id
+		 * can still be found and stopped by hand. */
+		if (s->owner)
+			snprintf(owner, sizeof(owner), "%u", s->owner);
+		else
+			snprintf(owner, sizeof(owner), "-");
 		/* A server that sends no state has none to show; the
 		 * column stays so that a table does not change shape. */
-		printf("%-8s %-5d %-10s %-10s %-4s %-11s %s\n",
+		printf("%-8s %-5d %-10s %-10s %-4s %-11s %-10s %-7s %s\n",
 		       id, s->port, s->from, s->to, pid,
-		       s->state[0] ? s->state : "-", s->up);
+		       s->state[0] ? s->state : "-", s->up,
+		       owner, s->prog[0] ? s->prog : "-");
 	}
 	if (netd.sessions.count == 0)
 		printf("(no sessions)\n");

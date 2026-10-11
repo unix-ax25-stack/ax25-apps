@@ -18,6 +18,10 @@
  * and their commands are multiplexed to the configured upstreams.
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE		/* SO_PEERCRED: the peer pid at accept() */
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -560,6 +564,33 @@ static int loop_peer_trusted(int fd)
 	return 0;
 }
 
+/*
+ * The pid of the program at the far end of a just-accepted socket.  The
+ * kernel recorded it at connect() time, so it is read back with no more
+ * rights than the accept itself and does not need the peer to still be
+ * alive or to be described in /proc.  A TCP client carries no such
+ * credential and gets 0: the table then shows no owner for it.
+ */
+static pid_t loop_peer_pid(int fd)
+{
+#if defined(SO_PEERCRED)
+	struct ucred cr;
+	socklen_t len = sizeof(cr);
+
+	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cr, &len) == 0)
+		return cr.pid;
+#elif defined(LOCAL_PEERPID)
+	pid_t pid;
+	socklen_t len = sizeof(pid);
+
+	if (getsockopt(fd, SOL_LOCAL, LOCAL_PEERPID, &pid, &len) == 0)
+		return pid;
+#else
+	(void)fd;
+#endif
+	return 0;
+}
+
 void loop_accept(int lfd)
 {
 	struct ax25netd_client *cl;
@@ -593,6 +624,7 @@ void loop_accept(int lfd)
 	cl->fd = fd;
 	cl->dead = 0;
 	cl->authed = loop_peer_trusted(fd);
+	cl->peer_pid = loop_peer_pid(fd);
 	cl->rbuf = malloc(4096);
 	cl->ra = 4096;
 	cl->rlen = 0;
