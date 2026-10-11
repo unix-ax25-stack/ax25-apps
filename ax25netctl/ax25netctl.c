@@ -539,8 +539,9 @@ static int name_by_port(int port, char *buf, size_t len)
  *
  * port is a buffer of portlen bytes, which is rewritten on a translation.
  */
-static int refuse_listen_kill(const char *port, const char *dest,
-			      const char *host, const char *comconf);
+static int check_kill_name(const char *port, const char *dest,
+			   const char *src, const char *host,
+			   const char *comconf);
 
 static int kill_by_name(char *port, size_t portlen, const char *dest,
 			const char *src, const char *host, const char *comconf)
@@ -569,10 +570,11 @@ static int kill_by_name(char *port, size_t portlen, const char *dest,
 				port);
 		return 1;
 	}
-	/* A listening call is not a session and a kill that names one has
-	 * nothing to end: it would be dropped without a word.  Refused before
-	 * the request is sent, so that the one who asked is told why. */
-	if (refuse_listen_kill(port, dest, host, comconf))
+	/* A kill that names a listening call has nothing to end and is
+	 * refused; one the session table does not have is sent, but said out
+	 * loud.  Either way the caller hears the reason, which the kill
+	 * itself never gives. */
+	if (check_kill_name(port, dest, src, host, comconf))
 		return 1;
 	if (ax25_aton_entry(addr, (char *)&ax25_ctl.port_addr) == -1 ||
 	    ax25_aton_entry(dest, (char *)&ax25_ctl.dest_addr) == -1 ||
@@ -935,23 +937,30 @@ static int endpoint_of(const char *host, const char *conffile)
 	return -1;
 }
 
-/* A kill that names a listening call has nothing to end.  A listen is not a
- * session: it is a program waiting for a call that has not arrived, which the
- * daemon tracks as a registered call and not as a link.  The kill finds no
- * session, and the daemon answers it by telling that program its end is gone -
- * a frame a listener has no connection to receive, so it is dropped and the
- * request quietly does nothing.
+/* Ask ax25netd what it has for the pair a kill by name names, and say what
+ * that means for the kill.
  *
- * That silence is broken for the one who asked: say that a listening call
- * cannot be killed and that the program waiting for the call is what to stop,
- * which is the pid and name the session table already carries for it.  Only an
- * ax25netd port is asked - a kernel or WAMPES port has no such table here, and
- * a kill there goes through as before.
+ * A listening call is not a session: it is a program waiting for a call that
+ * has not arrived, which the daemon tracks as a registered call and not as a
+ * link.  The kill finds no session, and the daemon answers it by telling that
+ * program its end is gone - a frame a listener has no connection to receive,
+ * so it is dropped and the request quietly does nothing.  That one is refused
+ * before it is sent, with the pid and name the session table carries for the
+ * row, which is the program to stop instead.
  *
- * Returns nonzero when the kill was refused and the reason printed.
+ * A pair the table does not have at all is a different thing, and not a
+ * refusal: the daemon can still end a link it never tracked, by the calls
+ * registered for it.  So that kill is sent - but it answers nothing either, and
+ * a kill that looks like it worked and did not is worse than a line too many.
+ *
+ * Only an ax25netd port is asked: a kernel or WAMPES port has no such table
+ * here, and its kill goes through as before.
+ *
+ * Returns 1 when the kill must not be sent (a listening call, already
+ * reported), 0 when it should go on.
  */
-static int refuse_listen_kill(const char *port, const char *dest,
-			      const char *host, const char *comconf)
+static int check_kill_name(const char *port, const char *dest, const char *src,
+			   const char *host, const char *comconf)
 {
 	struct ax25_port_info info;
 	int i;
@@ -968,28 +977,50 @@ static int refuse_listen_kill(const char *port, const char *dest,
 	for (i = 0; i < netd.sessions.count; i++) {
 		const struct agwpe_session *s = &netd.sessions.sessions[i];
 
-		/* A listening row has no handle and a remote of '*': any
-		 * caller may arrive, and no one has yet. */
-		if (s->id != 0)
-			continue;
 		if (s->port != info.port)
 			continue;
+
+		if (s->id != 0) {
+			/* A session whose pair is this one, in either
+			 * order - the two ways netd's session_find()
+			 * tries it.  That kill has something to end. */
+			if ((strcasecmp(s->from, src) == 0 &&
+			     strcasecmp(s->to, dest) == 0) ||
+			    (strcasecmp(s->from, dest) == 0 &&
+			     strcasecmp(s->to, src) == 0))
+				return 0;
+			continue;
+		}
+
+		/* A listening row: no handle, remote '*', the state a
+		 * program waiting for a call is shown in. */
 		if (strcasecmp(s->to, "*") != 0)
 			continue;
-		if (strcasecmp(s->from, dest) != 0)
+		if (strcasecmp(s->from, dest) != 0 &&
+		    strcasecmp(s->from, src) != 0)
 			continue;
 
 		fprintf(stderr,
 			"%s: %s on port %s is a listening call, not a "
 			"connection:\n"
 			"    a listen cannot be killed.  Stop the program "
-			"instead", prog, dest, port);
+			"instead", prog, s->from, port);
 		if (s->owner)
 			fprintf(stderr, " (pid %u, %s)", (unsigned)s->owner,
 				s->prog[0] ? s->prog : "-");
 		fprintf(stderr, ".\n");
 		return 1;
 	}
+
+	/* Nothing in the table: no session to name and no listener either. */
+	fprintf(stderr,
+		"%s: no session on port %s from %s to %s; sending the kill "
+		"anyway", prog, port, src, dest);
+	if (info.port == AGWPE_PORT_LOOP)
+		fprintf(stderr, " -\n"
+			"    the loop daemon can still end a link it did not "
+			"track, by the calls registered for it");
+	fprintf(stderr, ".\n");
 	return 0;
 }
 
