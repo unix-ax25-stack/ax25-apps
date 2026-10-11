@@ -43,6 +43,16 @@
  * is answered with what is known so far.  */
 #define	AX25NETD_PORTS_TIMEOUT		10
 
+/*
+ * How long a link that went down with its upstream is remembered, so the
+ * raw DISC that releases it on the radio can still be sent once the
+ * upstream is back.  Direwolf drops the session without telling the far
+ * station, and the far station only gives up on its own when its retries
+ * run out; an entry kept longer than this would only repeat on the air
+ * what the radio has already worked out for itself.
+ */
+#define	AX25NETD_ORPHAN_TTL		600
+
 #define	AX25NETD_VERSION_MAJOR	1
 #define	AX25NETD_VERSION_MINOR	0
 
@@ -129,6 +139,21 @@ struct ax25netd_session {
 	unsigned int		paclen;
 };
 
+/*
+ * A link that the upstream was carrying when it went away.  The far
+ * station has not been told, and the upstream no longer has a session to
+ * disconnect, so the only way to release it is a raw DISC sent through the
+ * upstream's 'K' command once it is back.  call_from is the local call,
+ * call_to the remote station, as in a session; since is when the upstream
+ * was lost, and bounds how long the entry is kept.
+ */
+struct ax25netd_orphan {
+	char			call_from[AGWPE_MAX_CALL];
+	char			call_to[AGWPE_MAX_CALL];
+	unsigned char		chan;
+	time_t			since;
+};
+
 struct ax25netd_upstream {
 	int			index;
 	char			name[24];
@@ -160,6 +185,12 @@ struct ax25netd_upstream {
 	struct ax25netd_session	*sessions;
 	int			nsessions;
 	int			asessions;
+
+	/* Links that went down with this upstream and still owe the far
+	 * station a DISC.  Bounded by AX25NETD_ORPHAN_TTL.  */
+	struct ax25netd_orphan	*orphans;
+	int			norphans;
+	int			aorphans;
 
 	int			heard_to;	/* client waiting for 'H' replies */
 	int			out_to;		/* client waiting for 'y'/'Y' replies */
@@ -248,6 +279,7 @@ extern void mux_upstream_reconnected(struct ax25netd_upstream *u);
 extern void mux_upstream_lost(struct ax25netd_upstream *u);
 extern void mux_recalc_toggles(void);
 extern void mux_ports_tick(time_t now);
+extern void mux_orphans_tick(time_t now);
 
 /* upstream.c */
 extern int upstream_init_all(void);

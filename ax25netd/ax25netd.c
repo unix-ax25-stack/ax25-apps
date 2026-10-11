@@ -877,6 +877,7 @@ int main(int argc, char **argv)
 
 		upstream_reconnect_tick(now);
 		mux_ports_tick(now);
+		mux_orphans_tick(now);
 	}
 
 	return 0;

@@ -2327,6 +2327,114 @@ void mux_upstream_frame(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
 	}
 }
 
+/*
+ * Remember a link the upstream was carrying when it went away.  The far
+ * station has not been told, and the upstream has dropped the session, so
+ * the only way to release it is a raw DISC sent once the upstream is back.
+ * The session array is cleared as soon as the loss has been handled, so
+ * the two call signs and the channel are copied out here.
+ */
+static void mux_orphan_add(struct ax25netd_upstream *u,
+			   const struct ax25netd_session *s)
+{
+	struct ax25netd_orphan *o;
+	int i;
+
+	/* One link, one release.  The window outlives a reconnect, so a
+	 * second session on the same pair within it must not leave a second
+	 * entry that would put a second DISC on the air.  */
+	for (i = 0; i < u->norphans; i++) {
+		if (u->orphans[i].chan == s->chan &&
+		    strcmp(u->orphans[i].call_from, s->call_from) == 0 &&
+		    strcmp(u->orphans[i].call_to, s->call_to) == 0)
+			return;
+	}
+
+	if (u->norphans == u->aorphans) {
+		int n = u->aorphans != 0 ? u->aorphans * 2 : 4;
+		struct ax25netd_orphan *p =
+			realloc(u->orphans, (size_t)n * sizeof(*p));
+
+		if (p == NULL)
+			return;
+		u->orphans = p;
+		u->aorphans = n;
+	}
+
+	o = &u->orphans[u->norphans++];
+	strncpy(o->call_from, s->call_from, sizeof(o->call_from) - 1);
+	o->call_from[sizeof(o->call_from) - 1] = '\0';
+	strncpy(o->call_to, s->call_to, sizeof(o->call_to) - 1);
+	o->call_to[sizeof(o->call_to) - 1] = '\0';
+	o->chan = s->chan;
+	o->since = time(NULL);
+}
+
+/*
+ * Send a raw DISC for one orphaned link through the upstream's 'K'
+ * command.  The upstream no longer has a session for it - that is what it
+ * dropped when we went away - so the frame is built here from the two
+ * addresses and handed over as a raw AX.25 frame, the one command that
+ * needs no session state.  DISC and not DM: the far station is still up,
+ * and it answers a release frame with the UA it would have sent had the
+ * link ended normally, which is the teardown it can actually complete.
+ * The address flags are the ones direwolf writes, so the frame is the same
+ * one mux_mirror_raw_ctl would have shown locally for a real DISC.
+ */
+static void mux_orphan_transmit(struct ax25netd_upstream *u,
+				const struct ax25netd_orphan *o)
+{
+	struct agwpe_s hdr;
+	struct full_sockaddr_ax25 fsa;
+	unsigned char frame[MUX_RAW_MAX + 1];
+	unsigned char *p;
+
+	if (u->cli == NULL || !u->connected)
+		return;
+
+	frame[0] = 0;			/* TNC marker, direwolf skips it */
+	p = frame + 1;
+
+	if (ax25_aton(o->call_to, &fsa) == -1)	/* destination: far side */
+		return;
+	memcpy(p, fsa.fsa_ax25.sax25_call.ax25_call, 7);
+	p[6] |= 0xE0;
+	p += 7;
+
+	if (ax25_aton(o->call_from, &fsa) == -1)	/* source: us */
+		return;
+	memcpy(p, fsa.fsa_ax25.sax25_call.ax25_call, 7);
+	p[6] |= 0x60;
+	p += 7;
+
+	*(p - 1) |= 0x01;		/* end of the address field */
+	*p++ = 0x43;			/* DISC, command */
+
+	agwpe_header_init(&hdr, o->chan, AGWPE_CMD_RAW, 0,
+			  o->call_from, o->call_to, (size_t)(p - frame));
+	agwpe_client_send_frame(u->cli, &hdr, frame);
+}
+
+/*
+ * Show the release on the local raw monitors as a DM, the frame the far
+ * station would have sent had the link been torn down on the air instead
+ * of by the upstream vanishing.  Nothing is transmitted here; the consumer
+ * is told separately by the 'd' that closes its descriptor, and this is
+ * what a listener watching the link sees next to it.
+ */
+static void mux_orphan_mirror_dm(struct ax25netd_upstream *u,
+				 const struct ax25netd_session *s)
+{
+	struct agwpe_s mh;
+
+	memset(&mh, 0, sizeof(mh));
+	mh.port = port_flat(u, s->chan);
+	mh.datakind = AGWPE_CMD_DISCONNECT;
+	strncpy(mh.call_from, s->call_to, AGWPE_MAX_CALL - 1);
+	strncpy(mh.call_to, s->call_from, AGWPE_MAX_CALL - 1);
+	mux_mirror_raw_ctl(&mh, NULL, 0, 0x0F);		/* DM */
+}
+
 void mux_upstream_reconnected(struct ax25netd_upstream *u)
 {
 	int i;
@@ -2346,12 +2454,25 @@ void mux_upstream_reconnected(struct ax25netd_upstream *u)
 	agwpe_client_get_ports(u->cli);
 
 	mux_recalc_toggles();
+
+	/* The links that went down with the previous connection now get
+	 * the DISC the upstream never sent.  Done after the call signs are
+	 * registered and the channels re-learned, so the far station's UA
+	 * answer arrives with a session and a port to route it to.  */
+	for (i = 0; i < u->norphans; i++)
+		mux_orphan_transmit(u, &u->orphans[i]);
 }
 
 /*
  * The upstream connection is gone; every AX.25 link it carried is gone
  * too.  Terminate each session inward, one 'd' per session, so a client
  * with several PIDs on one link sees every one of them disconnected.
+ *
+ * A link that was up also owes the far station a release: the upstream
+ * dropped it without a DISC, so it is remembered and the DISC is sent
+ * through the raw-frame command when the upstream is back.  A connect
+ * still in flight was never a link - there is nothing on the radio to
+ * release - and its fate is told to the waiting program by the 'd' alone.
  */
 void mux_upstream_lost(struct ax25netd_upstream *u)
 {
@@ -2362,6 +2483,11 @@ void mux_upstream_lost(struct ax25netd_upstream *u)
 		struct ax25netd_client *cl = client_by_fd(s->fd);
 		struct agwpe_s hdr;
 		char msg[32];
+
+		if (!s->connecting) {
+			mux_orphan_add(u, s);
+			mux_orphan_mirror_dm(u, s);
+		}
 
 		if (cl == NULL)
 			continue;
@@ -2374,6 +2500,31 @@ void mux_upstream_lost(struct ax25netd_upstream *u)
 	}
 
 	u->nsessions = 0;
+}
+
+/*
+ * Drop the orphans whose window has run out.  Beyond it the far station
+ * has long since torn the link down itself, its retries unanswered, so
+ * there is nothing left to release and a later reconnect would only repeat
+ * on the air what the radio already worked out.
+ */
+void mux_orphans_tick(time_t now)
+{
+	int i;
+
+	for (i = 0; i < ax25netd.nup; i++) {
+		struct ax25netd_upstream *u = &ax25netd.ups[i];
+		int j = 0;
+
+		while (j < u->norphans) {
+			if (now - u->orphans[j].since < AX25NETD_ORPHAN_TTL) {
+				j++;
+				continue;
+			}
+			u->orphans[j] = u->orphans[u->norphans - 1];
+			u->norphans--;
+		}
+	}
 }
 
 void mux_recalc_toggles(void)
