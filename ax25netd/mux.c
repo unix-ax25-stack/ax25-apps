@@ -1031,13 +1031,11 @@ static void mux_ctl_kill(struct ax25netd_client *cl, const struct agwpe_s *hdr)
 
 		loop_link_remove(u, from, to);
 
-		/* The kill leaves no command to answer, so listen() is
-		 * shown a DM, as on a radio: without it the kill has no
-		 * visible effect on the monitor at all. */
-		agwpe_header_init(&h, AGWPE_PORT_LOOP, AGWPE_CMD_DISCONNECT,
-				  0, from, to, 0);
-		mux_mirror_raw_ctl(&h, NULL, 0, 0x0F);	/* DM */
-
+		/* No DM here: no session means no link was ever up, and a
+		 * kill that ended nothing must leave the monitor as it
+		 * found it.  A kill that did end a link comes through
+		 * mux_kill_session(), above, which is where the DM is
+		 * drawn. */
 		snprintf(msg, sizeof(msg), "*** DISCONNECTED\r");
 		af = loop_call_by_call(from);
 		at = loop_call_by_call(to);
