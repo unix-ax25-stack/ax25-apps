@@ -260,7 +260,7 @@ The remote station, or
 .B *
 on a listening row, where any caller may arrive.
 .TP
-.B PID
+.B PROTO
 The protocol id, written in hex as AX.25 usually writes it.
 .B 0xf0
 is the default - no layer 3, plain text - and the one a socket made
@@ -295,10 +295,11 @@ The upstream the session belongs to, or
 .B loop
 for the virtual port.
 .TP
-.B OWNER
+.B PID
 The process id of the local program this row belongs to, which is how a
-listening call with no id is found and stopped.  It is the pid the kernel
-recorded when the program connected, so it is shown for a client on the local
+listening call with no id is found and stopped.  It is the pid, the one the
+kernel recorded when the program connected - not the user id the program runs
+as - so it is shown for a client on the local
 unix socket and is
 .B -
 for one that came in over TCP, whose peer carries no such credential.

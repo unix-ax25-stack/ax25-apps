@@ -370,17 +370,17 @@ static int show_sessions(void)
 		return 1;
 	}
 
-	printf("%-8s %-5s %-10s %-10s %-4s %-11s %-10s %-7s %s\n",
-	       "ID", "PORT", "FROM", "TO", "PID", "STATE", "UPSTREAM",
-	       "OWNER", "PROG");
+	printf("%-8s %-5s %-10s %-10s %-5s %-11s %-10s %-7s %s\n",
+	       "ID", "PORT", "FROM", "TO", "PROTO", "STATE", "UPSTREAM",
+	       "PID", "PROG");
 	for (i = 0; i < netd.sessions.count; i++) {
 		struct agwpe_session *s = &netd.sessions.sessions[i];
-		char pid[8], id[16], owner[16];
+		char proto[8], id[16], pid[16];
 
 		/* Hex, as AX.25 PIDs are written: a small decimal number
 		 * next to the id would read as a second one.  All values are
 		 * four characters, so the column never shifts. */
-		snprintf(pid, sizeof(pid), "0x%02X", s->pid);
+		snprintf(proto, sizeof(proto), "0x%02X", s->pid);
 		/* A listening row has no handle: nothing there can be
 		 * killed, and a 0 would read as one that can. */
 		if (s->id)
@@ -388,17 +388,19 @@ static int show_sessions(void)
 		else
 			snprintf(id, sizeof(id), "-");
 		/* The pid of the local program, so a listener with no id
-		 * can still be found and stopped by hand. */
+		 * can still be found and stopped by hand.  The pid, not
+		 * the uid: the row names the process a sysop would stop,
+		 * and the program's name is printed next to it. */
 		if (s->owner)
-			snprintf(owner, sizeof(owner), "%u", s->owner);
+			snprintf(pid, sizeof(pid), "%u", s->owner);
 		else
-			snprintf(owner, sizeof(owner), "-");
+			snprintf(pid, sizeof(pid), "-");
 		/* A server that sends no state has none to show; the
 		 * column stays so that a table does not change shape. */
-		printf("%-8s %-5d %-10s %-10s %-4s %-11s %-10s %-7s %s\n",
-		       id, s->port, s->from, s->to, pid,
+		printf("%-8s %-5d %-10s %-10s %-5s %-11s %-10s %-7s %s\n",
+		       id, s->port, s->from, s->to, proto,
 		       s->state[0] ? s->state : "-", s->up,
-		       owner, s->prog[0] ? s->prog : "-");
+		       pid, s->prog[0] ? s->prog : "-");
 	}
 	if (netd.sessions.count == 0)
 		printf("(no sessions)\n");
