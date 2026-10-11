@@ -334,6 +334,17 @@ dropped without a word.  The other form of
 takes the port and call pair
 .BR axkill (8)
 does.
+.PP
+A listening call is not a session, and the other form of
+.B \-k
+that names one has nothing to end: the daemon finds no session, answers by
+telling the listening program its end is gone - a frame a listener has no
+connection to receive - and drops the request.  So a kill that names a
+listening call is refused before it is sent, and the caller is told that a
+listen cannot be killed and which program to stop instead, with the pid and
+name the session table already carries for the row.  Only an ax25netd port is
+asked; a kernel or WAMPES port has no such table here and its kill goes through
+as before.
 .SH ENVIRONMENT
 .TP
 .B AXSOCK_HOST
@@ -377,7 +388,9 @@ could not be reached or did not answer or when no session carried that id, and
 for
 .B \-k
 by name the same as
-.BR axkill (8).
+.BR axkill (8),
+except when the name is a listening call of an ax25netd port: that is refused
+with 1 and the reason, and no kill frame is sent.
 .SH EXAMPLES
 .TP
 .B ax25netctl

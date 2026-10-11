@@ -539,8 +539,11 @@ static int name_by_port(int port, char *buf, size_t len)
  *
  * port is a buffer of portlen bytes, which is rewritten on a translation.
  */
+static int refuse_listen_kill(const char *port, const char *dest,
+			      const char *host, const char *comconf);
+
 static int kill_by_name(char *port, size_t portlen, const char *dest,
-			const char *src)
+			const char *src, const char *host, const char *comconf)
 {
 	struct ax25_ctl_struct ax25_ctl;
 	char *addr;
@@ -566,6 +569,11 @@ static int kill_by_name(char *port, size_t portlen, const char *dest,
 				port);
 		return 1;
 	}
+	/* A listening call is not a session and a kill that names one has
+	 * nothing to end: it would be dropped without a word.  Refused before
+	 * the request is sent, so that the one who asked is told why. */
+	if (refuse_listen_kill(port, dest, host, comconf))
+		return 1;
 	if (ax25_aton_entry(addr, (char *)&ax25_ctl.port_addr) == -1 ||
 	    ax25_aton_entry(dest, (char *)&ax25_ctl.dest_addr) == -1 ||
 	    ax25_aton_entry(src, (char *)&ax25_ctl.source_addr) == -1) {
@@ -927,6 +935,64 @@ static int endpoint_of(const char *host, const char *conffile)
 	return -1;
 }
 
+/* A kill that names a listening call has nothing to end.  A listen is not a
+ * session: it is a program waiting for a call that has not arrived, which the
+ * daemon tracks as a registered call and not as a link.  The kill finds no
+ * session, and the daemon answers it by telling that program its end is gone -
+ * a frame a listener has no connection to receive, so it is dropped and the
+ * request quietly does nothing.
+ *
+ * That silence is broken for the one who asked: say that a listening call
+ * cannot be killed and that the program waiting for the call is what to stop,
+ * which is the pid and name the session table already carries for it.  Only an
+ * ax25netd port is asked - a kernel or WAMPES port has no such table here, and
+ * a kill there goes through as before.
+ *
+ * Returns nonzero when the kill was refused and the reason printed.
+ */
+static int refuse_listen_kill(const char *port, const char *dest,
+			      const char *host, const char *comconf)
+{
+	struct ax25_port_info info;
+	int i;
+
+	if (ax25_port_info(port, &info) != 0 ||
+	    info.backend != AX25_PORT_AGWPE)
+		return 0;
+	if (endpoint_of(host, comconf) != 0)
+		return 0;
+	netd.attempted = 1;
+	if (query_sessions() < 0 || !netd.got_sessions)
+		return 0;
+
+	for (i = 0; i < netd.sessions.count; i++) {
+		const struct agwpe_session *s = &netd.sessions.sessions[i];
+
+		/* A listening row has no handle and a remote of '*': any
+		 * caller may arrive, and no one has yet. */
+		if (s->id != 0)
+			continue;
+		if (s->port != info.port)
+			continue;
+		if (strcasecmp(s->to, "*") != 0)
+			continue;
+		if (strcasecmp(s->from, dest) != 0)
+			continue;
+
+		fprintf(stderr,
+			"%s: %s on port %s is a listening call, not a "
+			"connection:\n"
+			"    a listen cannot be killed.  Stop the program "
+			"instead", prog, dest, port);
+		if (s->owner)
+			fprintf(stderr, " (pid %u, %s)", (unsigned)s->owner,
+				s->prog[0] ? s->prog : "-");
+		fprintf(stderr, ".\n");
+		return 1;
+	}
+	return 0;
+}
+
 /* ------------------------------------------------------------------ */
 
 int main(int argc, char *argv[])
@@ -1076,7 +1142,8 @@ int main(int argc, char *argv[])
 		 * the name a number stands for: the destination sits right
 		 * behind the colon and would be overwritten with it. */
 		snprintf(port, sizeof(port), "%s", spec);
-		return kill_by_name(port, sizeof(port), colon + 1, argv[0]);
+		return kill_by_name(port, sizeof(port), colon + 1, argv[0],
+				    host, comconf);
 	}
 
 	if (!no_netd && endpoint_of(host, comconf) == 0) {
