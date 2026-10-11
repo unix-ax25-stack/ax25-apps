@@ -1063,8 +1063,21 @@ static void mux_ctl_kill(struct ax25netd_client *cl, const struct agwpe_s *hdr)
 		s = session_find(u, from, to, session_pid(hdr->pid), -1);
 		if (s == NULL)
 			s = session_find(u, to, from, 0, -1);
-		if (s == NULL)
+		if (s == NULL) {
+			/* Not in this table does not mean not on the air:
+			 * the upstream TNC may still hold a connection this
+			 * daemon lost track of, and it is the one that ends
+			 * a link.  Hand the pair on as a disconnect, the
+			 * same command a tracked kill sends, and let the
+			 * TNC decide whether anything answers.  No DM is
+			 * drawn here: that would invent a frame for a
+			 * connection that may not exist over there. */
+			if (u->connected)
+				agwpe_client_disconnect(u->cli,
+							port_chan(u, hdr->port),
+							from, to);
 			return;
+		}
 
 		{
 			char lc[AGWPE_MAX_CALL], rc[AGWPE_MAX_CALL];
