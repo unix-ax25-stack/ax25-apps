@@ -953,11 +953,14 @@ static int endpoint_of(const char *host, const char *conffile)
  * registered for it.  So that kill is sent - but it answers nothing either, and
  * a kill that looks like it worked and did not is worse than a line too many.
  *
- * Only an ax25netd port is asked: a kernel or WAMPES port has no such table
- * here, and its kill goes through as before.
+ * Only an ax25netd port is asked.  A WAMPES port is refused with what it is,
+ * because the node owns its connections and the connector has no kill to send
+ * - the ioctl would reach neither the node nor the kernel.  A kernel port is
+ * left alone: it is the kernel's to answer, and its kill goes through as
+ * before.
  *
- * Returns 1 when the kill must not be sent (a listening call, already
- * reported), 0 when it should go on.
+ * Returns 1 when the kill must not be sent (a listening call or a WAMPES
+ * port, already reported), 0 when it should go on.
  */
 static int check_kill_name(const char *port, const char *dest, const char *src,
 			   const char *host, const char *comconf)
@@ -965,8 +968,21 @@ static int check_kill_name(const char *port, const char *dest, const char *src,
 	struct ax25_port_info info;
 	int i;
 
-	if (ax25_port_info(port, &info) != 0 ||
-	    info.backend != AX25_PORT_AGWPE)
+	if (ax25_port_info(port, &info) != 0)
+		return 0;
+	if (info.backend == AX25_PORT_WAMPES) {
+		/* The node owns its links and the connector has no kill to
+		 * send - SIOCAX25CTLCON would reach neither the node nor
+		 * the kernel, only an EADDRNOTAVAIL.  Say what a kill here
+		 * would have to be instead of that. */
+		fprintf(stderr,
+			"%s: %s is a port of the WAMPES node %s: the node "
+			"owns its\n"
+			"    connections, and there is no kill on this path.\n",
+			prog, port, info.node);
+		return 1;
+	}
+	if (info.backend != AX25_PORT_AGWPE)
 		return 0;
 	if (endpoint_of(host, comconf) != 0)
 		return 0;

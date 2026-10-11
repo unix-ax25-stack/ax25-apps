@@ -343,8 +343,13 @@ connection to receive - and drops the request.  So a kill that names a
 listening call is refused before it is sent, and the caller is told that a
 listen cannot be killed and which program to stop instead, with the pid and
 name the session table already carries for the row.  Only an ax25netd port is
-asked; a kernel or WAMPES port has no such table here and its kill goes through
-as before.
+asked; a kernel port has no such table here and its kill goes through as
+before.
+.PP
+A WAMPES port is a different case again.  The node owns its connections and
+the connector has no kill to send - a request on that path would reach neither
+the node nor the kernel - so a kill that names one is refused, with the node
+named, rather than sent to fail.
 .PP
 A pair the table does not have at all - no session and no listening call - is
 sent anyway, because the daemon can still end a link it never tracked by the
@@ -395,8 +400,8 @@ for
 .B \-k
 by name the same as
 .BR axkill (8),
-except when the name is a listening call of an ax25netd port: that is refused
-with 1 and the reason, and no kill frame is sent.
+except when the name is a listening call of an ax25netd port or a port of a
+WAMPES node: both are refused with 1 and the reason, and no kill is sent.
 .SH EXAMPLES
 .TP
 .B ax25netctl
