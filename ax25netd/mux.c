@@ -784,6 +784,18 @@ static void loop_connect(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 
 	owner = loop_call_by_call(hdr->call_to);
 	if (owner == NULL) {
+		struct agwpe_s rh;
+
+		/* Nobody holds the call, so nothing on the loop will
+		 * answer.  The SABM has been mirrored, and a SABM with no
+		 * answer at all reads as a station that is simply not
+		 * there; the refusal is shown as the DM a station that
+		 * was there but would not take the call would have sent,
+		 * which is also the only trace listen() gets of it. */
+		agwpe_header_init(&rh, AGWPE_PORT_LOOP,
+				  AGWPE_CMD_DISCONNECT, 0,
+				  hdr->call_to, hdr->call_from, 0);
+		mux_mirror_raw_ctl(&rh, NULL, 0, 0x0F);		/* DM */
 		reply_refuse(cl, hdr, "RETRYOUT");
 		return;
 	}
@@ -921,6 +933,14 @@ static void loop_client_gone(struct ax25netd_client *cl)
 		memcpy(from, s->call_from, sizeof(from));
 		memcpy(to, s->call_to, sizeof(to));
 		loop_link_remove(u, from, to);
+
+		/* The client went away without a disconnect, which is a
+		 * kill of its own link; shown as a DM for the same reason
+		 * a kill is, and the only trace the monitor gets, since
+		 * the peer is told separately below. */
+		agwpe_header_init(&hdr, AGWPE_PORT_LOOP,
+				  AGWPE_CMD_DISCONNECT, 0, from, to, 0);
+		mux_mirror_raw_ctl(&hdr, NULL, 0, 0x0F);	/* DM */
 
 		peer = loop_call_by_call(to);
 		if (peer != NULL && peer != cl) {
