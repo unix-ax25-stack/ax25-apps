@@ -949,7 +949,8 @@ static int endpoint_of(const char *host, const char *conffile)
  * row, which is the program to stop instead.
  *
  * A pair the table does not have at all is a different thing, and not a
- * refusal: the daemon can still end a link it never tracked, by the calls
+ * refusal: the daemon can still end a link it never tracked - on a radio by
+ * telling the upstream TNC to drop the pair, on the loop by the calls
  * registered for it.  So that kill is sent - but it answers nothing either, and
  * a kill that looks like it worked and did not is worse than a line too many.
  *
@@ -1036,6 +1037,10 @@ static int check_kill_name(const char *port, const char *dest, const char *src,
 		fprintf(stderr, " -\n"
 			"    the loop daemon can still end a link it did not "
 			"track, by the calls registered for it");
+	else
+		fprintf(stderr, " -\n"
+			"    the daemon can still end a link it did not track, "
+			"by telling the upstream to drop the pair");
 	fprintf(stderr, ".\n");
 	return 0;
 }

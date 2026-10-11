@@ -352,10 +352,12 @@ the node nor the kernel - so a kill that names one is refused, with the node
 named, rather than sent to fail.
 .PP
 A pair the table does not have at all - no session and no listening call - is
-sent anyway, because the daemon can still end a link it never tracked by the
-calls registered for it.  It is not refused.  But the kill gives no answer
-either, so the tool says that the table had nothing, rather than let a kill
-that may have ended nothing look as if it worked.
+sent anyway, because the daemon can still end a link it never tracked.  On a
+radio that link lives at the upstream TNC, so the daemon hands the pair on as a
+disconnect and lets the TNC decide whether anything answers; on the loop the
+link is named by the calls registered for it.  It is not refused.  But the kill
+gives no answer either, so the tool says that the table had nothing, rather than
+let a kill that may have ended nothing look as if it worked.
 .SH ENVIRONMENT
 .TP
 .B AXSOCK_HOST
