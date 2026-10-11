@@ -1112,10 +1112,18 @@ static void mux_kill_session(struct ax25netd_client *cl,
 		loop_link_remove(u, lc, rc);
 
 		/* A kill leaves no command to answer, so listen() is
-		 * shown a DM, the same as on a radio.  The pair has two
-		 * ends here; one frame says the link went down. */
+		 * shown a DM, the same as on a radio.  A radio link has
+		 * one end that is ours, and its DM goes out from ours to
+		 * the far station; a loop link has two ends and neither
+		 * is the far one - the caller and the called are both
+		 * here.  So both directions are shown, the DM each end
+		 * would have heard from the other, since a DISC and its
+		 * UA do not happen on a loop and neither is simulated. */
 		agwpe_header_init(&h, AGWPE_PORT_LOOP, AGWPE_CMD_DISCONNECT,
 				  pid, lc, rc, 0);
+		mux_mirror_raw_ctl(&h, NULL, 0, 0x0F);	/* DM */
+		agwpe_header_init(&h, AGWPE_PORT_LOOP, AGWPE_CMD_DISCONNECT,
+				  pid, rc, lc, 0);
 		mux_mirror_raw_ctl(&h, NULL, 0, 0x0F);	/* DM */
 
 		if (a != NULL && a != cl) {
