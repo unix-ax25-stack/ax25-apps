@@ -2,8 +2,6 @@
 		     + __GNUC_MINOR__ * 100	\
 		     + __GNUC_PATCHLEVEL__)
 
-#if GCC_VERSION >= 40500
-
 /*
  * Mark a position in code as unreachable.  This can be used to
  * suppress control flow warnings after asm blocks that transfer
@@ -12,11 +10,18 @@
  * Early snapshots of gcc 4.5 don't support this and we can't detect
  * this in the preprocessor, but we can live with this because they're
  * unreleased.
+ *
+ * C23 put unreachable() in <stddef.h> already, so define ours only when
+ * there is none; redefining it warns here and is undefined behaviour by
+ * the letter of the standard.
  */
+#ifndef unreachable
+#if GCC_VERSION >= 40500
 #define unreachable() \
 	do { __builtin_unreachable(); } while (0)
 #else
 #define unreachable() do { } while (1)
+#endif
 #endif
 
 #define T_ERROR		1
