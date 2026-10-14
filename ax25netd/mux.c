@@ -1309,9 +1309,11 @@ static void client_owner(struct ax25netd_client *cl, uint32_t *pid,
  * ask for the length only, as snprintf() allows.
  *
  * The trailing word is the link state.  A connect that has gone out but
- * whose answer has not come back is a SABM on the air - the state a kernel
- * socket is shown in between its SABM and the UA - and every other session
- * is ESTABLISHED.  It comes last so that a reader that does not know it
+ * whose answer has not come back is CONNECTING - the SABM is on the air and
+ * no UA has come back yet - and every other session is ESTABLISHED.  The
+ * word names the state, not the frame: it is the same one a WAMPES node
+ * prints for its own forwardings, so ax25netctl -s can show both backends in
+ * one table.  It comes last so that a reader that does not know it
  * stops at the pid, as one written to the seven fields before might.
  *
  * After the state come the owner's pid and its name, which a reader that
@@ -1327,7 +1329,7 @@ static int session_row(char *buf, size_t cap,
 	return snprintf(buf, cap, "%u %u %s %u %s %s %u %s %u %s", s->id,
 			loop ? AGWPE_PORT_LOOP : port_flat(u, s->chan),
 			u->name, s->chan, s->call_from, s->call_to, s->pid,
-			s->connecting ? "SABM" : "ESTABLISHED",
+			s->connecting ? "CONNECTING" : "ESTABLISHED",
 			owner, prog);
 }
 
