@@ -25,27 +25,56 @@
 #define	PID_NO_L3	0xF0
 
 /*
- * XID (AX.25 2.2, ISO 8885): Parameter-IDs und Optionsbits.
- * libax25 stellt kein xid.h - die Werte stammen aus direwolf/src/xid.h
- * und sind identisch wampes-import ax25_dump().  Wer hier blind
- * Konstante ratet, sah in Wahrheit nur seine eigenen Wunschwerte.
+ * XID (AX.25 2.2, ISO 8885): Parameter-IDs, Optionsbits und die
+ * Subfeld-Klammern.  libax25 stellt kein xid.h - die Werte stammen aus
+ * direwolf/src/xid.h und sind identisch wampes-import ax25_dump().  Wer
+ * hier blind Konstante ratet, sah in Wahrheit nur seine eigenen
+ * Wunschwerte.
+ *
+ * Die PIs 5 bis 8 sind zwei Paare und keine Reihe: 5/6 ist die I-Feld-
+ * Laenge in Bit (N1tx/N1rx), 7/8 die Fenstergroesse in Frames (kTx/kRx).
+ * Deshalb steht hier PI 7 als Fenster und nicht als N1tx - wer beides
+ * verwechselt, liest aus einem XID den falschen Partner.
  */
 #ifndef	XID
 #define	XID		0xaf	/* exchange identification */
 #endif
+#ifndef	XID_FI_GENERAL
+#define	XID_FI_GENERAL	0x82	/* FI: allgemeine Formatkennung   */
+#endif
+#ifndef	XID_GI_PARAMS
+#define	XID_GI_PARAMS	0x80	/* GI: die Parameteraushandlung   */
+#define	XID_GI_PRIVATE	0xF0	/* GI: private Parameter          */
+#endif
 #ifndef	XID_PI_OPTIONS
 #define	XID_PI_OPTIONS	3	/* PV ist ein XID_OPT_*-Bitfeld   */
+#define	XID_PI_IFIELDTX	5	/* N1tx: max. I-Feld, gesendet    */
 #define	XID_PI_IFIELDRX	6	/* N1rx: max. I-Feld, empfangen   */
-#define	XID_PI_IFIELDTX	7	/* N1tx: max. I-Feld, gesendet    */
-#define	XID_PI_WINDOWRX	8	/* k: Empfangs-Fenster            */
+#define	XID_PI_WINDOWTX	7	/* kTx: Sende-Fenster             */
+#define	XID_PI_WINDOWRX	8	/* kRx: Empfangs-Fenster          */
 #define	XID_PI_ACKTIME	9	/* T1: ACK-Leerlaufzeit, ms       */
-#define	XID_PI_RETRIES	10	/* N: Wiederholungszaehler        */
+#define	XID_PI_RETRIES	10	/* N2: Wiederholungszaehler       */
+#endif
+/*
+ * Das private Subfeld GI=0xF0: seine PIs sind "by prior agreement between
+ * the stations" definiert, und PI=0 ist der Parametersatz-Name, der sagt,
+ * welche Vereinbarung das ist (ITU-T V.42 legt dort ASCII "V.42" ab).  Wir
+ * legen "WAMP" hinein; die Faehigkeitsbits sind seine PI=1.  Damit erkennt
+ * ein mitlesender Nachbar auf dem Draht, dass es unsere Erweiterung ist -
+ * und nicht nur irgendein privates Feld.  Siehe doc/EAX25.md im wampes.
+ */
+#ifndef	XID_PI_PRIV_SETID
+#define	XID_PI_PRIV_SETID 0	/* unser Parametersatz (ASCII)    */
+#define	XID_PI_PRIV_CAPS  1	/* seine Faehigkeitsbits          */
+#define	XID_PRIV_SET	 "WAMP"	/* der Satz: der Schirm fuer uns  */
+#define	XID_PRIV_CAP_HOP2HOP 0x01 /* Bit 0: bestaetigt hop by hop */
 #endif
 #ifndef	XID_OPT_REJ
 #define	XID_OPT_REJ	0x000002
 #define	XID_OPT_SREJ	0x000004
 #define	XID_OPT_MOD8	0x000400
 #define	XID_OPT_MOD128	0x000800
+#define	XID_OPT_SEGMENT	0x400000 /* Bit 22: Segmenter/Reassembler  */
 #endif
 
 #define	I		0x00
@@ -86,6 +115,141 @@ static char *decode_type(int);
 
 #define NDAMA_STRING ""
 #define DAMA_STRING " [DAMA]"
+
+#define NDAMA_STRING ""
+#define DAMA_STRING " [DAMA]"
+
+/* Der Parametersatz-Name ist per Vereinbarung ASCII (V.42 schreibt "V.42"
+ * hinein, wir "WAMP").  Er wird als Text gezeigt, wenn er druckbar ist -
+ * das ist der ganze Zweck der Erweiterung, und in Hex sieht man ihn nicht
+ * wieder.  Sonst steht dort die Zahl, und das 0x sagt, was es war.
+ */
+static void xid_set_name(uint32_t pv, int pl)
+{
+	char s[9];
+	int i;
+
+	if (pl < 1 || pl > (int)sizeof(s) - 1)
+		goto hex;
+	for (i = 0; i < pl; i++) {
+		unsigned char c = (pv >> (8 * (pl - 1 - i))) & 0xff;
+
+		if (c < 0x20 || c > 0x7e)
+			goto hex;
+		s[i] = (char)c;
+	}
+	s[pl] = '\0';
+	lprintf(T_AXHDR, " SET=\"%s\"", s);
+	return;
+hex:
+	lprintf(T_AXHDR, " SET=0x%x", (unsigned)pv);
+}
+
+/* Ein XID-Informationsfeld: FI(1), darauf ein oder mehrere Subfelder, jedes
+ * in seiner eigenen GI/GL-Klammer (GI 1 Byte, GL two octets big-endian),
+ * darin die (PI,PL,PV)-Tripel.  `gi` entscheidet, wie die Parameternummern
+ * zu lesen sind: 0x80 ist die Standardaushandlung, 0xF0 unser privates
+ * Feld.  Dass es mehr als ein Subfeld geben darf, ist genau der Punkt, an
+ * dem die eigene Erweiterung neben den Standard passt.
+ *
+ * Genau diese Tripel sind es, die man beim Einwand "mir fehlt eine
+ * Bestaetigung" begreifen muss: wer hier blind raet, sieht in Wahrheit nur
+ * die eigenen Wunschwerte.  linux listen druckt fuer XID nicht einmal das
+ * Wort XID - die Luecke war im wampes genauso, und genau dort haben wir sie
+ * in ax25_dump() geschlossen; hier kommt die Erweiterung dazu, damit ein
+ * mitlesender Nachbar den Satz "WAMP" auf dem Draht erkennt.
+ */
+static void xid_dump(unsigned char *data, int length)
+{
+	int pos = 1;		/* data[0] ist das FI */
+
+	lprintf(T_AXHDR, " FI=0x%x", data[0]);
+	while (pos + 3 <= length) {
+		int gi = data[pos++];
+		int gl = (data[pos] << 8) | data[pos + 1];
+		int left;
+
+		pos += 2;
+		if (gl > length - pos)
+			gl = length - pos;	/* mehr gibt der Rahmen nicht her */
+		left = gl;
+		lprintf(T_AXHDR, " GI=0x%x GL=%d", gi, gl);
+		while (left >= 2 && pos + 2 <= length) {
+			int pi = data[pos++];
+			int pl = data[pos++];
+			uint32_t pv = 0;
+			int n;
+
+			left -= 2;
+			if (pl > left)	/* laut Draht nicht ok */
+				break;
+			left -= pl;
+			for (n = 0; n < pl; n++)
+				pv = (pv << 8) | data[pos++];
+			if (gi == XID_GI_PRIVATE) {
+				switch (pi) {
+				case XID_PI_PRIV_SETID:
+					xid_set_name(pv, pl);
+					break;
+				case XID_PI_PRIV_CAPS:
+					lprintf(T_AXHDR, " CAPS=0x%x%s",
+						(unsigned)pv,
+						(pv & XID_PRIV_CAP_HOP2HOP) ?
+						" hop2hop" : "");
+					break;
+				default:
+					lprintf(T_AXHDR,
+						" PI=%d PL=%d PV=0x%x",
+						pi, pl, (unsigned)pv);
+					break;
+				}
+				continue;
+			}
+			if (gi != XID_GI_PARAMS) {
+				lprintf(T_AXHDR, " PI=%d PL=%d PV=0x%x",
+					pi, pl, (unsigned)pv);
+				continue;
+			}
+			switch (pi) {
+			case XID_PI_OPTIONS:
+				lprintf(T_AXHDR, " OPT=0x%x%s%s%s",
+					(unsigned)pv,
+					(pv & XID_OPT_SREJ) ? " SREJ" :
+					(pv & XID_OPT_REJ) ? " REJ" : "",
+					(pv & XID_OPT_MOD128) ? " mod128" :
+					(pv & XID_OPT_MOD8) ? " mod8" : "",
+					(pv & XID_OPT_SEGMENT) ? " SEG" : "");
+				break;
+			case XID_PI_IFIELDTX:
+				lprintf(T_AXHDR, " N1tx=%u", (unsigned)pv);
+				break;
+			case XID_PI_IFIELDRX:
+				lprintf(T_AXHDR, " N1rx=%u", (unsigned)pv);
+				break;
+			case XID_PI_WINDOWTX:
+				lprintf(T_AXHDR, " kTx=%u", (unsigned)pv);
+				break;
+			case XID_PI_WINDOWRX:
+				lprintf(T_AXHDR, " kRx=%u", (unsigned)pv);
+				break;
+			case XID_PI_ACKTIME:
+				lprintf(T_AXHDR, " T1=%ums", (unsigned)pv);
+				break;
+			case XID_PI_RETRIES:
+				lprintf(T_AXHDR, " Retries=%u", (unsigned)pv);
+				break;
+			default:
+				lprintf(T_AXHDR, " PI=%d PL=%d PV=0x%x",
+					pi, pl, (unsigned)pv);
+				break;
+			}
+		}
+		/* Ein PI+PL, das der Schleifenkopf nicht mehr angefangen hat,
+		 * wird uebersprungen: das naechste GI steht hinter ihm. */
+		if (left > 0)
+			pos += left;
+	}
+}
 
 /* FlexNet header compression display by Thomas Sailer t.sailer@alumni.ethz.ch */
 
@@ -306,69 +470,8 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 			}
 		}
 	} else if (type == XID && length >= 4) {
-		int gl, pi, pl, xpos = 4;
-		uint32_t pv;
-		int xfi = data[0], xgi = data[1];
-		int xglo = (data[2] << 8) | data[3];
-		/* XID-Info: FI(1) GI(1) GL(2, big-endian) = Gesamtlaenge
-		 * der nachfolgenden Parameterliste, darauf ein oder mehrere
-		 * (PI,PL,PV)-Tripel.  Genau diese Tripel sind es, die man
-		 * beim Einwand "mir fehlt eine Bestaetigung" begreifen
-		 * muss: wer hier blind ratioet, sah in Wahrheit nur die
-		 * eigenen Wunschwerte.  linux listen druckt fuer XID nicht
-		 * einmal das Wort XID - die Luecke war im wampes genauso,
-		 * und genau dort haben wir sie in ax25_dump() geschlossen.
-		 */
-		gl = xglo;
-		if (gl > length - 4)
-			gl = length - 4;
-		lprintf(T_AXHDR, " FI=0x%x GI=0x%x GL=%d",
-			xfi, xgi, xglo);
-		while (gl >= 2) {
-			if (xpos + 2 > length)
-				break;
-			pi = data[xpos++];
-			pl = data[xpos++];
-			gl -= 2;
-			if (pl > gl || xpos + pl > length)
-				break;
-			gl -= pl;
-			pv = 0;
-			{
-				int pvl = pl;
-				while (pvl-- > 0)
-					pv = (pv << 8) | data[xpos++];
-			}
-			switch (pi) {
-			case XID_PI_OPTIONS:
-				lprintf(T_AXHDR, " OPT=0x%x%s%s",
-					(unsigned)pv,
-					(pv & XID_OPT_SREJ) ? " SREJ" :
-					(pv & XID_OPT_REJ) ? " REJ" : "",
-					(pv & XID_OPT_MOD128) ? " mod128" :
-					(pv & XID_OPT_MOD8) ? " mod8" : "");
-				break;
-			case XID_PI_WINDOWRX:
-				lprintf(T_AXHDR, " k=%u", (unsigned)pv);
-				break;
-			case XID_PI_IFIELDRX:
-				lprintf(T_AXHDR, " N1rx=%u", (unsigned)pv);
-				break;
-			case XID_PI_IFIELDTX:
-				lprintf(T_AXHDR, " N1tx=%u", (unsigned)pv);
-				break;
-			case XID_PI_ACKTIME:
-				lprintf(T_AXHDR, " T1=%ums", (unsigned)pv);
-				break;
-			case XID_PI_RETRIES:
-				lprintf(T_AXHDR, " Retries=%u", (unsigned)pv);
-				break;
-			default:
-				lprintf(T_AXHDR, " PI=%d PL=%d PV=0x%x",
-					pi, pl, (unsigned)pv);
-				break;
-			}
-		}
+		/* FI und die GI/GL-Klammern samt Tripeln: siehe xid_dump(). */
+		xid_dump(data, length);
 		lprintf(T_AXHDR, "\n");
 	} else if (type == FRMR && length >= 3) {
 		/* FIX ME XXX
