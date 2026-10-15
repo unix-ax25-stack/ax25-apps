@@ -669,7 +669,7 @@ static int connect_to(char *address[])
 			perror("socket");
 			return -1;
 		}
-		ax25_aton(nr_config_get_addr(port), &sockaddr.ax25);
+		ax25_aton_or_exit(nr_config_get_addr(port), &sockaddr.ax25);
 		sockaddr.ax25.fsa_ax25.sax25_family = AF_NETROM;
 		addrlen = sizeof(struct full_sockaddr_ax25);
 		if (bind(fd, (struct sockaddr *) &sockaddr, addrlen) == -1) {
@@ -691,16 +691,28 @@ static int connect_to(char *address[])
 			perror("socket");
 			return -1;
 		}
-		ax25_aton(ax25_config_get_addr(port), &sockaddr.ax25);
+		/* The port's own address is this program's input too - it is
+		 * the interface the operator named.  It was parsed with the
+		 * return dropped, so a typo in axports bound whatever the
+		 * callsign bytes happened to hold; worse, the test below then
+		 * read sax25_ndigis out of the uninitialized union. */
+		ax25_aton_or_exit(ax25_config_get_addr(port), &sockaddr.ax25);
 		if (sockaddr.ax25.fsa_ax25.sax25_ndigis == 0) {
-			ax25_aton_entry(ax25_config_get_addr(port),
+			ax25_aton_entry_or_exit(ax25_config_get_addr(port),
 					sockaddr.ax25.fsa_digipeater[0].
 					ax25_call);
 			sockaddr.ax25.fsa_ax25.sax25_ndigis = 1;
 		}
 		sockaddr.ax25.fsa_ax25.sax25_family = AF_AX25;
+		/* -s is the source this call goes out with, and it is the
+		 * one address on this command line that was never checked:
+		 * ax25_aton_entry() named the problem on stderr and the
+		 * return was dropped, so "call -s dl9sau-" went out anyway
+		 * - with the callsign written and the SSID byte left as the
+		 * port's address had put it there.  Refuse instead: axutils
+		 * has already said what is wrong. */
 		if (mycall)
-			ax25_aton_entry(mycall, sockaddr.ax25.fsa_ax25.sax25_call.ax25_call);
+			ax25_aton_entry_or_exit(mycall, sockaddr.ax25.fsa_ax25.sax25_call.ax25_call);
 		addrlen = sizeof(struct full_sockaddr_ax25);
 		if (bind(fd, (struct sockaddr *) &sockaddr, addrlen) == -1) {
 			perror("bind");
@@ -752,13 +764,11 @@ static int connect_to(char *address[])
 	case AF_ROSE:
 		memset(&sockaddr.rose, 0x00, sizeof(struct sockaddr_rose));
 
-		if (ax25_aton_entry
-		    (address[0],
-		     sockaddr.rose.srose_call.ax25_call) == -1) {
-			close(fd);
-			fd = -1;
-			return -1;
-		}
+		/* The station called, again a word from this command line; the
+		 * check below it was already there, it just answered with exit
+		 * status 0 - see the AF_AX25 case further down. */
+		ax25_aton_entry_or_exit(address[0],
+					sockaddr.rose.srose_call.ax25_call);
 		if (rose_aton
 		    (address[1],
 		     sockaddr.rose.srose_addr.rose_addr) == -1) {
@@ -778,13 +788,8 @@ static int connect_to(char *address[])
 				}
 				digi = address[3];
 			}
-			if (ax25_aton_entry
-			    (digi,
-			     sockaddr.rose.srose_digi.ax25_call) == -1) {
-				close(fd);
-				fd = -1;
-				return -1;
-			}
+			ax25_aton_entry_or_exit(digi,
+					sockaddr.rose.srose_digi.ax25_call);
 			sockaddr.rose.srose_ndigis = 1;
 		}
 		sockaddr.rose.srose_family = AF_ROSE;
@@ -802,12 +807,14 @@ static int connect_to(char *address[])
 		break;
 
 	case AF_AX25:
-		if (ax25_aton_arglist
-		    ((const char **) address, &sockaddr.ax25) == -1) {
-			close(fd);
-			fd = -1;
-			return -1;
-		}
+		/* address[0] is the station called and the rest are its
+		 * digipeaters, every one of them a token from this command
+		 * line.  A rejected one was reported and then answered with
+		 * exit status 0 - cmd_call() only says whether to reconnect,
+		 * and a failed connect is not one - so refuse it here, the
+		 * way the -s source above is refused. */
+		ax25_aton_arglist_or_exit((const char **) address,
+					  &sockaddr.ax25);
 		sockaddr.rose.srose_family = AF_AX25;
 		addrlen = sizeof(struct full_sockaddr_ax25);
 		break;
@@ -2171,7 +2178,12 @@ static int cmd_call(char *call[], int mode, int encoding)
 
 	fd = connect_to(call);
 	if (fd == -1)
-		return FALSE;
+		/* Nothing was ever connected: a refused address, an unusable
+		 * port, a callsign the parser refused.  cmd_call() only says
+		 * whether to reconnect, and main() ends with 0 - which would
+		 * say the call ran.
+		 */
+		exit(1);
 
 	interrupted = FALSE;
 	sigwinchsignal = FALSE;
@@ -2985,8 +2997,30 @@ int main(int argc, char **argv)
 			COLS = 80;
 			mode = RAWMODE;
 			break;
-		case 's':
-			mycall = strdup(optarg);
+		case 's': {
+				/* A source given as nothing is no source.  An
+				 * empty callsign is not a station, and
+				 * ax25_aton_entry() accepts the empty text on
+				 * purpose - it has callers - so the refusal
+				 * belongs here: fall back on the port's own
+				 * address, the same as not naming -s at all.
+				 * Trailing blanks end the text the way they do
+				 * in the parser; a text that only starts badly
+				 * is left alone for it to refuse. */
+				char *end = optarg + strlen(optarg);
+
+				while (end > optarg &&
+				       isspace((unsigned char) end[-1]))
+					end--;
+				if (end > optarg) {
+					mycall = strndup(optarg,
+						(size_t) (end - optarg));
+					if (mycall == NULL) {
+						perror("strdup");
+						exit(1);
+					}
+				}
+			}
 			break;
 		case 'R':
 			remote_commands_enabled = FALSE;
