@@ -69,6 +69,7 @@
 
 #include <netax25/agwpe.h>
 #include <netax25/agwpe_client.h>
+#include <netax25/wampes_client.h>
 #include <netax25/ax25.h>
 #include <netax25/axcommon.h>
 #include <netax25/axlib.h>
@@ -124,6 +125,7 @@ static void usage(FILE *fp)
 "Usage: %s [-L] [-H endpoint] [-C file] [-v] [name ...]\n"
 "       %s -s\n"
 "       %s -k id\n"
+"       %s -k node:id\n"
 "       %s -k port:dest src\n"
 "\n"
 "With no name, print one line for every axports entry.  With names, print\n"
@@ -134,17 +136,20 @@ static void usage(FILE *fp)
 "  -L              read the local configuration only, do not contact\n"
 "                  ax25netd.  Faster, and the answer is then only what\n"
 "                  the files say - not whether an upstream is connected.\n"
+"                  -s -L still lists the WAMPES nodes, which are not\n"
+"                  ax25netd.\n"
 "  -H <endpoint>   the ax25netd to ask, a path for its unix domain\n"
 "                  socket or host:port for its TCP port.  Overrides\n"
 "                  ax25common.conf, and is what the ports are resolved\n"
 "                  against as well.\n"
 "  -C <file>       shared loop port configuration (default %s)\n"
-"  -s              list the sessions ax25netd is carrying and exit.  The\n"
-"                  id in the first column is what -k names.\n"
+"  -s              list the sessions ax25netd and any WAMPES node are\n"
+"                  carrying, and exit.  The id in the first column is what\n"
+"                  -k names.\n"
 "  -k id           end that session and exit.  The id is the one -s\n"
-"                  printed, and names the session wherever it is, without\n"
-"                  the port and call pair.  An id no session carries is\n"
-"                  reported, not sent.\n"
+"                  printed: ax25netd's number, or \"<node>:<id>\" for a\n"
+"                  forwarding of the WAMPES node <node>.  An id nothing\n"
+"                  carries is reported, not sent.\n"
 "  -k port:dest src\n"
 "                  end the connection from src to dest, the same request\n"
 "                  axkill(8) makes, and exit.  The port is its axports\n"
@@ -157,7 +162,7 @@ static void usage(FILE *fp)
 "Exit status is 0 when every name given resolved to a usable port, and 1\n"
 "when one did not or when ax25netd could not be reached.  With no names it\n"
 "is 0 whenever the tables could be read at all.\n",
-		prog, prog, prog, prog, DEFAULT_COMMON);
+		prog, prog, prog, prog, prog, DEFAULT_COMMON);
 }
 
 /* ------------------------------------------------------------------ */
@@ -356,54 +361,206 @@ static int query_sessions(void)
 	return 0;
 }
 
-/* Print the sessions.  Returns the exit status: 0 if the table came, 1 if it
- * did not. */
-static int show_sessions(void)
+/* One row of the session table, whichever backend it came from.  The two word
+ * a row differently - ax25netd's id is a bare number and its port a number, a
+ * WAMPES node's port is an interface name and its id carries the node - so both
+ * reach here as strings and the printer does not care which is which.  path
+ * goes on a line of its own under FROM, in the FROM -> TO direction; "-"
+ * prints nothing.
+ */
+static void print_session_row(const char *id, const char *port,
+			      const char *from, const char *to,
+			      unsigned proto, const char *state,
+			      const char *up, uint32_t owner,
+			      const char *prog, const char *path)
 {
-	int i;
+	char protobuf[8], pidbuf[16];
 
-	if (query_sessions() < 0)
-		return 1;
-	if (!netd.got_sessions) {
-		fprintf(stderr, "%s: %s did not answer the session request\n",
-			prog, endpoint);
-		return 1;
-	}
+	/* Hex, as AX.25 PIDs are written: a small decimal number next to the
+	 * id would read as a second one.  All values are four characters, so
+	 * the column never shifts. */
+	snprintf(protobuf, sizeof(protobuf), "0x%02X", proto);
+	/* The pid of the local program, so a listener with no id can still be
+	 * found and stopped by hand.  The pid, not the uid: the row names the
+	 * process a sysop would stop, and its name is printed next to it. */
+	if (owner)
+		snprintf(pidbuf, sizeof(pidbuf), "%u", (unsigned)owner);
+	else
+		snprintf(pidbuf, sizeof(pidbuf), "-");
+	printf("%-8s %-5s %-10s %-10s %-5s %-11s %-10s %-7s %s\n",
+	       id, port, from, to, protobuf,
+	       state[0] ? state : "-", up, pidbuf,
+	       prog[0] ? prog : "-");
+	if (path != NULL && path[0] != '\0' && strcmp(path, "-") != 0)
+		printf("%-8s %-5s %s\n", "", "", path);
+}
 
+static void print_session_header(void)
+{
 	printf("%-8s %-5s %-10s %-10s %-5s %-11s %-10s %-7s %s\n",
 	       "ID", "PORT", "FROM", "TO", "PROTO", "STATE", "UPSTREAM",
 	       "PID", "PROG");
-	for (i = 0; i < netd.sessions.count; i++) {
-		struct agwpe_session *s = &netd.sessions.sessions[i];
-		char proto[8], id[16], pid[16];
+}
 
-		/* Hex, as AX.25 PIDs are written: a small decimal number
-		 * next to the id would read as a second one.  All values are
-		 * four characters, so the column never shifts. */
-		snprintf(proto, sizeof(proto), "0x%02X", s->pid);
-		/* A listening row has no handle: nothing there can be
-		 * killed, and a 0 would read as one that can. */
-		if (s->id)
-			snprintf(id, sizeof(id), "%u", (unsigned)s->id);
-		else
-			snprintf(id, sizeof(id), "-");
-		/* The pid of the local program, so a listener with no id
-		 * can still be found and stopped by hand.  The pid, not
-		 * the uid: the row names the process a sysop would stop,
-		 * and the program's name is printed next to it. */
-		if (s->owner)
-			snprintf(pid, sizeof(pid), "%u", s->owner);
-		else
-			snprintf(pid, sizeof(pid), "-");
-		/* A server that sends no state has none to show; the
-		 * column stays so that a table does not change shape. */
-		printf("%-8s %-5d %-10s %-10s %-5s %-11s %-10s %-7s %s\n",
-		       id, s->port, s->from, s->to, proto,
-		       s->state[0] ? s->state : "-", s->up,
-		       pid, s->prog[0] ? s->prog : "-");
+/* One WAMPES node's rows, printed as they come.  A row is the node's own
+ * <id> <port> <from> <to> <proto> <state> <owner> <prog> <path>, so the port
+ * is an interface name and the proto is decimal; the id is prefixed with the
+ * node to keep it unique in a table that also carries ax25netd's numbers, and
+ * the node is the UPSTREAM (documentation/wampes-sessions-in-netd.md §8.12).
+ * A claimed callsign has no handle: its id stays "-", the instance is in the
+ * UPSTREAM column either way.
+ */
+struct wampes_list {
+	const char	*node;
+	int		*count;
+};
+
+static int on_wampes_session(void *arg, const char *line)
+{
+	struct wampes_list *w = arg;
+	char id[16] = "", port[80] = "", from[32] = "", to[32] = "";
+	char state[16] = "", prog[16] = "", path[AGWPE_PATH_MAX] = "";
+	char rowid[48];
+	unsigned proto = 0, owner = 0;
+
+	if (sscanf(line, "%15s %79s %31s %31s %u %15s %u %15s %87s",
+		   id, port, from, to, &proto, state, &owner, prog,
+		   path) < 4)
+		return 0;		/* not a row this table should have */
+
+	if (strcmp(id, "-") == 0)
+		snprintf(rowid, sizeof(rowid), "-");
+	else
+		snprintf(rowid, sizeof(rowid), "%s:%s", w->node, id);
+
+	print_session_row(rowid, port[0] ? port : "-", from, to, proto,
+			  state, w->node, owner, prog, path);
+	(*w->count)++;
+	return 0;
+}
+
+/* Ask every configured WAMPES node for its sessions.  A node that cannot be
+ * reached is said so and remembered as a failure, the way an unreachable
+ * ax25netd is; the nodes that answer are printed all the same.
+ */
+static int show_wampes_sessions(int *count)
+{
+	int i, rc = 0, n = wampes_node_count();
+
+	for (i = 0; i < n; i++) {
+		const char *node = wampes_node_name(i);
+		struct wampes_list w = { node, count };
+
+		if (node == NULL)
+			continue;
+		if (wampes_sessions(node, on_wampes_session, &w) < 0) {
+			fprintf(stderr, "%s: WAMPES node %s: %s\n", prog,
+				node, strerror(errno));
+			rc = 1;
+		}
 	}
-	if (netd.sessions.count == 0)
+	return rc;
+}
+
+/* Print the sessions of every backend in one table.  ax25netd is asked first,
+ * so its rows come first and the WAMPES nodes follow.  A source that does not
+ * answer is a reason to return 1, but not a reason to skip the other: a
+ * machine with no ax25netd can still show what its node carries, and the other
+ * way round.
+ */
+static int show_sessions(int with_netd)
+{
+	int i, rc = 0, n = 0;
+
+	print_session_header();
+
+	if (with_netd) {
+		if (query_sessions() < 0 || !netd.got_sessions) {
+			fprintf(stderr,
+				"%s: %s did not answer the session request\n",
+				prog, endpoint);
+			rc = 1;
+		} else {
+			for (i = 0; i < netd.sessions.count; i++) {
+				struct agwpe_session *s =
+					&netd.sessions.sessions[i];
+				char id[16], port[16];
+
+				/* A listening row has no handle: nothing
+				 * there can be killed, and a 0 would read as
+				 * one that can. */
+				if (s->id)
+					snprintf(id, sizeof(id), "%u",
+						 (unsigned)s->id);
+				else
+					snprintf(id, sizeof(id), "-");
+				snprintf(port, sizeof(port), "%d", s->port);
+				print_session_row(id, port, s->from, s->to,
+						  s->pid, s->state, s->up,
+						  s->owner, s->prog, s->path);
+				n++;
+			}
+		}
+	}
+	if (show_wampes_sessions(&n) != 0)
+		rc = 1;
+
+	if (n == 0)
 		printf("(no sessions)\n");
+	return rc;
+}
+
+/* A number written the way both tables this tool prints give one: nothing but
+ * digits.  A name is a word, so there is nothing a number could be read as
+ * instead, and the two never have to be told apart by where they sit. */
+static int all_digits(const char *s)
+{
+	return s[0] != '\0' && strspn(s, "0123456789") == strlen(s);
+}
+
+/* Is this name one wampes.conf gives a node?  Read here rather than left to
+ * the close, because "close <node>" would otherwise reach the default node on
+ * a name that is a typo - the node the request was aimed at is exactly what a
+ * mistyped one must not be.
+ */
+static int wampes_node_known(const char *name)
+{
+	int i, n = wampes_node_count();
+
+	for (i = 0; i < n; i++) {
+		const char *node = wampes_node_name(i);
+
+		if (node != NULL && strcasecmp(node, name) == 0)
+			return 1;
+	}
+	return 0;
+}
+
+/* End a WAMPES node's forwarding by the handle -s printed, "<node>:<id>".
+ * The node does the looking up and the closing - it is the only side that
+ * knows its own forwardings - and this returns the exit status, saying what
+ * went wrong where the node cannot: a misspelled node, a handle that is not a
+ * number, an id the node does not have.
+ */
+static int kill_wampes_id(const char *node, const char *id)
+{
+	if (id[0] == '\0' || !all_digits(id)) {
+		fprintf(stderr, "%s: '%s' is not a session id\n", prog, id);
+		return 1;
+	}
+	if (!wampes_node_known(node)) {
+		fprintf(stderr, "%s: no WAMPES node named %s\n", prog, node);
+		return 1;
+	}
+	if (wampes_close_session(node, id) < 0) {
+		if (errno == ESRCH)
+			fprintf(stderr, "%s: %s has no session %s\n", prog,
+				node, id);
+		else
+			fprintf(stderr, "%s: cannot close %s:%s: %s\n", prog,
+				node, id, strerror(errno));
+		return 1;
+	}
 	return 0;
 }
 
@@ -466,14 +623,6 @@ static int kill_session_id(unsigned long id)
 	fprintf(stderr, "%s: no session with id %lu\n", prog, id);
 	agwpe_client_free(c);
 	return 1;
-}
-
-/* A port written the way both tables this tool prints give it: nothing but
- * digits.  A port name is a word, so there is nothing a number could be read
- * as instead. */
-static int all_digits(const char *s)
-{
-	return s[0] != '\0' && strspn(s, "0123456789") == strlen(s);
 }
 
 /* The number that token carries, or -1 when it is not one a port could have.
@@ -954,14 +1103,14 @@ static int endpoint_of(const char *host, const char *conffile)
  * registered for it.  So that kill is sent - but it answers nothing either, and
  * a kill that looks like it worked and did not is worse than a line too many.
  *
- * Only an ax25netd port is asked.  A WAMPES port is refused with what it is,
- * because the node owns its connections and the connector has no kill to send
- * - the ioctl would reach neither the node nor the kernel.  A kernel port is
- * left alone: it is the kernel's to answer, and its kill goes through as
- * before.
+ * Only an ax25netd port is asked.  A WAMPES port is left alone here too: the
+ * kill reaches the node through the ioctl, the way a kernel kill reaches the
+ * kernel, and the node is the only side that knows its own forwardings - there
+ * is nothing here to look up first.  A kernel port is likewise left alone: it
+ * is the kernel's to answer.
  *
- * Returns 1 when the kill must not be sent (a listening call or a WAMPES
- * port, already reported), 0 when it should go on.
+ * Returns 1 when the kill must not be sent (a listening call, already
+ * reported), 0 when it should go on.
  */
 static int check_kill_name(const char *port, const char *dest, const char *src,
 			   const char *host, const char *comconf)
@@ -971,18 +1120,6 @@ static int check_kill_name(const char *port, const char *dest, const char *src,
 
 	if (ax25_port_info(port, &info) != 0)
 		return 0;
-	if (info.backend == AX25_PORT_WAMPES) {
-		/* The node owns its links and the connector has no kill to
-		 * send - SIOCAX25CTLCON would reach neither the node nor
-		 * the kernel, only an EADDRNOTAVAIL.  Say what a kill here
-		 * would have to be instead of that. */
-		fprintf(stderr,
-			"%s: %s is a port of the WAMPES node %s: the node "
-			"owns its\n"
-			"    connections, and there is no kill on this path.\n",
-			prog, port, info.node);
-		return 1;
-	}
 	if (info.backend != AX25_PORT_AGWPE)
 		return 0;
 	if (endpoint_of(host, comconf) != 0)
@@ -1123,13 +1260,35 @@ int main(int argc, char *argv[])
 	if (host != NULL)
 		setenv("AXSOCK_HOST", host, 1);
 
-	/* -s and -k by id are questions about the daemon alone; only -k by
-	 * name needs the axports file, below.  Answered before the file is
-	 * read so that a machine without one can still list and kill. */
+	/* -s and both -k by handle forms answer without the axports file;
+	 * only -k by name needs it, below.  Answered first so that a machine
+	 * without one can still list and kill. */
 	if (kill_arg != NULL && show_sess) {
 		fprintf(stderr, "%s: -s and -k are two different requests\n",
 			prog);
 		return 1;
+	}
+	if (kill_arg != NULL && argc == 0) {
+		/* "<node>:<id>" - a forwarding of a WAMPES node, which the
+		 * node itself closes.  Told apart from the port:dest form by
+		 * what follows the colon: a handle is all digits, a
+		 * destination is a callsign, and port:dest always carries its
+		 * source as a second word anyway. */
+		char *colon = strrchr(kill_arg, ':');
+
+		if (colon != NULL && colon != kill_arg &&
+		    all_digits(colon + 1)) {
+			char node[64];
+
+			if ((size_t)(colon - kill_arg) >= sizeof(node)) {
+				fprintf(stderr, "%s: '%s': node name too "
+					"long\n", prog, kill_arg);
+				return 1;
+			}
+			memcpy(node, kill_arg, (size_t)(colon - kill_arg));
+			node[colon - kill_arg] = '\0';
+			return kill_wampes_id(node, colon + 1);
+		}
 	}
 	if (kill_arg != NULL) {
 		char *end;
@@ -1159,14 +1318,15 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "%s: -s takes no names\n", prog);
 			return 1;
 		}
-		if (no_netd) {
-			fprintf(stderr, "%s: -s needs ax25netd\n", prog);
-			return 1;
+		/* -L is "do not ask ax25netd".  A WAMPES node is not ax25netd,
+		 * so its sessions are still listed - which is what makes -s -L
+		 * the way to see a node on a machine that runs no daemon. */
+		if (!no_netd) {
+			if (endpoint_of(host, comconf) != 0)
+				return 1;
+			netd.attempted = 1;
 		}
-		if (endpoint_of(host, comconf) != 0)
-			return 1;
-		netd.attempted = 1;
-		return show_sessions();
+		return show_sessions(!no_netd);
 	}
 
 	if (ax25_config_load_ports() < 0) {
