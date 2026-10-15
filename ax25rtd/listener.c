@@ -28,6 +28,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
+#include <errno.h>
 #ifdef TIME_WITH_SYS_TIME
 #include <time.h>
 #endif
@@ -264,16 +266,24 @@ int set_arp(config * config, long ip, ax25_address * call)
 }
 
 /* dl9sau: use iproute2 for advanced routing.
- * Anyone likes to implement this directly, without system()?
+ * The command used to go through system(); the shell only got in the way
+ * (word splitting, a /bin/sh dependency, and a wait status that is not
+ * the child's exit code).  Run ip directly instead - the matching
+ * "ip rule" and the rt_protos/rt_tables setup stay the sysop's job.
+ *
+ * Speaking rtnetlink directly (RTM_NEWROUTE/RTM_DELROUTE) would be the
+ * cleaner way, but it takes a lot more code than running ip, so ip it is.
  */
 #ifdef HAVE_KERNEL_AX25
 #define	RT_DEL		0
 #define	RT_ADD		1
+#define	IPROUTE2	"/sbin/ip"
 static int iproute2(long ip, char *dev, int what)
 {
-	char buffer[256];
 	char ipa[32];
-	int ret;
+	char *argv[11];
+	pid_t pid;
+	int status;
 
 	sprintf(ipa, "%d.%d.%d.%d",
 		(int) (ip & 0x000000FF),
@@ -281,11 +291,39 @@ static int iproute2(long ip, char *dev, int what)
 		(int) ((ip & 0x00FF0000) >> 16),
 		(int) ((ip & 0xFF000000) >> 24));
 
-	/* ip rule add  table 44 */
-	sprintf(buffer, "/sbin/ip route %s %s dev %s table %s proto ax25rtd", (what ? "add" : "del"), ipa, dev, iproute2_table);
+	/* ip route add|del <ip> dev <dev> table <table> proto ax25rtd */
+	argv[0] = "ip";
+	argv[1] = "route";
+	argv[2] = (what ? "add" : "del");
+	argv[3] = ipa;
+	argv[4] = "dev";
+	argv[5] = dev;
+	argv[6] = "table";
+	argv[7] = iproute2_table;
+	argv[8] = "proto";
+	argv[9] = "ax25rtd";
+	argv[10] = NULL;
 
-	ret = system(buffer);
-	return ret;
+	pid = fork();
+	if (pid < 0) {
+		perror("ax25rtd: fork");
+		return -1;
+	}
+	if (pid == 0) {
+		execv(IPROUTE2, argv);
+		fprintf(stderr, "ax25rtd: cannot execute %s: %s\n",
+			IPROUTE2, strerror(errno));
+		_exit(127);
+	}
+
+	while (waitpid(pid, &status, 0) < 0) {
+		if (errno != EINTR) {
+			perror("ax25rtd: waitpid");
+			return -1;
+		}
+	}
+
+	return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 #endif	/* HAVE_KERNEL_AX25 */
 
