@@ -16,14 +16,14 @@
 #define	CONF_NODE_FILE		AX25_SYSCONFDIR"/node.conf"
 
 #define	DATA_MHEARD_FILE	AX25_LOCALSTATEDIR"/mheard/mheard.dat"
-#define	DATA_NODE_HELP_DIR	"/usr/lib/ax25/node/help/"
+#define	DATA_NODE_HELP_DIR	AX25_LIBDIR"/ax25/node/help/"
 #define	CONF_NODE_INFO_FILE	AX25_SYSCONFDIR"/node.info"
 
 #define	DATA_NODE_LOGIN_FILE	AX25_LOCALSTATEDIR"/node/loggedin"
 
 #define	PROC_AX25_CALLS_FILE	"/proc/net/ax25_calls"
 
-#define	MY_TALK			"/usr/sbin/ttylinkd"
+#define	MY_TALK			AX25_SBINDIR"/ttylinkd"
 
 #define	MAIL_DELIVERY_AGENT	"/usr/sbin/sendmail %s"
 

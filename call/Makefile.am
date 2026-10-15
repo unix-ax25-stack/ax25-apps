@@ -8,8 +8,12 @@ installconf:
 bin_PROGRAMS = call
 
 AX25_LOCALSTATEDIR=$(localstatedir)/ax25
+AX25_SBINDIR=$(sbindir)
+AX25_LIBDIR=$(libdir)
 
-AM_CPPFLAGS = -DAX25_LOCALSTATEDIR=\""$(AX25_LOCALSTATEDIR)"\"
+AM_CPPFLAGS = -DAX25_LOCALSTATEDIR=\""$(AX25_LOCALSTATEDIR)"\" \
+	      -DAX25_SBINDIR=\""$(AX25_SBINDIR)"\" \
+	      -DAX25_LIBDIR=\""$(AX25_LIBDIR)"\"
 
 man_MANS = call.1
 CLEANFILES = call.1 call.1.tmp
