@@ -53,6 +53,17 @@
  */
 #define	AX25NETD_ORPHAN_TTL		600
 
+/*
+ * How long a digipeater path read from an incoming raw frame is held for the
+ * session that is about to be opened for it.  The radio's link setup arrives
+ * as a raw frame and the 'C' that opens the session follows it, so the path
+ * only has to survive that moment; the bound is generous, not tight.
+ */
+#define	AX25NETD_PENDING_TTL		30
+
+/* Slots per upstream for paths awaiting their session. */
+#define	AX25NETD_PENDING_MAX		8
+
 #define	AX25NETD_VERSION_MAJOR	1
 #define	AX25NETD_VERSION_MINOR	0
 
@@ -108,7 +119,11 @@ struct ax25netd_port {
  * station, identified by (call_from, call_to, pid).  Several sessions may
  * share the same AX.25 link: a link transports every PID at once, so a
  * NET/ROM session on an existing text link is not a second connection.
- * call_from is the local call, call_to the remote station.
+ * call_from is the local call, call_to the remote station - the stored pair
+ * is local first whichever way the link came up, so both ends are found
+ * without knowing the direction.  A row that names them puts the caller in
+ * FROM instead, so that it reads the way the call travelled; that is
+ * remote_initiated's one job.
  */
 struct ax25netd_session {
 	char			call_from[AGWPE_MAX_CALL];
@@ -129,6 +144,22 @@ struct ax25netd_session {
 	 * read from a table a moment ago cannot name a different connection.
 	 * The array slot it lives in may move, the id does not.  */
 	uint32_t		id;
+
+	/* Which end opened the link.  The pair above is stored local first
+	 * whichever way the link came up, so the caller - the end a row puts
+	 * in FROM, that it may read in the direction the call travelled, as
+	 * the WAMPES side's row does - is call_from for a link we connected
+	 * out and call_to for one the radio called us with.  A radio 'C' is
+	 * the one link that arrives from outside and the one place this is
+	 * set; every local connect leaves it 0. */
+	int			remote_initiated;
+
+	/* The digipeaters the connect named, in the direction it travelled,
+	 * comma joined, empty when there were none.  Only a locally issued
+	 * connect names them - the 'v' command, or a 'C' the autorouter
+	 * turned into one - as the AGWPE protocol carries a path on no other
+	 * frame.  A link the radio opened therefore has none to show. */
+	char			path[AGWPE_MAX_DIGIS * (AGWPE_MAX_CALL + 1)];
 
 	/* Connection parameters set through the 'Q' control extension
 	 * (axctl).  Zero means the default applies.  */
@@ -151,6 +182,24 @@ struct ax25netd_orphan {
 	char			call_from[AGWPE_MAX_CALL];
 	char			call_to[AGWPE_MAX_CALL];
 	unsigned char		chan;
+	time_t			since;
+};
+
+/*
+ * A digipeater path read from an incoming raw frame before the session it
+ * belongs to exists.  AGWPE carries no path on the 'C' that announces an
+ * incoming connection, so the path is taken from the monitored frame, which
+ * arrives either just before that 'C' or just after it.  local/remote are the
+ * frame's destination and source - the same pair session_add() stores as
+ * (call_from, call_to) - and path is in the direction the frame travelled,
+ * FROM the caller TO the local station, which is the direction a row reads.
+ * A slot is emptied when a matching session takes it and ignored once it is
+ * older than AX25NETD_PENDING_TTL.
+ */
+struct ax25netd_pending {
+	char			local[AGWPE_MAX_CALL];
+	char			remote[AGWPE_MAX_CALL];
+	char			path[AGWPE_MAX_DIGIS * (AGWPE_MAX_CALL + 1)];
 	time_t			since;
 };
 
@@ -191,6 +240,11 @@ struct ax25netd_upstream {
 	struct ax25netd_orphan	*orphans;
 	int			norphans;
 	int			aorphans;
+
+	/* Paths seen on an incoming raw frame whose session does not exist
+	 * yet, held until the 'C' opens it.  Bounded by
+	 * AX25NETD_PENDING_TTL; a slot is reused oldest-first. */
+	struct ax25netd_pending	pending[AX25NETD_PENDING_MAX];
 
 	int			heard_to;	/* client waiting for 'H' replies */
 	int			out_to;		/* client waiting for 'y'/'Y' replies */

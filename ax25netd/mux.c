@@ -313,13 +313,18 @@ static void mux_mirror_raw_ctl(const struct agwpe_s *in,
 		ilen = 0;
 
 	if (in->datakind == AGWPE_CMD_RAW) {
-		/* The client supplied the raw frame itself.  */
-		{
-			struct ax25netd_upstream *u = up_by_port(in->port);
+		/* The client supplied the raw frame itself, so it is a
+		 * finished on-air frame and feeds the heard list wherever it
+		 * came from - a client of a radio upstream, and the loop.
+		 * The loop is how the WAMPES bridge hands over the frames the
+		 * radio carried, so those are radio traffic too
+		 * (libax25/wampes.c, wampes_mirror_frame).  The AGWPE-shaped
+		 * kinds below stay out of it: a local connect on the loop
+		 * never went over the air.  */
+		struct ax25netd_upstream *u = up_by_port(in->port);
 
-			if (u != NULL && u != &ax25netd.loop)
-				ax25netd_mheard_frame(u, data, len);
-		}
+		if (u != NULL)
+			ax25netd_mheard_frame(u, data, len);
 		mux_mirror_send(in, data, len);
 		return;
 	}
@@ -629,6 +634,220 @@ static struct ax25netd_session *session_add(struct ax25netd_upstream *u,
 				     port_flat(u, s->chan)),
 			 u->name);
 	return s;
+}
+
+/*
+ * Record the digipeaters a locally issued connect named, as the row shows
+ * them.  The 'v' payload is a count byte followed by that many fixed-size
+ * calls, already in the direction the call travels (the client's via list or
+ * the route the autorouter resolved), so they only have to be joined.  A
+ * connect that named none leaves the path empty; so does a link the radio
+ * opened, which has no 'v' behind it and whose 'C' carries no path at all.
+ */
+static void session_set_path(struct ax25netd_session *s,
+			     const unsigned char *digis, size_t len)
+{
+	size_t used = 0;
+	int i, n;
+
+	if (s == NULL)
+		return;
+	s->path[0] = '\0';
+	if (digis == NULL || len < 1)
+		return;
+
+	n = digis[0];
+	if (n > AGWPE_MAX_DIGIS)
+		n = AGWPE_MAX_DIGIS;
+
+	for (i = 0; i < n; i++) {
+		char one[AGWPE_MAX_CALL];
+		size_t off = 1 + (size_t)i * AGWPE_MAX_CALL;
+		size_t need;
+
+		if (off + AGWPE_MAX_CALL > len)
+			break;
+		if (agwpe_call_unpack(one, sizeof(one),
+				      (const char *)digis + off) < 0)
+			continue;
+		need = strlen(one) + (used ? 1 : 0);
+		if (used + need >= sizeof(s->path))
+			break;
+		if (used)
+			s->path[used++] = ',';
+		memcpy(s->path + used, one, strlen(one));
+		used += strlen(one);
+		s->path[used] = '\0';
+	}
+}
+
+#define	RAW_AXLEN	7	/* bytes in one AX.25 address */
+#define	RAW_ALEN	6	/* address bytes before the SSID */
+#define	RAW_E		0x01	/* extension (last address) bit */
+
+/*
+ * The two calls and the digipeater path of one raw frame, as a row shows
+ * them.  A raw frame is KISS encapsulated: a data marker, the destination and
+ * source addresses of seven bytes each, then one address per digipeater up to
+ * the one carrying the extension bit (0x01 in its last byte).  The calls are
+ * copied out at once - ax25_ntoa() returns one static buffer - and the
+ * digipeaters are joined with commas in the order the frame carries them,
+ * which is the order they were traversed.  On a frame the radio received that
+ * is FROM the caller TO the local station, the direction a row reads, so
+ * nothing is turned.  Returns 0, or -1 when the frame holds no address field.
+ */
+static int raw_frame_path(const unsigned char *frame, size_t len,
+			  char *dest, size_t destsz,
+			  char *src, size_t srcsz,
+			  char *path, size_t pathsz)
+{
+	const unsigned char *p;
+	size_t size, used = 0;
+	int ndigis = 0, end;
+
+	if (frame == NULL || len < 1 || (frame[0] & 0x0F) != 0x00)
+		return -1;			/* KISS data marker */
+	frame++;
+	size = len - 1;
+
+	if (size < 2 * RAW_AXLEN + 1)
+		return -1;
+
+	strncpy(dest, ax25_ntoa((const ax25_address *)frame), destsz - 1);
+	dest[destsz - 1] = '\0';
+	strncpy(src, ax25_ntoa((const ax25_address *)(frame + RAW_AXLEN)),
+		srcsz - 1);
+	src[srcsz - 1] = '\0';
+
+	path[0] = '\0';
+
+	p = frame + 2 * RAW_AXLEN;
+	size -= 2 * RAW_AXLEN;
+	end = frame[RAW_AXLEN + RAW_ALEN] & RAW_E;	/* source's E bit */
+	while (!end) {
+		char one[16];
+		size_t l;
+
+		if (size < RAW_AXLEN || ndigis >= AGWPE_MAX_DIGIS)
+			break;
+		strncpy(one, ax25_ntoa((const ax25_address *)p),
+			sizeof(one) - 1);
+		one[sizeof(one) - 1] = '\0';
+		l = strlen(one);
+		if (used + (used ? 1 : 0) + l + 1 > pathsz)
+			break;
+		if (used)
+			path[used++] = ',';
+		memcpy(path + used, one, l);
+		used += l;
+		path[used] = '\0';
+		ndigis++;
+		end = p[RAW_ALEN] & RAW_E;
+		p += RAW_AXLEN;
+		size -= RAW_AXLEN;
+	}
+	return 0;
+}
+
+/* Hold a path for the session that is about to be opened for it. */
+static void pending_put(struct ax25netd_upstream *u, const char *local,
+			const char *remote, const char *path)
+{
+	time_t now = time(NULL);
+	struct ax25netd_pending *p = NULL;
+	int i;
+
+	for (i = 0; i < AX25NETD_PENDING_MAX; i++) {
+		struct ax25netd_pending *q = &u->pending[i];
+
+		if (q->local[0] == '\0' ||
+		    now - q->since > AX25NETD_PENDING_TTL ||
+		    (strcmp(q->local, local) == 0 &&
+		     strcmp(q->remote, remote) == 0)) {
+			p = q;
+			break;
+		}
+	}
+	if (p == NULL) {
+		/* Every slot is fresh and for another link: reuse the old. */
+		p = &u->pending[0];
+		for (i = 1; i < AX25NETD_PENDING_MAX; i++)
+			if (u->pending[i].since < p->since)
+				p = &u->pending[i];
+	}
+
+	strncpy(p->local, local, AGWPE_MAX_CALL - 1);
+	p->local[AGWPE_MAX_CALL - 1] = '\0';
+	strncpy(p->remote, remote, AGWPE_MAX_CALL - 1);
+	p->remote[AGWPE_MAX_CALL - 1] = '\0';
+	strncpy(p->path, path, sizeof(p->path) - 1);
+	p->path[sizeof(p->path) - 1] = '\0';
+	p->since = now;
+}
+
+/* Give a freshly created session the path held for it, if there is one. */
+static void pending_take(struct ax25netd_upstream *u,
+			 struct ax25netd_session *s)
+{
+	time_t now = time(NULL);
+	int i;
+
+	for (i = 0; i < AX25NETD_PENDING_MAX; i++) {
+		struct ax25netd_pending *p = &u->pending[i];
+
+		if (p->local[0] == '\0')
+			continue;
+		if (now - p->since > AX25NETD_PENDING_TTL) {
+			p->local[0] = '\0';
+			continue;
+		}
+		if (strcmp(p->local, s->call_from) == 0 &&
+		    strcmp(p->remote, s->call_to) == 0) {
+			strncpy(s->path, p->path, sizeof(s->path) - 1);
+			s->path[sizeof(s->path) - 1] = '\0';
+			p->local[0] = '\0';
+			return;
+		}
+	}
+}
+
+/*
+ * Record the digipeaters of a raw frame from the radio, so that an incoming
+ * link shows the way it came.  AGWPE carries no path on the 'C' that announces
+ * an incoming connection, so the monitored frame is the only place to read it.
+ * The frame's destination is the local (called) station and its source the far
+ * (calling) one - the pair a session stores as (call_from, call_to) - and its
+ * digipeaters are in the direction it travelled, caller to local, so they are
+ * copied as they are.  A session that already exists (the 'C' came first)
+ * takes the path at once; one that does not (the frame came first) has it held
+ * until the 'C' opens it.  A frame whose destination no client holds is
+ * somebody else's monitored traffic and is ignored.
+ */
+static void mux_raw_record_path(struct ax25netd_upstream *u,
+				const unsigned char *data, size_t len)
+{
+	char dest[AGWPE_MAX_CALL], src[AGWPE_MAX_CALL];
+	char path[AGWPE_MAX_DIGIS * (AGWPE_MAX_CALL + 1)];
+	struct ax25netd_session *s;
+
+	if (raw_frame_path(data, len, dest, sizeof(dest), src, sizeof(src),
+			   path, sizeof(path)) < 0)
+		return;
+	if (path[0] == '\0')
+		return;
+
+	s = session_find(u, dest, src, 0, -1);
+	if (s != NULL) {
+		/* Only a link the radio opened has its path here, and only
+		 * its own direction: a link we opened carries the path from
+		 * its 'v' and must not take a return-direction frame's. */
+		if (s->remote_initiated && s->path[0] == '\0')
+			strncpy(s->path, path, sizeof(s->path) - 1);
+		return;
+	}
+	if (client_by_call(u, dest) == NULL)
+		return;			/* not a call we serve */
+	pending_put(u, dest, src, path);
 }
 
 static void session_remove(struct ax25netd_upstream *u, struct ax25netd_session *s)
@@ -1308,6 +1527,11 @@ static void client_owner(struct ax25netd_client *cl, uint32_t *pid,
 /* One row, without the ';' that follows it.  buf may be NULL with cap 0 to
  * ask for the length only, as snprintf() allows.
  *
+ * FROM is the caller and TO the called, so the row reads the way the call
+ * travelled, as the WAMPES side's does - the one thing a packet trace cannot
+ * tell on its own.  The path follows in the same direction, "-" when there
+ * was none.
+ *
  * The trailing word is the link state.  A connect that has gone out but
  * whose answer has not come back is CONNECTING - the SABM is on the air and
  * no UA has come back yet - and every other session is ESTABLISHED.  The
@@ -1324,13 +1548,20 @@ static int session_row(char *buf, size_t cap,
 {
 	uint32_t owner;
 	char prog[16];
+	const char *from, *to;
 
 	client_owner(client_by_fd(s->fd), &owner, prog, sizeof(prog));
-	return snprintf(buf, cap, "%u %u %s %u %s %s %u %s %u %s", s->id,
+	/* FROM is the caller, so the row reads the way the call travelled.
+	 * The pair is stored local first, so the caller is the remote end on
+	 * a link the radio opened for us and the local end on one we
+	 * connected out. */
+	from = s->remote_initiated ? s->call_to : s->call_from;
+	to = s->remote_initiated ? s->call_from : s->call_to;
+	return snprintf(buf, cap, "%u %u %s %u %s %s %u %s %u %s %s", s->id,
 			loop ? AGWPE_PORT_LOOP : port_flat(u, s->chan),
-			u->name, s->chan, s->call_from, s->call_to, s->pid,
+			u->name, s->chan, from, to, s->pid,
 			s->connecting ? "CONNECTING" : "ESTABLISHED",
-			owner, prog);
+			owner, prog, s->path[0] ? s->path : "-");
 }
 
 /* A callsign a client registered to listen on, with no session behind it.
@@ -1348,7 +1579,7 @@ static int listener_row(char *buf, size_t cap,
 	char prog[16];
 
 	client_owner(client_by_fd(c->fd), &owner, prog, sizeof(prog));
-	return snprintf(buf, cap, "0 %u %s %u %s * 0 LISTENING %u %s",
+	return snprintf(buf, cap, "0 %u %s %u %s * 0 LISTENING %u %s -",
 			loop ? AGWPE_PORT_LOOP : port_flat(u, c->chan),
 			u->name, c->chan, c->call, owner, prog);
 }
@@ -1918,6 +2149,7 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 	case 'v':				/* connect via digipeaters */
 		{
 			unsigned char pid = session_pid(hdr->pid);
+			struct ax25netd_session *cs;
 
 			u = up_by_port_radio(port, cl, "connect");
 			if (u == NULL)
@@ -1940,14 +2172,15 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 				break;
 			}
 
-			{
-				struct ax25netd_session *cs;
-
-				cs = session_add(u, hdr->call_from,
-						 hdr->call_to, pid, cl->fd,
-						 port_chan(u, port));
-				if (cs != NULL)
-					cs->connecting = 1;
+			cs = session_add(u, hdr->call_from,
+					 hdr->call_to, pid, cl->fd,
+					 port_chan(u, port));
+			if (cs != NULL) {
+				cs->connecting = 1;
+				/* The path the client named, in the
+				 * direction the call travels. */
+				if (hdr->datakind == AGWPE_CMD_CONNECT_VIA)
+					session_set_path(cs, data, len);
 			}
 
 			/*
@@ -1974,6 +2207,11 @@ void mux_client_command(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 					vh.datakind = AGWPE_CMD_CONNECT_VIA;
 					vh.data_len = agwpe_host2netle(
 						1 + ndigi * AGWPE_MAX_CALL);
+					/* The route we just resolved is
+					 * the path the call now takes. */
+					session_set_path(cs, digis,
+							 (size_t)1 + (size_t)ndigi *
+							 AGWPE_MAX_CALL);
 					client_send_upstream(u, &vh, digis);
 					break;
 				}
@@ -2265,10 +2503,18 @@ void mux_upstream_frame(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
 			break;
 		/* The link is up; remember it so that a later 'D' from
 		 * this client is not mistaken for a new connection.  */
-		if (!session_pair_active(u, hdr->call_to, hdr->call_from))
-			session_add(u, hdr->call_to, hdr->call_from,
-				    AGWPE_PID_AX25, owner->fd, hdr->port);
-		else {
+		if (!session_pair_active(u, hdr->call_to, hdr->call_from)) {
+			struct ax25netd_session *ns;
+
+			ns = session_add(u, hdr->call_to, hdr->call_from,
+					 AGWPE_PID_AX25, owner->fd, hdr->port);
+			/* The radio opened this link, so the remote
+			 * end is the caller: the row reads FROM=caller. */
+			if (ns != NULL) {
+				ns->remote_initiated = 1;
+				pending_take(u, ns);
+			}
+		} else {
 			/* Our own connect went out first and this 'C' is
 			 * its answer: the SABM was sent and the link is
 			 * up, so no state is left to show but this. */
@@ -2287,9 +2533,17 @@ void mux_upstream_frame(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
 		if (owner == NULL)
 			break;
 		if (session_find(u, hdr->call_to, hdr->call_from,
-				 session_pid(hdr->pid), owner->fd) == NULL)
-			session_add(u, hdr->call_to, hdr->call_from,
-				    session_pid(hdr->pid), owner->fd, hdr->port);
+				 session_pid(hdr->pid), owner->fd) == NULL) {
+			struct ax25netd_session *ns;
+
+			ns = session_add(u, hdr->call_to, hdr->call_from,
+					 session_pid(hdr->pid), owner->fd,
+					 hdr->port);
+			if (ns != NULL) {
+				ns->remote_initiated = 1;
+				pending_take(u, ns);
+			}
+		}
 		loop_send_upstream(owner, u, hdr, data, len);
 		break;
 
@@ -2332,6 +2586,7 @@ void mux_upstream_frame(struct ax25netd_upstream *u, const struct agwpe_s *hdr,
 
 	case 'K':				/* raw monitored frame */
 		ax25netd_mheard_frame(u, data, len);
+		mux_raw_record_path(u, data, len);
 		mux_upstream_ui(u, hdr, data, len);
 		for (i = 0; i < ax25netd.nclients; i++) {
 			struct ax25netd_client *cl = &ax25netd.clients[i];
