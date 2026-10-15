@@ -104,6 +104,7 @@
 
 #define	ALEN		6
 #define	AXLEN		7
+#define	MAXDIGIS	8	/* AX25_MAX_DIGIS */
 
 #define	W		1
 #define	X		2
@@ -258,6 +259,7 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 {
 	char tmp[15];
 	int ctlen, nr, ns, pf, pid, seg, type, end, cmdrsp, extseq;
+	int ndigis = 0;
 	char *dama;
 
 	/* check for FlexNet compressed header first; FlexNet header compressed packets are at least 8 bytes long */
@@ -328,6 +330,14 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 			lprintf(T_AXHDR, " via");
 
 			while (!end) {
+				/* A complete digipeater field must follow, and
+				 * there are at most MAXDIGIS of them: without the
+				 * end of address bit this loop used to read past
+				 * the end of the frame. */
+				if (length < AXLEN || ++ndigis > MAXDIGIS) {
+					lprintf(T_ERROR, " bad digipeater field!\n");
+					return;
+				}
 				/* Print digi string */
 				lprintf(T_ADDR, " %s%s", pax25(tmp, data),
 					(data[ALEN] & REPEATED) ? "*" :
@@ -341,13 +351,20 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 		}
 	}
 
-	if (length == 0) {
+	if (length <= 0) {
 		/* The address field ate the whole frame, so there is no
 		 * control field to decode.  The line is already on the
 		 * screen - port, "fm", both calls, any digipeaters - and
 		 * returning without its newline would run the next frame's
 		 * header into it. */
 		lprintf(T_AXHDR, "\n");
+		return;
+	}
+
+	/* With modulo-128 sequence numbers, I and S frames have a two-byte
+	 * control field (only U frames keep one byte). */
+	if (extseq && (data[0] & 0x03) != 0x03 && length < 2) {
+		lprintf(T_ERROR, " bad control field!\n");
 		return;
 	}
 
@@ -423,13 +440,17 @@ void ax25_dump(unsigned char *data, int length, int hexdump)
 			display_timestamp();
 
 			if (pid == PID_SEGMENT) {
+				if (length < 1) {
+					lprintf(T_ERROR, " bad segment!\n");
+					return;
+				}
 				seg = *data++;
 				length--;
 				lprintf(T_AXHDR, "%s remain %u",
 					seg & SEG_FIRST ? " First seg;" :
 					"", seg & SEG_REM);
 
-				if (seg & SEG_FIRST) {
+				if ((seg & SEG_FIRST) && length > 0) {
 					pid = *data++;
 					length--;
 				}
