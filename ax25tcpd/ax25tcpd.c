@@ -1,4 +1,5 @@
 /* AX25TPCD - interactive frontend to an AGWPE multiplexer
+ * Copyright (C) 2026 Thomas Osterried <dl9sau@darc.de>
  *
  * ax25tcpd exposes an ax25netd instance as a small TCP and unix domain
  * service.  Each incoming connection is an interactive session: the
@@ -56,6 +57,14 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses/>.
  */
 
 #include <config.h>

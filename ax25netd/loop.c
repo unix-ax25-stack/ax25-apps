@@ -1,4 +1,5 @@
 /* ax25netd - AGWPE multiplexing daemon for libax25
+ * Copyright (C) 2026 Thomas Osterried <dl9sau@darc.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
