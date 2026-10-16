@@ -314,16 +314,16 @@ static void mux_mirror_raw_ctl(const struct agwpe_s *in,
 
 	if (in->datakind == AGWPE_CMD_RAW) {
 		/* The client supplied the raw frame itself, so it is a
-		 * finished on-air frame and feeds the heard list wherever it
-		 * came from - a client of a radio upstream, and the loop.
-		 * The loop is how the WAMPES bridge hands over the frames the
-		 * radio carried, so those are radio traffic too
-		 * (libax25/wampes.c, wampes_mirror_frame).  The AGWPE-shaped
-		 * kinds below stay out of it: a local connect on the loop
-		 * never went over the air.  */
+		 * finished on-air frame.  A client of a radio upstream feeds
+		 * the heard list with it; the loop is not radio and stays
+		 * out of it.  It did feed the list for a while, through the
+		 * WAMPES bridge the node mirrored over the loop; the node
+		 * hands its frames over directly now, so the heard list is
+		 * fed there and the loop goes back out of it
+		 * (documentation/wampes-sessions-in-netd.md, §11).  */
 		struct ax25netd_upstream *u = up_by_port(in->port);
 
-		if (u != NULL)
+		if (u != NULL && u != &ax25netd.loop)
 			ax25netd_mheard_frame(u, data, len);
 		mux_mirror_send(in, data, len);
 		return;
