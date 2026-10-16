@@ -841,8 +841,10 @@ static void mux_raw_record_path(struct ax25netd_upstream *u,
 		/* Only a link the radio opened has its path here, and only
 		 * its own direction: a link we opened carries the path from
 		 * its 'v' and must not take a return-direction frame's. */
-		if (s->remote_initiated && s->path[0] == '\0')
+		if (s->remote_initiated && s->path[0] == '\0') {
 			strncpy(s->path, path, sizeof(s->path) - 1);
+			s->path[sizeof(s->path) - 1] = '\0';
+		}
 		return;
 	}
 	if (client_by_call(u, dest) == NULL)
