@@ -61,6 +61,17 @@ carries an interposing table instead, and the insertion alone is enough:
 
   DYLD_INSERT_LIBRARIES=/usr/local/lib/libax25.0.dylib program
 
+If the sources of such a program are at hand, there is a second way to the
+same end - on Linux: link it against libax25 with -lax25.  The program may
+not call a single libax25 function and its code stays as it is; but the
+library comes with the program then, and its socket(), bind(), connect(),
+listen() and accept() look at every call and hand it to the backend that is
+available and configured: the kernel stack, a WAMPES node, ax25netd or an
+AGWPE server.  On Linux this takes the place of LD_PRELOAD - the library
+has to be the one built with --enable-userspace-ax25, see above; a library
+built without it contains none of this.  On macOS it does not take the
+place of DYLD_INSERT_LIBRARIES.
+
 That has one consequence for anybody upgrading on macOS: the libc names are
 no longer exported from the library, so programs linked against an older
 libax25 must be relinked.  Build and install libax25, ax25-apps and

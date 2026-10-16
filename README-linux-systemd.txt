@@ -410,6 +410,8 @@ is the example, because it is a real one - the unit that runs it here:
 
     [Service]
     Type=simple
+    # You can comment out the LD_PRELOAD line below if you compiled the
+    # program and linked it against this libax25 with -lax25:
     Environment="LD_PRELOAD=/usr/lib/libax25.so.0"
     ExecStart=/usr/local/sbin/conversd -f
     Restart=on-failure
@@ -423,6 +425,18 @@ installed, not a name to be resolved - LD_PRELOAD takes a path.  And it must
 be the library built with --enable-userspace-ax25, or there is nothing in it
 to preload; on Linux that option is off by default.  See
 README-hints-for-non-kernel-AX25-hosts.txt.
+
+There is a way to do without that Environment= line where the sources of the
+program are at hand: compile it and link it against this libax25 with
+-lax25.  The program need not call a single libax25 function for that to
+count - the library's socket(), bind(), connect(), listen() and accept()
+look at every call and hand it to the backend that answers, the kernel
+stack, WAMPES, ax25netd or an AGWPE server, according to what is available
+and what is configured.  conversd above was never linked against libax25,
+which is why the Environment= line is there; a program linked with -lax25
+needs no environment of its own and the line can be commented out.  The
+link helps on Linux only - on macOS DYLD_INSERT_LIBRARIES stays the way, as
+README-hints-for-non-kernel-AX25-hosts.txt says.
 
 Which ports conversd may use is its own configuration, and it meets libax25
 in axports(5):
