@@ -342,8 +342,8 @@ int main(int argc, char **argv)
 
 	for (s = 0; s < mon.nfd; s++)
 		if (mon.framed[s] && getenv("AXSOCK_DEBUG") != NULL)
-			fprintf(stderr, "listen: raw monitor via libax25 "
-				"ax25netd (framed)\n");
+			fprintf(stderr, "listen: raw monitor via libax25 (%s, "
+				"framed)\n", axmon_source_name(&mon, s));
 
 	/* -p is answered by the two binds inside axmon_open() now, so
 	 * there is no name left to compare each frame against here: the
