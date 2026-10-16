@@ -1,3 +1,6 @@
+Maintained at https://github.com/unix-ax25-stack/ax25-apps since August 2026.
+All packages of the project: https://github.com/unix-ax25-stack/
+
 After checkout:
 
   Check if installed:  make autoconf automake (>1.9) zlib1g-dev libtool and libncursesw6-dev (previously libncurses-dev) and optionaly libfltk1.3-dev (for ax25-tools/hdlcutil). Parts of the ax25-tools package will also need fltk and fltk development packages (and are silently skipped on compile if these packages are not installed).

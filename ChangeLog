@@ -1,3 +1,8 @@
+ax25-apps (git)
+	* Maintained at https://github.com/unix-ax25-stack/ax25-apps
+	  since August 2026.  All packages of the project:
+	  https://github.com/unix-ax25-stack/
+
 ax25-apps (0.0.8)
 	* Switch to more modern autoconf and automake to fix build issues on
 	  many modern systems.

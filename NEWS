@@ -1,5 +1,8 @@
 NEWS for ax25-apps
 ==================
 
+Maintained at https://github.com/unix-ax25-stack/ax25-apps since August 2026.
+All packages of the project: https://github.com/unix-ax25-stack/
+
 These programs are still being tested, you should expect some quirks
 especially with compiling for a little while longer

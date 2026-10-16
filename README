@@ -1,6 +1,9 @@
 AX25 Apps
 ========
 
+Maintained at https://github.com/unix-ax25-stack/ax25-apps since August 2026.
+All packages of the project: https://github.com/unix-ax25-stack/
+
 Listen now by default is NOT setuid root which means that normal users will
 not be able to run it out of the box.  If you want everyone to run
 listen then after installing the binaries as root type
