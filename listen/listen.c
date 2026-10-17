@@ -322,14 +322,17 @@ int main(int argc, char **argv)
 		fprintf(stderr, "listen: no AX.25 port data configured\n");
 
 	/*
-	 * Every source of raw frames this machine has, not one of them.
-	 * On a host that has a kernel AX.25 stack as well as an ax25netd
-	 * that is a packet socket and a monitor stream side by side, and
-	 * both carry frames the operator asked to see.  -p restricts both:
-	 * the kernel socket by device where the port has one, the monitor
-	 * by name where it does not - and a name in no axports entry is
-	 * still the refusal it always was, so a typo is not silently
-	 * turned into "monitor everything".
+	 * Every source of raw frames this machine has, not one of them, and
+	 * -p narrows that to the one source that owns the named port instead
+	 * of opening all of them and filtering by name: the kernel for an
+	 * entry that names one of its interfaces, ax25netd for the rest, a
+	 * WAMPES node's own monitor for a WAMPES entry.  A name in no
+	 * axports entry is still the refusal it always was, so a typo is not
+	 * silently turned into "monitor everything", and a port whose own
+	 * source will not open is that same refusal with its reason - which
+	 * is why the error below is no longer only about EINVAL: an EACCES
+	 * on a node's monitor socket would otherwise be a run that watches a
+	 * different world and says nothing about it.
 	 */
 	if (axmon_open(htons(proto), port, &mon) < 0) {
 		if (errno == EINVAL)
@@ -345,7 +348,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "listen: raw monitor via libax25 (%s, "
 				"framed)\n", axmon_source_name(&mon, s));
 
-	/* -p is answered by the two binds inside axmon_open() now, so
+	/* -p is answered by the source chosen inside axmon_open() now, so
 	 * there is no name left to compare each frame against here: the
 	 * frames that arrive have been filtered already, by the interface
 	 * on one side and by the port name on the other.  That is why the

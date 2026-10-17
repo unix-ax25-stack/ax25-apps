@@ -88,9 +88,9 @@ line on each dump line.
 Display the version.
 .SH "WHERE THE FRAMES COME FROM"
 .LP
-Two mechanisms, and where the machine has both of them both are read.  Where
-the kernel serves AX.25 there is a packet socket, and this program needs
-nothing said about it.  Where
+Three mechanisms, and where the machine has more than one of them all are
+read.  Where the kernel serves AX.25 there is a packet socket, and this
+program needs nothing said about it.  Where
 .B libax25
 serves AX.25 from userspace instead \-\- see
 .BR axsock (7)
@@ -106,36 +106,34 @@ fills the monitor itself; it has to be reachable for the socket to carry
 anything.
 .TP 8
 WAMPES
-works for UI frames, through the same
-.B ax25netd (8)
-monitor channel.  WAMPES has no monitor stream of its own, so the libax25
-side pushes the UI frames it carries \-\- what it receives from the node and
-what it sends to it \-\- into
-.BR ax25netd (8),
-where a
-.B @@@listen@@@
-program picks them up like any AGWPE frame.  It picks them up on the loop
-port, so a frame of a WAMPES node is reported with
-.B loop
-as its port: that is the AGWPE port it crossed, not the node's own name.  The
-digipeaters of a frame
-received from the node carry the
+has a monitor stream of its own, fed by the node.  The node hands over the
+frame as it crossed the air, so the digipeaters carry the
 .B *
-mark, as on the air.  Connected sessions are not mirrored; a WAMPES node
-traces on its own console instead, and that is where to look.
+mark and nothing is put back together on this side.  A frame is reported
+under
+.IB node : iface
+\-\- the node's configured name and the interface the frame crossed \-\- and
+that is the name
+.B @@@listen@@@ \-p
+takes, so one interface of one node can be watched on its own.  Connected
+sessions are not part of this stream; a WAMPES node traces on its own console
+instead, and that is where to look.
 .LP
 All of them, in one run.  Where the kernel serves AX.25 there is a packet
 socket; where
 .B libax25
 serves it from userspace there is a
 .BR ax25netd (8)
-monitor stream.  A machine that has both has both, and both are read: the kernel
-socket for the ports the kernel owns, the monitor for the rest \-
-including the WAMPES traffic, which is mirrored into the
+monitor stream for the ports it serves, and a WAMPES node's monitor for the
+ports that node serves.  A machine that has all three reads all three: the
+kernel socket for the ports the kernel owns, the
 .BR ax25netd (8)
-monitor channel because there is no packet socket for a node to put frames on.
-A run that used one or the other showed half the band without saying so, which
-for the program whose whole job is to show the band is the worst kind of wrong.
+monitor for the rest, and the node's own monitor for the node \- a source
+beside the other two now that the node stops putting frames on the
+.BR ax25netd (8)
+channel itself.  A run that used only part of this showed half the band
+without saying so, which for the program whose whole job is to show the band
+is the worst kind of wrong.
 An
 .BR ax25netd (8)
 that is not up costs nothing here: the kernel side keeps working, and the monitor
@@ -146,12 +144,21 @@ the
 monitor, and with neither there is nothing to monitor, which is said on standard
 error rather than shown as a run that prints nothing.
 .IP
-Which of the two are in use is reported under
+Which sources are in use is reported under
 .BR AXSOCK_DEBUG .
 See
 .BR axsock (7).
+.IP
+With
+.B \-p
+one port is asked for, and one source owns it: the kernel for an entry that
+names one of its interfaces, ax25netd for the rest, and the node's own monitor
+for a WAMPES entry.  The others are not opened for a port none of them can
+carry, and when the one that does cannot be opened \- a monitor socket this
+user may not read, a server not up, a node not running \- that is said on
+standard error with its reason, and the exit status is not zero.
 .LP
-If one of the two ends while the other is running, or a read on one of them
+If one of the sources ends while another is running, or a read on one of them
 fails \-
 the kernel AX.25 module unloaded under this process, an interface taken
 away, a server gone \-
