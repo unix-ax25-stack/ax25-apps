@@ -1,7 +1,6 @@
 /* libax25/ax25-apps AGWPE userspace ax25netd - route resolution
  *
- * Copyright (C) 2026 Thomas Osterried
- * Copyright (C) 2026 The AGWPE userspace project
+ * Copyright (C) 2026 Thomas Osterried <dl9sau@darc.de>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
