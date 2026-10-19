@@ -120,6 +120,15 @@ static struct {
 static char endpoint[PATH_MAX] = "";
 static const char *prog = "ax25netctl";
 
+/* -H / AXSOCK_HOST and the ax25common.conf to read, kept for the query to
+ * ax25netd.  That query is made on first need rather than at startup: a name
+ * the kernel or a WAMPES node answers is settled from the files, and a machine
+ * that runs no server must not be told about a connection it never needed.
+ * -L turns the question off entirely and leaves netd_off set. */
+static const char *ctl_host;
+static const char *ctl_conffile;
+static int netd_off;
+
 static void usage(FILE *fp)
 {
 	fprintf(fp,
@@ -161,8 +170,10 @@ static void usage(FILE *fp)
 "  -h              this text\n"
 "\n"
 "Exit status is 0 when every name given resolved to a usable port, and 1\n"
-"when one did not or when ax25netd could not be reached.  With no names it\n"
-"is 0 whenever the tables could be read at all.\n",
+"when one did not, or when ax25netd was needed and did not answer.  A name\n"
+"the kernel or a WAMPES node answers needs no server, so neither its\n"
+"absence nor -L makes one fail.  With no names it is 0 whenever the port\n"
+"table could be read, ax25netd's own being noted and not required.\n",
 		prog, prog, prog, prog, prog, DEFAULT_COMMON);
 }
 
@@ -477,10 +488,20 @@ static int show_sessions(int with_netd)
 
 	if (with_netd) {
 		if (query_sessions() < 0 || !netd.got_sessions) {
-			fprintf(stderr,
-				"%s: %s did not answer the session request\n",
-				prog, endpoint);
-			rc = 1;
+			/* An unreachable server already said so in
+			 * netd_open(), and a machine that runs no ax25netd
+			 * still shows its WAMPES sessions, so that is not a
+			 * failure.  Only a server that took the connection
+			 * and then stayed silent is reported again here -
+			 * and the version answer tells the two apart. */
+			if (netd.reached) {
+				if (netd.version[0] != '\0')
+					fprintf(stderr,
+						"%s: %s did not answer the "
+						"session request\n",
+						prog, endpoint);
+				rc = 1;
+			}
 		} else {
 			for (i = 0; i < netd.sessions.count; i++) {
 				struct agwpe_session *s =
@@ -692,6 +713,9 @@ static int name_by_port(int port, char *buf, size_t len)
 static int check_kill_name(const char *port, const char *dest,
 			   const char *src, const char *host,
 			   const char *comconf);
+
+/* Ask ax25netd once, on first need; see the definition for why. */
+static int netd_ensure(void);
 
 static int kill_by_name(char *port, size_t portlen, const char *dest,
 			const char *src, const char *host, const char *comconf)
@@ -941,6 +965,13 @@ static int print_detail(const char *spec, int verbose)
 	case AX25_PORT_AGWPE: {
 		const struct netd_port *np;
 
+		/* Only an AGWPE name needs the server: its port table is
+		 * what says whether the upstream is connected, which the
+		 * files cannot.  A kernel or WAMPES name is answered without
+		 * a connection, so the query waits until here. */
+		if (!netd_off && !netd.attempted)
+			netd_ensure();
+
 		printf("    port: %d, channel %d, upstream \"%s\"\n",
 		       info.port, info.channel, info.upstream);
 
@@ -1085,6 +1116,29 @@ static int endpoint_of(const char *host, const char *conffile)
 		"the file.\n",
 		prog, conffile);
 	return -1;
+}
+
+/* Ask ax25netd once, on first need, and remember whether it was reached.
+ *
+ * Not done at startup, because whether it is needed is known only after the
+ * library has said which backend serves a name: the kernel's ports are settled
+ * by the interfaces and a WAMPES node's by wampes.conf, and only an AGWPE port
+ * needs the server.  A machine with no ax25netd at all is therefore asked
+ * nothing when every name names a kernel or WAMPES port, and gets no report of
+ * a connection it never needed.  The listing does ask, because the server's
+ * own table is part of what it prints.
+ *
+ * -L leaves the question unasked; the per-name path then says so.  Returns 0
+ * when the server was reached, -1 otherwise.
+ */
+static int netd_ensure(void)
+{
+	if (!netd.attempted) {
+		netd.attempted = 1;
+		if (!netd_off && endpoint_of(ctl_host, ctl_conffile) == 0)
+			query_netd();
+	}
+	return netd.reached ? 0 : -1;
 }
 
 /* Ask ax25netd what it has for the pair a kill by name names, and say what
@@ -1261,6 +1315,11 @@ int main(int argc, char *argv[])
 	if (host != NULL)
 		setenv("AXSOCK_HOST", host, 1);
 
+	/* For netd_ensure(), which asks on first need rather than here. */
+	ctl_host = host;
+	ctl_conffile = comconf;
+	netd_off = no_netd;
+
 	/* -s and both -k by handle forms answer without the axports file;
 	 * only -k by name needs it, below.  Answered first so that a machine
 	 * without one can still list and kill. */
@@ -1359,18 +1418,21 @@ int main(int argc, char *argv[])
 				    host, comconf);
 	}
 
-	if (!no_netd && endpoint_of(host, comconf) == 0) {
-		netd.attempted = 1;
-		if (query_netd() < 0)
-			rc = 1;
-	}
-
+	/* Named ports are answered one by one below, and only an AGWPE name
+	 * makes netd_ensure() reach for the server.  The listing is the case
+	 * that asks up front: ax25netd's own table is part of what it
+	 * prints, and there is no name-by-name path to ask from. */
 	if (argc > 0) {
 		for (i = 0; i < argc; i++)
 			if (print_detail(argv[i], verbose) != 0)
 				rc = 1;
 		return rc;
 	}
+
+	/* A missing ax25netd is said at the end and is not a failure of the
+	 * port question, which the files answer.  -L leaves it unasked. */
+	if (!no_netd)
+		netd_ensure();
 
 	printf("%-16s %-12s %-7s %-4s %-4s %-12s %-6s %s\n",
 	       "NAME", "CALL", "BACKEND", "PORT", "CHAN", "UPSTREAM",

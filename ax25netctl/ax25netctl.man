@@ -64,9 +64,9 @@ one line is printed for every entry of the
 file.  With
 .IR name s,
 each is printed in detail, and a name that cannot be used is followed by the
-reason.  The exit status is 0 when every name given resolved to a port that
-the server has, and 1 otherwise; with no names it is 1 only when the tables
-could not be read or the server could not be reached.
+reason.  The exit status is 0 when every name given resolved to a usable port,
+and 1 otherwise; with no names it is 0 whenever the port table could be read,
+the server's own being noted and not required.
 .SH OPTIONS
 .TP
 .B \-L
@@ -388,17 +388,29 @@ on this machine, which decides a port number when the server cannot be asked.
 .I @@@AX25_SYSCONFDIR@@@/wampes.conf
 The WAMPES nodes this machine can reach.
 .SH EXIT STATUS
-0 when every name given resolved to a port the server has, or \-
-with no names \-
-when the tables could be read.  1 when a name did not resolve, when it
-resolved to a port the server does not have, or when the server could not be
-reached.  For
+0 when every name given resolved to a usable port, or \- with no names \-
+when the port table could be read.  1 when a name did not resolve, when an
+.B agwpe
+name resolved to a port the server does not have, or when
+.BR ax25netd (8)
+was reached and did not answer.  A name the kernel or a WAMPES node answers
+needs no server, so the server's absence and
+.B \-L
+do not make one fail.
+.PP
+For
 .B \-s
-and
+0 when the tables that could be reached were read \- a machine with no
+.BR ax25netd (8)
+still shows its WAMPES sessions \- and 1 when
+.BR ax25netd (8)
+took the connection but did not answer the request, or when a WAMPES node could
+not be read.  For
 .B \-k
-by id, 0 when the id named a session and the kill was sent, 1 when the server
-could not be reached or did not answer or when no session carried that id, and
-for
+by id, 0 when the id named a session and the kill was sent, and 1 when
+.BR ax25netd (8)
+could not be reached or did not answer, or when no session carried that id.
+For
 .B \-k
 by name the same as
 .BR axkill (8),
