@@ -62,6 +62,7 @@
 #define ETH_P_ALL	0x0003
 #endif
 
+#include <netax25/ax25.h>
 #include <netax25/axmon.h>
 #include <netax25/axconfig.h>
 
