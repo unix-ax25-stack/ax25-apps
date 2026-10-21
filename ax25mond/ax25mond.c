@@ -54,6 +54,17 @@
 #define PF_PACKET PF_INET
 #endif
 
+/* Protocol numbers for PF_PACKET sockets (from linux/if_ether.h) */
+#ifndef ETH_P_AX25
+#define ETH_P_AX25	0x0002
+#endif
+#ifndef ETH_P_ALL
+#define ETH_P_ALL	0x0003
+#endif
+
+#include <netax25/axmon.h>
+#include <netax25/axconfig.h>
+
 /*--------------------------------------------------------------------------*/
 
 static union {
@@ -183,6 +194,12 @@ static void add_socket(char *sockname, char monmode)
 		return;
 	}
 
+	/* Allow immediate rebind after restart (avoid TIME_WAIT) */
+	{
+		int opt = 1;
+		setsockopt(sock_list[sock_num], SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+	}
+
 	fcntl(sock_list[sock_num], F_SETFL, O_NONBLOCK);
 
 	if (sock_list[sock_num] > highest_sock_fd)
@@ -217,16 +234,11 @@ static void quit_handler(int dummy)
 
 int main(int argc, char *argv[])
 {
-	fd_set monavail;
-	int monrx_fd, monrxtx_fd;
-	struct sockaddr monfrom;
-	socklen_t monfromlen;
-	fd_set conn_request;
+	fd_set monavail, conn_request;
+	struct axmon mon_rx, mon_rxtx;
 	struct timeval tv;
 	char buf[500];
-	int size;
-	int i;
-	struct ifreq ifr;
+	int size, i;
 	FILE *conffile;
 	char confline[100];
 	char *mode;
@@ -307,25 +319,26 @@ int main(int argc, char *argv[])
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGTERM, quit_handler);
 
-	openlog("ax25mond", LOG_PID, LOG_DAEMON);
+	/* Load port configuration for axmon */
+	ax25_config_load_ports();
 
-	/* Open AX.25 socket for monitoring RX traffic only  */
-	if ((monrx_fd =
-	     socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_AX25))) < 0) {
-		syslog(LOG_ERR, "Error opening monitor socket: %s\n",
-		       strerror(errno));
+	/* Open monitor for RX-only (ETH_P_AX25) using libax25 axmon_open() */
+	if (axmon_open(htons(ETH_P_AX25), NULL, &mon_rx) < 0) {
+		syslog(LOG_ERR, "Error opening RX monitor: %s\n", strerror(errno));
 		exit(1);
 	}
-	fcntl(monrx_fd, F_SETFL, O_NONBLOCK);
 
-	/* Open AX.25 socket for monitoring RX and TX traffic  */
-	if ((monrxtx_fd =
-	     socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ALL))) < 0) {
-		syslog(LOG_ERR, "Error opening monitor socket: %s\n",
-		       strerror(errno));
+	/* Open monitor for RX+TX (ETH_P_ALL) using libax25 axmon_open() */
+	if (axmon_open(htons(ETH_P_ALL), NULL, &mon_rxtx) < 0) {
+		syslog(LOG_ERR, "Error opening RXTX monitor: %s\n", strerror(errno));
 		exit(1);
 	}
-	fcntl(monrxtx_fd, F_SETFL, O_NONBLOCK);
+
+	/* Set monitor sockets non-blocking */
+	for (i = 0; i < mon_rx.nfd; i++)
+		fcntl(mon_rx.fd[i], F_SETFL, O_NONBLOCK);
+	for (i = 0; i < mon_rxtx.nfd; i++)
+		fcntl(mon_rxtx.fd[i], F_SETFL, O_NONBLOCK);
 
 	while (!end) {
 		/* Look for incoming connects on all open sockets  */
@@ -346,8 +359,6 @@ int main(int argc, char *argv[])
 						&conn_addrlen[conn_num]);
 				if (new_fd < 0)
 					continue;
-				/* Refuse the connection rather than write
-				 * past the end of the conn_* arrays. */
 				if (conn_num >= MAX_CONNECTS) {
 					close(new_fd);
 					continue;
@@ -356,109 +367,78 @@ int main(int argc, char *argv[])
 				conn_monmode[conn_num] = sock_monmode[i];
 				conn_num++;
 			}
-		/* Check if there is new data on the RX-only monitor socket  */
+
+		/* Check if there is new data on the RX-only monitor sockets */
 		FD_ZERO(&monavail);
-		FD_SET(monrx_fd, &monavail);
+		for (i = 0; i < mon_rx.nfd; i++)
+			FD_SET(mon_rx.fd[i], &monavail);
 		tv.tv_sec = 0;
 		tv.tv_usec = 10;
-		select(monrx_fd + 1, &monavail, NULL, NULL, &tv);
-		if (FD_ISSET(monrx_fd, &monavail)) {
-			monfromlen = sizeof(monfrom);
-			size =
-			    recvfrom(monrx_fd, buf, sizeof(buf), 0,
-				     &monfrom, &monfromlen);
-			if (size <= 0) {
-				/* End of file, or an error.  A zero
-				 * length read is not a frame: a KISS
-				 * framed AX.25 packet carries at least a
-				 * channel byte.  It used to be forwarded
-				 * as an empty packet to every client and
-				 * then read again - a descriptor at end of
-				 * file stays readable - so the daemon
-				 * spun here a hundred times a second and
-				 * forwarded nothing at all.  */
-				syslog(LOG_ERR, "the AX.25 monitor closed\n");
-				end = 1;
-				break;
-			}
-			/* Send the packet to all connected sockets  */
-			for (i = 0; i < conn_num; i++) {
-				if (conn_monmode[i] == 0)
-					if (send
-					    (conn_list[i], buf, size,
-					     0) < 0)
-						if (errno != EAGAIN) {
-							syslog(LOG_ERR,
-							       "Error sending monitor data: %s\n",
-							       strerror
-							       (errno));
-							close(conn_list
-							      [i]);
-							conn_list[i] =
-							    conn_list
-							    [conn_num - 1];
-							conn_num--;
-						}
-			}
-		}
-		/* Check if there is new data on the RX+TX monitor socket  */
-		FD_ZERO(&monavail);
-		FD_SET(monrxtx_fd, &monavail);
-		tv.tv_sec = 0;
-		tv.tv_usec = 10;
-		select(monrxtx_fd + 1, &monavail, NULL, NULL, &tv);
-		if (FD_ISSET(monrxtx_fd, &monavail)) {
-			monfromlen = sizeof(monfrom);
-			size =
-			    recvfrom(monrxtx_fd, buf, sizeof(buf), 0,
-				     &monfrom, &monfromlen);
-			if (size <= 0) {
-				/* As on the RX-only monitor: not a frame,
-				 * and forwarding it would leave the
-				 * descriptor readable for ever.  */
-				syslog(LOG_ERR, "the AX.25 monitor closed\n");
-				end = 1;
-				break;
-			}
-			/* Check, if we have received a AX.25-packet  */
-			snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%.*s",
-				 (int) sizeof(monfrom.sa_data),
-				 monfrom.sa_data);
-			ioctl(monrxtx_fd, SIOCGIFHWADDR, &ifr);
-			if (ifr.ifr_hwaddr.sa_family == AF_AX25)
-				/* Send the packet to all connected sockets  */
-				for (i = 0; i < conn_num; i++) {
-					if (conn_monmode[i] == 1)
-						if (send
-						    (conn_list[i], buf,
-						     size, 0) < 0)
-							if (errno !=
-							    EAGAIN) {
-								syslog
-								    (LOG_ERR,
-								     "Error sending monitor data: %s\n",
-								     strerror
-								     (errno));
-								close
-								    (conn_list
-								     [i]);
-								conn_list
-								    [i] =
-								    conn_list
-								    [conn_num
-								     - 1];
-								conn_num--;
-							}
+		if (select(mon_rx.fd[mon_rx.nfd - 1] + 1, &monavail, NULL, NULL, &tv) > 0) {
+			for (int m = 0; m < mon_rx.nfd; m++) {
+				if (FD_ISSET(mon_rx.fd[m], &monavail)) {
+					struct sockaddr monfrom;
+					socklen_t monfromlen = sizeof(struct sockaddr);
+					size = axmon_read(mon_rx.fd[m], mon_rx.framed[m], buf,
+							  sizeof(buf), &monfrom, &monfromlen);
+					if (size <= 0) {
+						syslog(LOG_ERR, "AX.25 monitor closed: %s\n", strerror(errno));
+						end = 1;
+						break;
+					}
+					for (int j = 0; j < conn_num; j++) {
+						if (conn_monmode[j] == 0)
+							if (send(conn_list[j], buf, size, 0) < 0)
+								if (errno != EAGAIN) {
+									syslog(LOG_ERR, "Error sending monitor data: %s\n", strerror(errno));
+									close(conn_list[j]);
+									conn_list[j] = conn_list[conn_num - 1];
+									conn_num--;
+								}
+					}
 				}
+			}
 		}
 
+		/* Check if there is new data on the RX+TX monitor sockets */
+		FD_ZERO(&monavail);
+		for (int m = 0; m < mon_rxtx.nfd; m++)
+			FD_SET(mon_rxtx.fd[m], &monavail);
+		tv.tv_sec = 0;
+		tv.tv_usec = 10;
+		if (select(mon_rxtx.fd[mon_rxtx.nfd - 1] + 1, &monavail, NULL, NULL, &tv) > 0) {
+			for (int m = 0; m < mon_rxtx.nfd; m++) {
+				if (FD_ISSET(mon_rxtx.fd[m], &monavail)) {
+					struct sockaddr monfrom;
+					socklen_t monfromlen = sizeof(struct sockaddr);
+					size = axmon_read(mon_rxtx.fd[m], mon_rxtx.framed[m], buf,
+							  sizeof(buf), &monfrom, &monfromlen);
+					if (size <= 0) {
+						syslog(LOG_ERR, "AX.25 monitor closed: %s\n", strerror(errno));
+						end = 1;
+						break;
+					}
+					for (int j = 0; j < conn_num; j++) {
+						if (conn_monmode[j] == 1)
+							if (send(conn_list[j], buf, size, 0) < 0)
+								if (errno != EAGAIN) {
+									syslog(LOG_ERR, "Error sending monitor data: %s\n", strerror(errno));
+									close(conn_list[j]);
+									conn_list[j] = conn_list[conn_num - 1];
+									conn_num--;
+								}
+					}
+				}
+			}
+		}
 	}
 
+	/* Cleanup */
 	for (i = 0; i < conn_num; i++)
 		close(conn_list[i]);
 	close_sockets();
-	close(monrx_fd);
-	close(monrxtx_fd);
+	axmon_close(&mon_rx);
+	axmon_close(&mon_rxtx);
 	closelog();
 	return 0;
 }
