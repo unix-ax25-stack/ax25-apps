@@ -168,7 +168,13 @@ therefore at most a minute old.
 A system that runs the native kernel stack and
 .B mheardd
 at the same time updates the same file; both daemons serialize their writes
-with a file lock.
+with a file lock.  Only one of them should maintain it to avoid duplicate
+counting, as neither deduplicates frames received from multiple monitor
+sources.  Use
+.B \-\-no-mheard
+if
+.BR mheardd (8)
+is already running to do so.
 .SH "VERBOSE LOGGING"
 .B \-\-verbose
 adds one level between the warnings and the per-frame trace of
