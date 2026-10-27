@@ -101,6 +101,9 @@ frames. On some systems
 has trouble reading from a pipe (\fB-r -\fR); using a named pipe
 (\fBmkfifo\fR) or writing to a file and reading it later is more
 reliable.
+.BR Example
+for wireshark:
+listen -a -w - | wireshark -k -i -
 .SH "WHERE THE FRAMES COME FROM"
 .LP
 Three mechanisms, and where the machine has more than one of them all are
