@@ -11,6 +11,7 @@
 #include <curses.h>
 #include <signal.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include <sys/socket.h>
 #include <net/if.h>
@@ -59,6 +60,38 @@ static struct timeval t_recv;
 static int tflag = 0;
 static int32_t thiszone;	/* seconds offset from gmt to local time */
 static int sigint;
+static FILE *pcap_fp = NULL;
+static char *listen_port_arg = NULL;
+
+static void display_port(char *dev);
+
+static void display_frame_port(struct axmon *mon, int idx, struct sockaddr *sa)
+{
+	const char *src = axmon_source_name(mon, idx);
+
+	/*
+	 * Prefer the logical port/interface name from axmon if it is a real
+	 * name rather than a generic source description.  axmon_open() may
+	 * store names for WAMPES/AGWPE/ax25netd monitor sources here, and
+	 * using it avoids truncation when that name is copied into a
+	 * struct sockaddr with sa_data[14] on some paths.  If axmon ever
+	 * carries the full name per source in a larger buffer, this
+	 * sa_data fallback and the ax25_config_get_name() lookup below can
+	 * be removed or simplified.
+	 */
+	if (src && strcmp(src, "AX.25 packet socket") &&
+	    strcmp(src, "WAMPES monitor") &&
+	    strcmp(src, "AX.25 monitor") &&
+	    strcmp(src, "AX.25 source")) {
+		lprintf(T_PORT, "%s: ", src);
+		return;
+	}
+
+	if (sa)
+		display_port(sa->sa_data);
+	else
+		lprintf(T_PORT, "?: ");
+}
 
 static void display_port(char *dev)
 {
@@ -237,6 +270,94 @@ static void handle_sigint(int signal)
 
 #define BUFSIZE		1500
 
+/* PCAP (libpcap) format for writing to file or pipe */
+struct pcap_file_header {
+	uint32_t magic;
+	uint16_t version_major;
+	uint16_t version_minor;
+	int32_t thiszone;
+	uint32_t sigfigs;
+	uint32_t snaplen;
+	uint32_t linktype;
+};
+
+struct pcap_pkthdr {
+	uint32_t ts_sec;
+	uint32_t ts_usec;
+	uint32_t incl_len;
+	uint32_t orig_len;
+};
+
+#ifndef DLT_AX25
+#define DLT_AX25 3
+#endif
+
+static void pcap_write_header(void)
+{
+	struct pcap_file_header hdr;
+
+	hdr.magic = 0xa1b2c3d4;
+	hdr.version_major = 2;
+	hdr.version_minor = 4;
+	hdr.thiszone = 0;
+	hdr.sigfigs = 0;
+	hdr.snaplen = 65535;
+	hdr.linktype = DLT_AX25;
+
+	if (pcap_fp)
+		fwrite(&hdr, sizeof(hdr), 1, pcap_fp);
+}
+
+static void pcap_write_packet(const unsigned char *data, int len)
+{
+	struct pcap_pkthdr phdr;
+	struct timeval tv;
+	const unsigned char *p = data;
+	int l = len;
+
+	if (!pcap_fp || l <= 0)
+		return;
+
+	/*
+	 * DLT_AX25 expects a raw AX.25 frame (no KISS framing). Frames coming
+	 * via ax25netd/WAMPES/AGWPE monitor are often KISS-wrapped (command
+	 * byte in high nibble, type in low nibble; for data frames low nibble
+	 * is 0x0). Strip a leading KISS command byte when it looks like one.
+	 * This heuristic must not touch raw AX.25 frames from a kernel packet
+	 * socket (they do not start with a KISS command byte in normal cases).
+	 * Multi-port KISS uses the upper nibble for port number; CRC variants
+	 * use different encodings in the upper nibbles - be conservative.
+	 */
+	if (l >= 18 && (p[0] & 0x0f) == 0x00) {
+		/* Looks like KISS data frame (port in high nibble, port 0 is 0x00) */
+		p++;
+		l--;
+	} else if (l >= 18 && p[0] == 0x01) {
+		/*
+		 * Some implementations may use command 0x01 for TX Data; for a
+		 * pure monitor stream we almost never see TX, but be defensive.
+		 */
+		p++;
+		l--;
+	}
+
+	if (gettimeofday(&tv, NULL) < 0) {
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+	}
+
+	phdr.ts_sec = (uint32_t)tv.tv_sec;
+	phdr.ts_usec = (uint32_t)tv.tv_usec;
+	if (l > 65535)
+		l = 65535;
+	phdr.incl_len = (uint32_t)l;
+	phdr.orig_len = (uint32_t)l;
+
+	fwrite(&phdr, sizeof(phdr), 1, pcap_fp);
+	fwrite(p, 1, l, pcap_fp);
+	fflush(pcap_fp);
+}
+
 /*
  * Read one monitor frame.  On the monitor side a frame arrives as one
  * length-prefixed unit and on a kernel packet socket each recvfrom returns
@@ -263,7 +384,7 @@ int main(int argc, char **argv)
 	int proto = ETH_P_AX25;
 	int exit_code = EXIT_SUCCESS;
 
-	while ((s = getopt(argc, argv, "8achip:rtv")) != -1) {
+	while ((s = getopt(argc, argv, "8achip:rtvw:")) != -1) {
 		switch (s) {
 		case '8':
 			sevenbit = 0;
@@ -282,6 +403,7 @@ int main(int argc, char **argv)
 			break;
 		case 'p':
 			port = optarg;
+			listen_port_arg = optarg;
 			break;
 		case 'r':
 			dumpstyle = READABLE;
@@ -292,14 +414,33 @@ int main(int argc, char **argv)
 		case 'v':
 			printf("listen: %s\n", VERSION);
 			return 0;
+		case 'w':
+			if (strcmp(optarg, "-") == 0)
+				pcap_fp = stdout;
+			else {
+				pcap_fp = fopen(optarg, "wb");
+				if (pcap_fp == NULL) {
+					perror("listen: fopen");
+					return 1;
+				}
+			}
+			break;
 		case ':':
 			fprintf(stderr,
 				"listen: option -p needs a port name\n");
 			return 1;
 		case '?':
 			fprintf(stderr,
-				"Usage: listen [-8] [-a] [-c] [-h] [-i] [-p port] [-r] [-t..] [-v]\n");
+				"Usage: listen [-8] [-a] [-c] [-h] [-i] [-p port] [-r] [-t..] [-v] [-w file|-]\n");
 			return 1;
+		}
+	}
+
+	if (pcap_fp) {
+		pcap_write_header();
+		if (pcap_fp == stdout) {
+			/* Make sure stdout is not line-buffered in a bad way */
+			setvbuf(stdout, NULL, _IOFBF, 0);
 		}
 	}
 
@@ -520,7 +661,29 @@ int main(int argc, char **argv)
 					continue;
 				}
 			}
-			display_port(sa.sa_data);
+			if (pcap_fp) {
+				pcap_write_packet(buffer, size);
+				if (pcap_fp == stdout) {
+					/* Pipe mode: write only pcap to stdout for tools like
+					 * wireshark/tcpdump. */
+					continue;
+				}
+			}
+			/*
+			 * Quick-and-dirty fix: if -p was given, use it directly
+			 * for the label.  axmon_source_name() currently only
+			 * returns generic kind strings and sa_data is truncated
+			 * to 14 bytes for some monitor sources (WAMPES/AGWPE),
+			 * so long logical port names like wampes:kisstcp get
+			 * cut off.  Proper fix: extend struct axmon to carry
+			 * the full per-source port/name and have
+			 * axmon_source_name() return it (Option 1).  This
+			 * direct use of listen_port_arg can then go away.
+			 */
+			if (listen_port_arg)
+				lprintf(T_PORT, "%s: ", listen_port_arg);
+			else
+				display_frame_port(&mon, f, &sa);
 			ki_dump(buffer, size, dumpstyle);
 /*			lprintf(T_DATA, "\n");  */
 			if (color)

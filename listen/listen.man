@@ -2,7 +2,7 @@
 .SH NAME
 @@@listen@@@ \- monitor AX.25 traffic
 .SH SYNOPSIS
-.B @@@listen@@@ [-8] [-a] [-c] [-h] [-i] [-p port] [-r] [-t..] [-v]
+.B @@@listen@@@ [-8] [-a] [-c] [-h] [-i] [-p port] [-r] [-t..] [-v] [-w file|-]
 .SH DESCRIPTION
 .LP
 .B @@@Listen@@@
@@ -86,6 +86,21 @@ line on each dump line.
 .TP 10
 .BI \-v
 Display the version.
+.TP 10
+.BI "\-w file|-"
+Write captured frames to a libpcap file in
+.B DLT_AX25
+format. A dash writes to standard output for use with a pipe. When
+writing to a regular file the normal decoded output is still shown;
+when writing to standard output the decoded output is suppressed so
+that only the pcap stream goes to the pipe. Leading
+.B KISS
+command bytes are stripped if present so that dissectors see raw AX.25
+frames. On some systems
+.BR tcpdump (1)
+has trouble reading from a pipe (\fB-r -\fR); using a named pipe
+(\fBmkfifo\fR) or writing to a file and reading it later is more
+reliable.
 .SH "WHERE THE FRAMES COME FROM"
 .LP
 Three mechanisms, and where the machine has more than one of them all are
