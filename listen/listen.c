@@ -328,25 +328,29 @@ static void pcap_write_packet(const unsigned char *data, int len)
 	 * Multi-port KISS uses the upper nibble for port number; CRC variants
 	 * use different encodings in the upper nibbles - be conservative.
 	 */
-//fprintf(stderr, "l = %d; p0 %2.2x p1 %2.2x p3 %2.2x p4 %2.2x\n", l, p[0], p[1], p[2], p[3]);
-// AI counted wrong. Not 18 but >= 16 is korrect: DL9SAU>DB0CCC SABM has no PID field
-//                                                -> 7+7+1 = 15. Plus leading kiss byte = 16
-// Still a bug - in libpcap? Both, src and dst calls are shown in wireshark with SSID striped;
-// and if SSID is >= 10, it shows 5 bytes of the call instead of 6.
-	//if (l >= 18 && (p[0] & 0x0f) == 0x00) {
-	if (l >= 16 && (p[0] & 0x0f) == 0x00) {
-		/* Looks like KISS data frame (port in high nibble, port 0 is 0x00) */
-		p++;
-		l--;
-	//} else if (l >= 18 && p[0] == 0x01) {
-	} else if (l >= 16 && p[0] == 0x01) {
-		/*
-		 * Some implementations may use command 0x01 for TX Data; for a
-		 * pure monitor stream we almost never see TX, but be defensive.
-		 */
-		p++;
-		l--;
-	}
+
+#if !defined(AX25_MIN_FRAME)
+	// Min length: DL9SAU>DB0CCC SABM has no PID field.
+	// SRC / DEST has len 7 each + control byte = 15.
+	#define AX25_MIN_FRAME 15
+#endif
+
+	// Every packet that arrives here should have a leading kiss byte and is
+	// followed by an AX.25 header (min 15 bytes). Commnad frames are igored.
+	if (l < 1)
+		return;
+
+	// KISS-Command?
+	if ((p[0] & 0x0f) != 0)
+		return;
+
+	// Strip leading kiss byte
+	p++;
+	l--;
+
+	// min  2 * 7 bytes SRC + DST Call + Control byte
+	if (l < AX25_MIN_FRAME)
+		return;
 
 	if (gettimeofday(&tv, NULL) < 0) {
 		tv.tv_sec = 0;
