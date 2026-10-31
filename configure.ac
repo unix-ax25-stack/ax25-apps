@@ -54,6 +54,16 @@ dnl Checks for libraries.
 AC_SUBST(AX25_LIB)
 AC_SUBST(NCURSES_LIB)
 AC_CHECK_LIB(ax25, ax25_config_load_ports, AX25_LIB="-lax25", AC_MSG_ERROR(Could not find the libax25 libraries; aborting))
+dnl The raw monitor interface is a recent libax25 addition.  axmon.h includes
+dnl agwpe.h, so this one header also covers the backend header; asking for
+dnl axmon.h names the interface the programs use instead of the backend.
+AC_CHECK_HEADERS([netax25/axmon.h], [],
+	[AC_MSG_ERROR([libax25 is too old: netax25/axmon.h is missing; install a current libax25])])
+dnl call(1) also needs the ax25_aton_*_or_exit() family.  A header check alone
+dnl would pass against a library whose headers and shared object come from
+dnl different builds, so ask the linker for one of the new symbols too.
+AC_CHECK_LIB([ax25], [ax25_aton_entry_or_exit], [],
+	[AC_MSG_ERROR([libax25 is too old: ax25_aton_entry_or_exit() is missing; install a current libax25])])
 AC_CHECK_LIB(ncursesw, initscr, NCURSES_LIB="-lncursesw",
 	AC_CHECK_LIB(ncurses, initscr, NCURSES_LIB="-lncurses",
 		AC_MSG_ERROR(Could not find the ncursesw or ncurses library; aborting)))
