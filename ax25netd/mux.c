@@ -1006,18 +1006,11 @@ static void loop_connect(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 
 	owner = loop_call_by_call(hdr->call_to);
 	if (owner == NULL) {
-		struct agwpe_s rh;
-
 		/* Nobody holds the call, so nothing on the loop will
-		 * answer.  The SABM has been mirrored, and a SABM with no
-		 * answer at all reads as a station that is simply not
-		 * there; the refusal is shown as the DM a station that
-		 * was there but would not take the call would have sent,
-		 * which is also the only trace listen() gets of it. */
-		agwpe_header_init(&rh, AGWPE_PORT_LOOP,
-				  AGWPE_CMD_DISCONNECT, 0,
-				  hdr->call_to, hdr->call_from, 0);
-		mux_mirror_raw_ctl(&rh, NULL, 0, 0x0F);		/* DM */
+		 * answer. Do not generate a DM like a real station would
+		 * not answer; just refuse the connect attempt. The SABM
+		 * is already mirrored by the caller path so listen/mheard
+		 * can see it. */
 		reply_refuse(cl, hdr, "RETRYOUT");
 		return;
 	}
