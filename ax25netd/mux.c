@@ -1087,8 +1087,8 @@ static void loop_data(struct ax25netd_client *cl, const struct agwpe_s *hdr,
 	loop_send_client(owner, hdr, data, len);
 }
 
-/* Disconnect on the loop: tear the link down in both directions and
- * deliver the disconnect to the other side, if it is still there.  The
+/* Disconnect on the loop: deliver the disconnect to the other side and
+ * tear the link down in both directions, if it is still there.  The
  * peer is the other end of the session being torn down; asking for it by
  * callsign could name a client that merely holds the call by now.  */
 static void loop_disconnect(struct ax25netd_client *cl, const struct agwpe_s *hdr,
