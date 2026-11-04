@@ -384,9 +384,10 @@ static void print_session_row(const char *id, const char *port,
 			      const char *from, const char *to,
 			      unsigned proto, const char *state,
 			      const char *up, uint32_t owner,
-			      const char *prog, const char *path)
+			      const char *prog, const char *path, const char *src)
 {
 	char protobuf[8], pidbuf[16];
+	const char *srcp = src ? src : "-";
 
 	/* Hex, as AX.25 PIDs are written: a small decimal number next to the
 	 * id would read as a second one.  All values are four characters, so
@@ -399,19 +400,19 @@ static void print_session_row(const char *id, const char *port,
 		snprintf(pidbuf, sizeof(pidbuf), "%u", (unsigned)owner);
 	else
 		snprintf(pidbuf, sizeof(pidbuf), "-");
-	printf("%-8s %-5s %-10s %-10s %-5s %-11s %-10s %-7s %s\n",
+	printf("%-8s %-5s %-10s %-10s %-5s %-11s %-10s %-7s %-15s %s\n",
 	       id, port, from, to, protobuf,
 	       state[0] ? state : "-", up, pidbuf,
-	       prog[0] ? prog : "-");
+	       prog[0] ? prog : "-", srcp);
 	if (path != NULL && path[0] != '\0' && strcmp(path, "-") != 0)
 		printf("%-8s %-5s %s\n", "", "", path);
 }
 
 static void print_session_header(void)
 {
-	printf("%-8s %-5s %-10s %-10s %-5s %-11s %-10s %-7s %s\n",
+	printf("%-8s %-5s %-10s %-10s %-5s %-11s %-10s %-7s %-15s %s\n",
 	       "ID", "PORT", "FROM", "TO", "PROTO", "STATE", "UPSTREAM",
-	       "PID", "PROG");
+	       "PID", "PROG", "SRC");
 }
 
 /* One WAMPES node's rows, printed as they come.  A row is the node's own
@@ -431,13 +432,13 @@ static int on_wampes_session(void *arg, const char *line)
 {
 	struct wampes_list *w = arg;
 	char id[16] = "", port[80] = "", from[32] = "", to[32] = "";
-	char state[16] = "", prog[16] = "", path[AGWPE_PATH_MAX] = "";
+	char state[16] = "", prog[16] = "", path[AGWPE_PATH_MAX] = "", src[64] = "-";
 	char rowid[48];
 	unsigned proto = 0, owner = 0;
 
-	if (sscanf(line, "%15s %79s %31s %31s %u %15s %u %15s %87s",
+	if (sscanf(line, "%15s %79s %31s %31s %u %15s %u %15s %87s %63s",
 		   id, port, from, to, &proto, state, &owner, prog,
-		   path) < 4)
+		   path, src) < 4)
 		return 0;		/* not a row this table should have */
 
 	if (strcmp(id, "-") == 0)
@@ -446,7 +447,7 @@ static int on_wampes_session(void *arg, const char *line)
 		snprintf(rowid, sizeof(rowid), "%s:%s", w->node, id);
 
 	print_session_row(rowid, port[0] ? port : "-", from, to, proto,
-			  state, w->node, owner, prog, path);
+			  state, w->node, owner, prog, path, src);
 	(*w->count)++;
 	return 0;
 }
@@ -519,7 +520,7 @@ static int show_sessions(int with_netd)
 				snprintf(port, sizeof(port), "%d", s->port);
 				print_session_row(id, port, s->from, s->to,
 						  s->pid, s->state, s->up,
-						  s->owner, s->prog, s->path);
+						  s->owner, s->prog, s->path, "-");
 				n++;
 			}
 		}
